@@ -48,7 +48,7 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	doClient := godo.NewClient(oauthClient)
 
 	instances := newInstances(doClient)
-	zones := newZones(client)
+	zones := newZones()
 
 	return &cloud{
 		client:    doClient,

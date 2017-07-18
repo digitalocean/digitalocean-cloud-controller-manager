@@ -3,7 +3,6 @@ package do
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -26,14 +25,13 @@ func newInstances(client *godo.Client) cloudprovider.Instances {
 
 // NodeAddresses returns all the valid addresses of the specified node
 // For DO, this is the public/private ipv4 addresses only for now
-// This method only fetches the addresses of the calling instances,
-func (i *instances) NodeAddresses(name types.NodeName) ([]v1.NodeAddress, error) {
-	selfDropletID, err := dropletID()
+func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, error) {
+	droplet, err := i.dropletByName(context.TODO(), nodeName)
 	if err != nil {
 		return nil, err
 	}
 
-	return i.NodeAddressesByProviderID(selfDropletID)
+	return nodeAddresses(droplet)
 }
 
 // NodeAddressesByProviderID returns all the valid addresses of the specified
@@ -45,6 +43,11 @@ func (i *instances) NodeAddressesByProviderID(providerId string) ([]v1.NodeAddre
 		return nil, err
 	}
 
+	return nodeAddresses(droplet)
+}
+
+// nodeAddresses extracts droplet data into []v1.NodeAddress
+func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
 

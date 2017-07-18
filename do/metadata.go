@@ -1,18 +1,12 @@
 package do
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 )
 
-const dropletIDMetadataURL = "http://169.254.169.254/metadata/v1/id"
 const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
-
-// dropletID returns the currently running droplet id
-// using the metadata service available on all running droplets
-func dropletID() (string, error) {
-	return httpGet(dropletIDMetadataURL)
-}
 
 // dropletRegion returns the currently the region of the currently
 // running program

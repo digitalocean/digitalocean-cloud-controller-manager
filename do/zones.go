@@ -1,6 +1,8 @@
 package do
 
 import (
+	"fmt"
+
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
@@ -17,7 +19,7 @@ func newZones() cloudprovider.Zones {
 func (r region) GetZone() (cloudprovider.Zone, error) {
 	region, err := dropletRegion()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get droplet region: %v", err)
+		return cloudprovider.Zone{}, fmt.Errorf("failed to get droplet region: %v", err)
 	}
 
 	return cloudprovider.Zone{Region: region}, nil
