@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: digitalocean
+  namespace: kube-system
+data:
+  # insert your base64 encoded DO access token here, ensure there's no trailing newline:
+  # to base64 encode your token run:
+  #      echo -n "abc123abc123doaccesstoken" | base64
+  access-token: "<INSERT BASE64 ENCODED DO ACCESS TOKEN>"
