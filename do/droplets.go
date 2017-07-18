@@ -3,7 +3,6 @@ package do
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -14,8 +13,6 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
 )
-
-const dropletIDMetadataURL = "http://169.254.169.254/metadata/v1/id"
 
 // instances Implements cloudprovider.Instances
 type instances struct {
@@ -28,14 +25,13 @@ func newInstances(client *godo.Client) cloudprovider.Instances {
 
 // NodeAddresses returns all the valid addresses of the specified node
 // For DO, this is the public/private ipv4 addresses only for now
-// This method only fetches the addresses of the calling instances,
-func (i *instances) NodeAddresses(name types.NodeName) ([]v1.NodeAddress, error) {
-	selfDropletID, err := dropletID()
+func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, error) {
+	droplet, err := i.dropletByName(context.TODO(), nodeName)
 	if err != nil {
 		return nil, err
 	}
 
-	return i.NodeAddressesByProviderID(selfDropletID)
+	return nodeAddresses(droplet)
 }
 
 // NodeAddressesByProviderID returns all the valid addresses of the specified
@@ -47,6 +43,11 @@ func (i *instances) NodeAddressesByProviderID(providerId string) ([]v1.NodeAddre
 		return nil, err
 	}
 
+	return nodeAddresses(droplet)
+}
+
+// nodeAddresses extracts droplet data into []v1.NodeAddress
+func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
 
@@ -153,34 +154,4 @@ func (i *instances) dropletByName(ctx context.Context, nodeName types.NodeName) 
 	}
 
 	return nil, cloudprovider.InstanceNotFound
-}
-
-// dropletID returns the currently running droplet id
-// using the metadata service available on all running droplets
-func dropletID() (string, error) {
-	return httpGet(dropletIDMetadataURL)
-}
-
-// httpGet is a convienance function to do an http GET on a provided url
-// and return the string version of the response body.
-// In this package it is used for retrieving droplet metadata
-//     e.g. http://169.254.169.254/metadata/v1/id"
-func httpGet(url string) (string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("droplet metadata returned non-200 status code: %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return string(bodyBytes), nil
 }

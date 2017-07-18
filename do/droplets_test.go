@@ -121,6 +121,45 @@ func newFakeNotOKResponse() *godo.Response {
 	}
 }
 
+func TestNodeAddreesses(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		droplets := []godo.Droplet{*droplet}
+
+		resp := newFakeOKResponse()
+		return droplets, resp, nil
+	}
+
+	client := newFakeClient(fake)
+	instances := newInstances(client)
+
+	expectedAddresses := []v1.NodeAddress{
+		v1.NodeAddress{
+			Type:    v1.NodeHostName,
+			Address: "test-droplet",
+		},
+		v1.NodeAddress{
+			Type:    v1.NodeInternalIP,
+			Address: "10.0.0.0",
+		},
+		v1.NodeAddress{
+			Type:    v1.NodeExternalIP,
+			Address: "99.99.99.99",
+		},
+	}
+
+	addresses, err := instances.NodeAddresses("test-droplet")
+
+	if !reflect.DeepEqual(addresses, expectedAddresses) {
+		t.Errorf("unexpected node addresses. got: %v want: %v", addresses, expectedAddresses)
+	}
+
+	if err != nil {
+		t.Errorf("unexpected err, expected nil. got: %v", err)
+	}
+}
+
 func TestNodeAddreessesByProviderID(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
