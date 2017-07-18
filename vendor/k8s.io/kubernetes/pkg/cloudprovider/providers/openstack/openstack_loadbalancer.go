@@ -39,8 +39,8 @@ import (
 	neutronports "github.com/gophercloud/gophercloud/openstack/networking/v2/ports"
 	"github.com/gophercloud/gophercloud/pagination"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/v1/service"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
@@ -1102,7 +1102,7 @@ func (lbaas *LbaasV2) EnsureLoadBalancerDeleted(clusterName string, service *v1.
 	var monitorIDs []string
 	for _, listener := range listenerList {
 		pool, err := getPoolByListenerID(lbaas.network, loadbalancer.ID, listener.ID)
-		if err != nil && err != ErrNotFound {
+		if err != nil {
 			return fmt.Errorf("Error getting pool for listener %s: %v", listener.ID, err)
 		}
 		poolIDs = append(poolIDs, pool.ID)
