@@ -41,10 +41,10 @@ import (
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/api/v1/service"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/controller"
@@ -504,13 +504,10 @@ func (p *awsSDKProvider) getCrossRequestRetryDelay(regionName string) *CrossRequ
 }
 
 func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
-	awsConfig := &aws.Config{
+	service := ec2.New(session.New(&aws.Config{
 		Region:      &regionName,
 		Credentials: p.creds,
-	}
-	awsConfig = awsConfig.WithCredentialsChainVerboseErrors(true)
-
-	service := ec2.New(session.New(awsConfig))
+	}))
 
 	p.addHandlers(regionName, &service.Handlers)
 
@@ -521,13 +518,10 @@ func (p *awsSDKProvider) Compute(regionName string) (EC2, error) {
 }
 
 func (p *awsSDKProvider) LoadBalancing(regionName string) (ELB, error) {
-	awsConfig := &aws.Config{
+	elbClient := elb.New(session.New(&aws.Config{
 		Region:      &regionName,
 		Credentials: p.creds,
-	}
-	awsConfig = awsConfig.WithCredentialsChainVerboseErrors(true)
-
-	elbClient := elb.New(session.New(awsConfig))
+	}))
 
 	p.addHandlers(regionName, &elbClient.Handlers)
 
@@ -535,13 +529,10 @@ func (p *awsSDKProvider) LoadBalancing(regionName string) (ELB, error) {
 }
 
 func (p *awsSDKProvider) Autoscaling(regionName string) (ASG, error) {
-	awsConfig := &aws.Config{
+	client := autoscaling.New(session.New(&aws.Config{
 		Region:      &regionName,
 		Credentials: p.creds,
-	}
-	awsConfig = awsConfig.WithCredentialsChainVerboseErrors(true)
-
-	client := autoscaling.New(session.New(awsConfig))
+	}))
 
 	p.addHandlers(regionName, &client.Handlers)
 
@@ -2046,22 +2037,17 @@ func ipPermissionExists(newPermission, existing *ec2.IpPermission, compareGroupU
 				break
 			}
 		}
-		if !found {
+		if found == false {
 			return false
 		}
 	}
-
 	for _, leftPair := range newPermission.UserIdGroupPairs {
-		found := false
 		for _, rightPair := range existing.UserIdGroupPairs {
 			if isEqualUserGroupPair(leftPair, rightPair, compareGroupUserIDs) {
-				found = true
-				break
+				return true
 			}
 		}
-		if !found {
-			return false
-		}
+		return false
 	}
 
 	return true

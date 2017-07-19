@@ -1,9 +1,6 @@
 package volumes
 
 import (
-	"encoding/json"
-	"time"
-
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/pagination"
 )
@@ -21,7 +18,7 @@ type Volume struct {
 	// Indicates whether this is a bootable volume.
 	Bootable string `json:"bootable"`
 	// The date when this volume was created.
-	CreatedAt time.Time `json:"-"`
+	CreatedAt gophercloud.JSONRFC3339MilliNoZ `json:"created_at"`
 	// Human-readable description for the volume.
 	Description string `json:"display_description"`
 	// The type of volume to create, either SATA or SSD.
@@ -36,23 +33,6 @@ type Volume struct {
 	ID string `json:"id"`
 	// Size of the volume in GB.
 	Size int `json:"size"`
-}
-
-func (r *Volume) UnmarshalJSON(b []byte) error {
-	type tmp Volume
-	var s struct {
-		tmp
-		CreatedAt gophercloud.JSONRFC3339MilliNoZ `json:"created_at"`
-	}
-	err := json.Unmarshal(b, &s)
-	if err != nil {
-		return err
-	}
-	*r = Volume(s.tmp)
-
-	r.CreatedAt = time.Time(s.CreatedAt)
-
-	return err
 }
 
 // CreateResult contains the response body and error from a Create request.

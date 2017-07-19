@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	"k8s.io/kubernetes/pkg/api/v1"
 
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
