@@ -28,6 +28,16 @@ By default, the kubelet will name nodes based on the node's hostname. On Digital
 ### All droplets must have unique names
 All droplet names in kubernetes must be unique since node names in kubernetes must be unique.
 
+## Implementation Details
+
+Currently `digital-cloud-controller-manager` implements:
+* nodecontroller - updates nodes with cloud provider specific labels and addresses, also deletes kubernetes nodes when deleted on the cloud provider.
+
+In the future, it may implement:
+* servicecontroller - responsible for creating LoadBalancers when a service of `Type: LoadBalancer` is created in Kubernetes.
+* volumecontroller - responsible for creating, deleting, attaching and detaching DO block storage.
+* routecontroller - responsible for creating firewall rules
+
 ## Deployment
 
 ### Token
