@@ -4,7 +4,6 @@
 
 WARNING: this project is a work in progress and may not be production ready.
 
-
 ## Requirements
 
 At the current state of Kubernetes, running cloud controller manager requires a few things:
@@ -26,13 +25,10 @@ In the future, `--cloud-provider=external` will be the default. Learn more about
 ### Node hostnames must match the droplet name
 By default, the kubelet will name nodes based on the node's hostname. On DigitalOcean, node hostnames are set based on the name of the droplet. If you decide to override the hostname on kubelets with `--hostname-override`, this will also override the node name in Kubernetes. It is importntant that the node name on Kubernetes matches the droplet name, otherwise cloud controller manager cannot find the corresponding droplet to nodes.
 
-
 ### All droplets must have unique names
 All droplet names in kubernetes must be unique since node names in kubernetes must be unique.
 
-
 ## Deployment
-
 
 ### Token
 To run digitalocean-cloud-controller-manager, you need a digitalocean access token. If you are already logged in, you can create one [here](https://cloud.digitalocean.com/settings/api/tokens). Ensure the token you create has both read and write access. Once you have an access token, you want to create a Kubernetes Secret.
@@ -71,3 +67,10 @@ Currently we only support alpha release of the `digitalocean-cloud-controller-ma
 ```bash
 kubectl apply -f releases/alpha.yml
 ```
+
+## Contributing
+At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
+
+### Maintainers
+* Fatih Arslan - @fatih
+* Andrew Sy Kim - @andrewsykim
