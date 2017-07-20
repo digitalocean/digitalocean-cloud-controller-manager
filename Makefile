@@ -1,6 +1,6 @@
 .PHONY: clean compile build push
 
-VERSION ?= v0.6
+VERSION ?= v0.7
 REGISTRY ?= digitalocean
 
 all: clean compile build push

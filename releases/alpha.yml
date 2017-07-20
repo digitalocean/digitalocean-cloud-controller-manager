@@ -12,24 +12,15 @@ spec:
       labels:
         app: digitalocean-cloud-controller-manager
     spec:
-      # cloud controller managers should not depend on kubedns
       dnsPolicy: Default
-      # we want to run on master since control plane
-      # services should by default, however, users
-      # can remove this node selector if desired
-      nodeSelector:
-        node-role.kubernetes.io/master: ""
       tolerations:
-        # default tolerate master taint
-        - key: "node-role.kubernetes.io/master"
-          effect: "NoSchedule"
         # this taint is set by all kubelets running `--cloud-provider=external`
         # so we should tolerate it to schedule the digitalocean ccm
         - key: "node.cloudprovider.kubernetes.io/uninitialized"
           value: "true"
           effect: "NoSchedule"
       containers:
-      - image: andrewsykim/digitalocean-cloud-controller-manager:v0.6
+      - image: digitalocean/digitalocean-cloud-controller-manager:v0.7
         name: digitalocean-cloud-controller-manager
         command:
           - "/bin/digitalocean-cloud-controller-manager"
