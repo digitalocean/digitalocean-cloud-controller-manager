@@ -28,9 +28,10 @@ func (t *tokenSource) Token() (*oauth2.Token, error) {
 }
 
 type cloud struct {
-	client    *godo.Client
-	instances cloudprovider.Instances
-	zones     cloudprovider.Zones
+	client        *godo.Client
+	instances     cloudprovider.Instances
+	zones         cloudprovider.Zones
+	loadbalancers cloudprovider.LoadBalancer
 }
 
 func newCloud(config io.Reader) (cloudprovider.Interface, error) {
@@ -47,13 +48,11 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
 	doClient := godo.NewClient(oauthClient)
 
-	instances := newInstances(doClient)
-	zones := newZones()
-
 	return &cloud{
-		client:    doClient,
-		instances: instances,
-		zones:     zones,
+		client:        doClient,
+		instances:     newInstances(doClient),
+		zones:         newZones(),
+		loadbalancers: newLoadbalancers(doClient),
 	}, nil
 }
 
@@ -67,7 +66,7 @@ func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
 }
 
 func (c *cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
-	return nil, false
+	return c.loadbalancers, true
 }
 
 func (c *cloud) Instances() (cloudprovider.Instances, bool) {
