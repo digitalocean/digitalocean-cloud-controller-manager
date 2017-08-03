@@ -61,11 +61,12 @@ var lbNotFound = errors.New("loadbalancer not found")
 // loadbalancers implements cloudprovider.Loadbalancer
 type loadbalancers struct {
 	client *godo.Client
+	region string
 }
 
 // newLoadbalancers returns a type loadbalancer, implementing cloudprovider.Loadbalancer
-func newLoadbalancers(client *godo.Client) cloudprovider.LoadBalancer {
-	return &loadbalancers{client}
+func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
+	return &loadbalancers{client, region}
 }
 
 // GetLoadBalancer specifies whether the loadbalancer exists based on the provided service
@@ -176,11 +177,7 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v
 	}
 
 	_, err = l.client.LoadBalancers.Delete(ctx, lb.ID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // lbByName gets a DigitalOcean loadbalancer provided it's name.
@@ -205,7 +202,7 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 	droplets, _, err := l.client.Droplets.List(context.TODO(), &godo.ListOptions{})
 	if err != nil {
-		return []int{}, err
+		return nil, err
 	}
 
 	var dropletIDs []int
@@ -242,17 +239,12 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		return nil, err
 	}
 
-	region, err := dropletRegion()
-	if err != nil {
-		return nil, err
-	}
-
 	algorithm := getAlgorithm(service)
 
 	return &godo.LoadBalancerRequest{
 		Name:            lbName,
 		DropletIDs:      dropletIDs,
-		Region:          region,
+		Region:          l.region,
 		ForwardingRules: forwardingRules,
 		HealthCheck:     healthCheck,
 		Algorithm:       algorithm,
@@ -297,8 +289,14 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	certificateID := getCertificateID(service)
 	tlsPassThrough := getTLSPassThrough(service)
 
-	if len(tlsPorts) > 0 && certificateID == "" && !tlsPassThrough {
-		return nil, errors.New("must set certificate id or enable tls pass through")
+	if len(tlsPorts) > 0 {
+		if certificateID == "" && !tlsPassThrough {
+			return nil, errors.New("must set certificate id or enable tls pass through")
+		}
+
+		if certificateID != "" && tlsPassThrough {
+			return nil, errors.New("either certificate id should be set or tls pass through enabled, not both")
+		}
 	}
 
 	var forwardingRules []godo.ForwardingRule
@@ -365,13 +363,13 @@ func getTLSPorts(service *v1.Service) ([]int, error) {
 	tlsPortsSlice := strings.Split(tlsPorts, ",")
 
 	tlsPortsInt := make([]int, len(tlsPortsSlice))
-	for _, tlsPort := range tlsPortsSlice {
+	for i, tlsPort := range tlsPortsSlice {
 		port, err := strconv.Atoi(tlsPort)
 		if err != nil {
 			return nil, err
 		}
 
-		tlsPortsInt = append(tlsPortsInt, port)
+		tlsPortsInt[i] = port
 	}
 
 	return tlsPortsInt, nil
@@ -405,13 +403,9 @@ func getTLSPassThrough(service *v1.Service) bool {
 // an annotation from a service. Defaults to round_robin if
 // annotation doesn't exist
 func getAlgorithm(service *v1.Service) string {
-	if service.Annotations == nil {
-		return "round_robin"
-	}
+	algo := service.Annotations[annDOAlgorithm]
 
-	val := service.Annotations[annDOAlgorithm]
-
-	switch val {
+	switch algo {
 	case "least_connections":
 		return "least_connections"
 	default:

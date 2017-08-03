@@ -17,26 +17,19 @@ limitations under the License.
 package do
 
 import (
-	"fmt"
-
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
-type region struct{}
-
-func newZones() cloudprovider.Zones {
-	return region{}
+type zones struct {
+	region string
 }
 
-// GetZone returns a cloudprovider.Zone by fetching the droplet
-// metadata API for the currently running region. GetZone
-// will only fill the Region field of cloudprovider.Zone since
-// there's no DO related data to fill it with.
-func (r region) GetZone() (cloudprovider.Zone, error) {
-	region, err := dropletRegion()
-	if err != nil {
-		return cloudprovider.Zone{}, fmt.Errorf("failed to get droplet region: %v", err)
-	}
+func newZones(region string) cloudprovider.Zones {
+	return zones{region}
+}
 
-	return cloudprovider.Zone{Region: region}, nil
+// GetZone returns a cloudprovider.Zone
+// GetZone will only fill the Region field of cloudprovider.Zone for DO
+func (z zones) GetZone() (cloudprovider.Zone, error) {
+	return cloudprovider.Zone{Region: z.region}, nil
 }

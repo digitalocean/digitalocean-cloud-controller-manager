@@ -33,10 +33,11 @@ import (
 // instances Implements cloudprovider.Instances
 type instances struct {
 	client *godo.Client
+	region string
 }
 
-func newInstances(client *godo.Client) cloudprovider.Instances {
-	return &instances{client}
+func newInstances(client *godo.Client, region string) cloudprovider.Instances {
+	return &instances{client, region}
 }
 
 // NodeAddresses returns all the valid addresses of the specified node
