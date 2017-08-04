@@ -32,9 +32,9 @@ All droplet names in kubernetes must be unique since node names in kubernetes mu
 
 Currently `digital-cloud-controller-manager` implements:
 * nodecontroller - updates nodes with cloud provider specific labels and addresses, also deletes kubernetes nodes when deleted on the cloud provider.
+* servicecontroller - responsible for creating LoadBalancers when a service of `Type: LoadBalancer` is created in Kubernetes.
 
 In the future, it may implement:
-* servicecontroller - responsible for creating LoadBalancers when a service of `Type: LoadBalancer` is created in Kubernetes.
 * volumecontroller - responsible for creating, deleting, attaching and detaching DO block storage.
 * routecontroller - responsible for creating firewall rules
 
@@ -72,11 +72,17 @@ default-token-jskxx   kubernetes.io/service-account-token   3         18h
 digitalocean          Opaque                                1         18h
 ```
 
-### cloud controll manager
+### cloud controller manager
 Currently we only support alpha release of the `digitalocean-cloud-controller-manager` due to its active development. Run the alpha release like so
 ```bash
 kubectl apply -f releases/alpha.yml
 ```
+
+## Examples
+
+Here are some examples of how you could leverage `digitalocean-cloud-controller-manager`:
+* [loadbalancers](examples/loadbalancers/)
+* [node labels and addresses](examples/nodes/)
 
 ## Contributing
 At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
