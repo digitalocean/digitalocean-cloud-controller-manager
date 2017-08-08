@@ -151,15 +151,15 @@ func TestNodeAddreesses(t *testing.T) {
 	instances := newInstances(client)
 
 	expectedAddresses := []v1.NodeAddress{
-		v1.NodeAddress{
+		{
 			Type:    v1.NodeHostName,
 			Address: "test-droplet",
 		},
-		v1.NodeAddress{
+		{
 			Type:    v1.NodeInternalIP,
 			Address: "10.0.0.0",
 		},
-		v1.NodeAddress{
+		{
 			Type:    v1.NodeExternalIP,
 			Address: "99.99.99.99",
 		},
@@ -187,15 +187,15 @@ func TestNodeAddreessesByProviderID(t *testing.T) {
 	instances := newInstances(client)
 
 	expectedAddresses := []v1.NodeAddress{
-		v1.NodeAddress{
+		{
 			Type:    v1.NodeHostName,
 			Address: "test-droplet",
 		},
-		v1.NodeAddress{
+		{
 			Type:    v1.NodeInternalIP,
 			Address: "10.0.0.0",
 		},
-		v1.NodeAddress{
+		{
 			Type:    v1.NodeExternalIP,
 			Address: "99.99.99.99",
 		},

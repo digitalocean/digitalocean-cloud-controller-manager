@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: clean compile build push
+.PHONY: clean compile build push test govet gofmt
 
 VERSION ?= v0.7
 REGISTRY ?= digitalocean
@@ -30,4 +30,15 @@ build:
 
 push:
 	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
+
+ci: govet gofmt test
+
+govet:
+	go vet $(shell go list ./... | grep -v vendor)
+
+gofmt: # run in script cause gofmt will exit 0 even if files need formatting
+	ci/gofmt.sh
+
+test:
+	go test $(shell go list ./... | grep -v vendor)
 
