@@ -2,10 +2,9 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: nginx-example
+  name: http-lb
   annotations:
     service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
-    service.beta.kubernetes.io/do-loadbalancer-algorithm: "least_connections"
 spec:
   type: LoadBalancer
   selector:
