@@ -2,7 +2,7 @@
 
 `digitalocean-cloud-controller-manager` is the Kubernetes cloud controller manager implementation for DigitalOcean. Read more about cloud controller managers [here](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/). Running `digitalocean-cloud-controller-manager` allows you to leverage many of the cloud provider features offered by DigitalOcean on your kubernetes clusters.
 
-WARNING: this project is a work in progress and may not be production ready.
+**WARNING**: this project is a work in progress and may not be production ready.
 
 ## Requirements
 
@@ -18,7 +18,7 @@ All kubernetes components specifying a cloud provider should set the flag `--clo
 * kube-controller-manager
 * kubelets
 
-WARNING: setting `--cloud-provider=external` will taint all nodes in a cluster with "node.cloudprovider.kubernetes.io/uninitialized", it is the responsibility of cloud controller managers to untaint those nodes once it has finished initializing them. This means that most pods will be left unscheduable until the cloud controller manager is running.
+**WARNING**: setting `--cloud-provider=external` will taint all nodes in a cluster with "node.cloudprovider.kubernetes.io/uninitialized", it is the responsibility of cloud controller managers to untaint those nodes once it has finished initializing them. This means that most pods will be left unscheduable until the cloud controller manager is running.
 
 In the future, `--cloud-provider=external` will be the default. Learn more about the future of cloud providers in Kubernetes [here](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/cloud-provider-refactoring.md).
 
