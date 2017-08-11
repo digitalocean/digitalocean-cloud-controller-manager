@@ -32,4 +32,3 @@ spec:
               secretKeyRef:
                 name: digitalocean
                 key: access-token
-
