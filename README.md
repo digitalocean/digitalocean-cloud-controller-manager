@@ -6,24 +6,33 @@
 
 ## Requirements
 
-At the current state of Kubernetes, running cloud controller manager requires a few things:
+At the current state of Kubernetes, running cloud controller manager requires a few things. Please read through the requirements carefully as they are critical to running cloud controller manager on a Kubernetes cluster on DigtialOcean.
 
 ### Version
 Kubernetes version 1.7 or greater is required.
 
 ### --cloud-provider=external
-All kubernetes components specifying a cloud provider should set the flag `--cloud-provider=external`. This is required since the core `kube-controller-manager` will overlap with control loops running against `cloud-controller-manager` unless it is told that an external controller will handle those loops. At the time of writing this, the only components that need updating are:
+All Kubernetes components specifying a cloud provider should set the flag `--cloud-provider=external`. This is required since the core `kube-controller-manager` will overlap with control loops running against `cloud-controller-manager` unless it is told that an external controller will handle those loops. At the time of writing this, the only components that need updating are:
 
 * kube-apiserver
 * kube-controller-manager
 * kubelets
 
-**WARNING**: setting `--cloud-provider=external` will taint all nodes in a cluster with "node.cloudprovider.kubernetes.io/uninitialized", it is the responsibility of cloud controller managers to untaint those nodes once it has finished initializing them. This means that most pods will be left unscheduable until the cloud controller manager is running.
+**WARNING**: setting `--cloud-provider=external` will taint all nodes in a cluster with `node.cloudprovider.kubernetes.io/uninitialized`, it is the responsibility of cloud controller managers to untaint those nodes once it has finished initializing them. This means that most pods will be left unscheduable until the cloud controller manager is running.
 
 In the future, `--cloud-provider=external` will be the default. Learn more about the future of cloud providers in Kubernetes [here](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/cloud-provider-refactoring.md).
 
-### Node hostnames must match the droplet name
+### Kubernetes node names must match the droplet name
 By default, the kubelet will name nodes based on the node's hostname. On DigitalOcean, node hostnames are set based on the name of the droplet. If you decide to override the hostname on kubelets with `--hostname-override`, this will also override the node name in Kubernetes. It is importntant that the node name on Kubernetes matches the droplet name, otherwise cloud controller manager cannot find the corresponding droplet to nodes.
+
+When setting the droplet host name as the node name (which is the default), Kubernetes will try to reach the node using its host name. However, this won't work since host names aren't resovable on DO. For example, when you run `kubectl logs` you will get an error like so:
+
+```
+$ kubectl logs -f mypod
+Error from server: Get https://k8s-worker-03:10250/containerLogs/default/mypod/mypod?follow=true: dial tcp: lookup k8s-worker-03 on 67.207.67.3:53: no such host
+```
+
+Since on DigitalOcean the droplet's name is not resolvable, it's important to tell the Kubernetes masters to use another address type to reach its workers. You can do this by setting `--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname` on the apiserver. Doing this will tell Kubernetes to use a droplet's private IP to connect to the node before attempting it's public IP and then it's host name.
 
 ### All droplets must have unique names
 All droplet names in kubernetes must be unique since node names in kubernetes must be unique.
@@ -76,6 +85,7 @@ digitalocean          Opaque                                1         18h
 Currently we only support alpha release of the `digitalocean-cloud-controller-manager` due to its active development. Run the first alpha release like so
 ```bash
 kubectl apply -f releases/v0.1.0.yml
+deployment "digitalocean-cloud-controller-manager" created
 ```
 
 ## Examples
