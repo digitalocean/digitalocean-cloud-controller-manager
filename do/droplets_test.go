@@ -148,7 +148,7 @@ func TestNodeAddreesses(t *testing.T) {
 	}
 
 	client := newFakeClient(fake)
-	instances := newInstances(client)
+	instances := newInstances(client, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
 		{
@@ -184,7 +184,7 @@ func TestNodeAddreessesByProviderID(t *testing.T) {
 		return droplet, resp, nil
 	}
 	client := newFakeClient(fake)
-	instances := newInstances(client)
+	instances := newInstances(client, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
 		{
@@ -223,7 +223,7 @@ func TestInstanceID(t *testing.T) {
 	}
 
 	client := newFakeClient(fake)
-	instances := newInstances(client)
+	instances := newInstances(client, "nyc1")
 
 	id, err := instances.InstanceID("test-droplet")
 	if err != nil {
@@ -246,7 +246,7 @@ func TestInstanceType(t *testing.T) {
 	}
 
 	client := newFakeClient(fake)
-	instances := newInstances(client)
+	instances := newInstances(client, "nyc1")
 
 	instanceType, err := instances.InstanceType("test-droplet")
 	if err != nil {

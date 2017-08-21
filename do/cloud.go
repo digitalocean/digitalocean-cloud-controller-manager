@@ -17,6 +17,7 @@ limitations under the License.
 package do
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -64,11 +65,16 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
 	doClient := godo.NewClient(oauthClient)
 
+	region, err := dropletRegion()
+	if err != nil {
+		return nil, errors.New("faild to get region from droplet metadata")
+	}
+
 	return &cloud{
 		client:        doClient,
-		instances:     newInstances(doClient),
-		zones:         newZones(),
-		loadbalancers: newLoadbalancers(doClient),
+		instances:     newInstances(doClient, region),
+		zones:         newZones(region),
+		loadbalancers: newLoadbalancers(doClient, region),
 	}, nil
 }
 
