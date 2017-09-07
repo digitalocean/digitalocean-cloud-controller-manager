@@ -17,10 +17,12 @@ limitations under the License.
 package do
 
 import (
+	goctx "context"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
@@ -54,19 +56,34 @@ const (
 	// should use. Options are round_robin and least_connections. Defaults
 	// to round_robin
 	annDOAlgorithm = "service.beta.kubernetes.io/do-loadbalancer-algorithm"
+
+	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
+	// reach the active state
+	defaultActiveTimeout = 90
+
+	// defaultActiveCheckTick is the number of seconds between load balancer
+	// status checks when waiting for activation
+	defaultActiveCheckTick = 5
+
+	// statuses for Digital Ocean load balancer
+	lbStatusNew     = "new"
+	lbStatusActive  = "active"
+	lbStatusErrored = "errored"
 )
 
 var lbNotFound = errors.New("loadbalancer not found")
 
 // loadbalancers implements cloudprovider.Loadbalancer
 type loadbalancers struct {
-	client *godo.Client
-	region string
+	client            *godo.Client
+	region            string
+	lbActiveTimeout   int
+	lbActiveCheckTick int
 }
 
 // newLoadbalancers returns a type loadbalancer, implementing cloudprovider.Loadbalancer
 func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
-	return &loadbalancers{client, region}
+	return &loadbalancers{client, region, defaultActiveTimeout, defaultActiveCheckTick}
 }
 
 // GetLoadBalancer specifies whether the loadbalancer exists based on the provided service
@@ -81,6 +98,13 @@ func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service)
 		}
 
 		return nil, false, err
+	}
+
+	if lb.Status != lbStatusActive {
+		lb, err = l.waitActive(lb.ID)
+		if err != nil {
+			return nil, true, fmt.Errorf("error waiting for load balancer to be active %v", err)
+		}
 	}
 
 	return &v1.LoadBalancerStatus{
@@ -108,6 +132,11 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 		}
 
 		lb, _, err := l.client.LoadBalancers.Create(context.TODO(), lbRequest)
+		if err != nil {
+			return nil, err
+		}
+
+		lb, err = l.waitActive(lb.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -249,6 +278,32 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		HealthCheck:     healthCheck,
 		Algorithm:       algorithm,
 	}, nil
+}
+
+func (l *loadbalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
+
+	ctx, cancel := goctx.WithTimeout(goctx.TODO(), time.Second*time.Duration(l.lbActiveTimeout))
+	defer cancel()
+	ticker := time.NewTicker(time.Second * time.Duration(l.lbActiveCheckTick))
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			lb, _, err := l.client.LoadBalancers.Get(ctx, lbID)
+			if err != nil {
+				return nil, err
+			}
+
+			if lb.Status == lbStatusActive {
+				return lb, nil
+			}
+			if lb.Status == lbStatusErrored {
+				return nil, fmt.Errorf("error creating DigitalOcean balancer: %q", lbID)
+			}
+		case <-ctx.Done():
+			return nil, fmt.Errorf("load balancer creation for %q timed out", lbID)
+		}
+	}
 }
 
 // buildHealthChecks receives a kubernetes service and builds health checks
