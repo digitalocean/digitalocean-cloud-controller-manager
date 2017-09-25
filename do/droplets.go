@@ -28,8 +28,6 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
-
-	"github.com/golang/glog"
 )
 
 // instances Implements cloudprovider.Instances
@@ -93,9 +91,10 @@ func (i *instances) ExternalID(nodeName types.NodeName) (string, error) {
 
 // InstanceID returns the cloud provider ID of the node with the specified NodeName.
 func (i *instances) InstanceID(nodeName types.NodeName) (string, error) {
+
 	droplet, err := i.dropletByName(context.TODO(), nodeName)
+
 	if err != nil {
-		glog.Infof("InstanceID %v : %v", nodeName, droplet.ID)
 		return "", err
 	}
 	return strconv.Itoa(droplet.ID), nil
@@ -136,12 +135,9 @@ func (i *instances) CurrentNodeName(hostname string) (types.NodeName, error) {
 
 // dropletById returns the godo Droplet type corresponding to the provided id
 func (i *instances) dropletById(ctx context.Context, id string) (*godo.Droplet, error) {
-
-	glog.Infof("dropletById %v", id)
-
 	intId, err := strconv.Atoi(id)
 	if err != nil {
-		return nil, fmt.Errorf("error converting droplet id to string: %v %s", err, id)
+		return nil, fmt.Errorf("error converting droplet id to string: %v", err)
 	}
 
 	droplet, resp, err := i.client.Droplets.Get(ctx, intId)
@@ -156,60 +152,21 @@ func (i *instances) dropletById(ctx context.Context, id string) (*godo.Droplet, 
 	return droplet, nil
 }
 
-func (i *instances) dropletList(ctx context.Context) ([]godo.Droplet, error) {
-	// create a list to hold our droplets
-	list := []godo.Droplet{}
-
-	// create options. initially, these will be blank
-	opt := &godo.ListOptions{PerPage: 100}
-	for {
-		droplets, resp, err := i.client.Droplets.List(ctx, opt)
-		if err != nil {
-			return nil, err
-		}
-
-		// append the current page's droplets to our list
-		for _, d := range droplets {
-			list = append(list, d)
-		}
-
-		// if we are at the last page, break out the for loop
-		if resp.Links == nil || resp.Links.IsLastPage() {
-			break
-		}
-
-		page, err := resp.Links.CurrentPage()
-		if err != nil {
-			return nil, err
-		}
-
-		// set the page we want for the next request
-		opt.Page = page + 1
-	}
-
-	return list, nil
-}
-
 // dropletByName returns the godo Droplet type corresponding to the node name
 // since we can only get droplets by id, we do a list of all droplets and return
 // the first one that matches the provided name
 func (i *instances) dropletByName(ctx context.Context, nodeName types.NodeName) (*godo.Droplet, error) {
 	// TODO (andrewsykim): list by tag once a tagging format is determined
-	glog.Infof("dropletByName %v for region %v", nodeName, i.region)
-
-	droplets, err := i.dropletList(ctx)
+	droplets, err := allDropletList(ctx, i.client)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, droplet := range droplets {
 		if droplet.Name == string(nodeName) {
-			glog.Infof("dropletByName %v FOUND", nodeName)
 			return &droplet, nil
 		}
 	}
-
-	glog.Infof("dropletByName %v NOT FOUND", nodeName)
 
 	return nil, cloudprovider.InstanceNotFound
 }
