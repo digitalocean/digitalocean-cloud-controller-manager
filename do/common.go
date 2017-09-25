@@ -1,6 +1,9 @@
 package do
 
 import (
+	"fmt"
+	"net/http"
+
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
 )
@@ -17,6 +20,14 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 		droplets, resp, err := client.Droplets.List(ctx, opt)
 		if err != nil {
 			return nil, err
+		}
+
+		if resp == nil {
+			return nil, fmt.Errorf("DO API returned no response ")
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("DO API returned non-200 status code: %d", resp.StatusCode)
 		}
 
 		// append the current page's droplets to our list

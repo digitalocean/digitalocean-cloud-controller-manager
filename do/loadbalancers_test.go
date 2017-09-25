@@ -780,7 +780,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						ID:   102,
 						Name: "node-3",
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -862,7 +862,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						ID:   102,
 						Name: "node-3",
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -998,7 +998,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 						ID:   102,
 						Name: "node-3",
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			[]int{100, 101, 102},
 			nil,
@@ -1069,7 +1069,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 						ID:   202,
 						Name: "node-11",
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			[]int{100, 101, 102},
 			nil,
@@ -1353,7 +1353,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 				return []godo.Droplet{
@@ -1369,7 +1369,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 						ID:   102,
 						Name: "node-3",
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{
@@ -1380,7 +1380,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 						IP:     "10.0.0.1",
 						Status: lbStatusActive,
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				// shouldn't be run in this test case
@@ -1393,7 +1393,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1447,7 +1447,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 				return []godo.Droplet{
@@ -1463,7 +1463,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 						ID:   102,
 						Name: "node-3",
 					},
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{}, nil, nil
@@ -1473,7 +1473,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				// should not be run in this test case
@@ -1583,7 +1583,7 @@ func Test_waitActive(t *testing.T) {
 				return &godo.LoadBalancer{
 					ID:     "lb1",
 					Status: lbStatusErrored,
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			nil,
 			errors.New("error creating DigitalOcean balancer: \"lb1\""),
@@ -1602,7 +1602,7 @@ func Test_waitActive(t *testing.T) {
 				return &godo.LoadBalancer{
 					ID:     "lb1",
 					Status: lbStatusNew,
-				}, nil, nil
+				}, newFakeOKResponse(), nil
 			},
 			nil,
 			errors.New("load balancer creation for \"lb1\" timed out"),
