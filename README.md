@@ -100,3 +100,4 @@ At DigitalOcean we value and love our community! If you have any issues or would
 ### Maintainers
 * Fatih Arslan - @fatih
 * Andrew Sy Kim - @andrewsykim
+* Pablo Mercado - @odacremolbap
