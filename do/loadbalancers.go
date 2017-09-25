@@ -226,10 +226,46 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 	return nil, lbNotFound
 }
 
+func (l *loadbalancers) dropletList(ctx context.Context) ([]godo.Droplet, error) {
+	// create a list to hold our droplets
+	list := []godo.Droplet{}
+
+	// create options. initially, these will be blank
+	opt := &godo.ListOptions{PerPage: 100}
+	for {
+		droplets, resp, err := l.client.Droplets.List(ctx, opt)
+		if err != nil {
+			return nil, err
+		}
+
+		// append the current page's droplets to our list
+		for _, d := range droplets {
+			list = append(list, d)
+		}
+
+		// if we are at the last page, break out the for loop
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		// set the page we want for the next request
+		opt.Page = page + 1
+	}
+
+	return list, nil
+}
+
 // nodesToDropletID receives a list of Kubernetes nodes and get's all the corresponding droplet IDs.
 // This function assumes nodes names match that of the droplet name
 func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
-	droplets, _, err := l.client.Droplets.List(context.TODO(), &godo.ListOptions{})
+
+	droplets, err := l.dropletList(context.TODO())
+
 	if err != nil {
 		return nil, err
 	}
