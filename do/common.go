@@ -1,8 +1,23 @@
+/*
+Copyright 2017 DigitalOcean
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package do
 
 import (
 	"fmt"
-	"net/http"
 
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
@@ -11,10 +26,8 @@ import (
 const apiPerPage = 100
 
 func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
-	// create a list to hold our droplets
 	list := []godo.Droplet{}
 
-	// create options. initially, these will be blank
 	opt := &godo.ListOptions{PerPage: apiPerPage}
 	for {
 		droplets, resp, err := client.Droplets.List(ctx, opt)
@@ -23,14 +36,9 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 		}
 
 		if resp == nil {
-			return nil, fmt.Errorf("DO API returned no response ")
+			return nil, fmt.Errorf("droplets list request returned no response ")
 		}
 
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("DO API returned non-200 status code: %d", resp.StatusCode)
-		}
-
-		// append the current page's droplets to our list
 		for _, d := range droplets {
 			list = append(list, d)
 		}
@@ -45,7 +53,6 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 			return nil, err
 		}
 
-		// set the page we want for the next request
 		opt.Page = page + 1
 	}
 
