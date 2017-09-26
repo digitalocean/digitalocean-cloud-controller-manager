@@ -17,6 +17,7 @@ limitations under the License.
 package do
 
 import (
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
@@ -28,8 +29,18 @@ func newZones(region string) cloudprovider.Zones {
 	return zones{region}
 }
 
-// GetZone returns a cloudprovider.Zone
+// GetZone returns a cloudprovider.Zone for the currently running node
 // GetZone will only fill the Region field of cloudprovider.Zone for DO
 func (z zones) GetZone() (cloudprovider.Zone, error) {
 	return cloudprovider.Zone{Region: z.region}, nil
+}
+
+// GetZoneByProviderID returns the zone for a node given its providerID
+func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error) {
+	return cloudprovider.Zone{}, nil
+}
+
+// GetZoneByNodeName returns the zone for a node given its node name
+func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone, error) {
+	return cloudprovider.Zone{}, nil
 }

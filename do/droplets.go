@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/kubernetes/pkg/api/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
@@ -129,6 +129,12 @@ func (i *instances) AddSSHKeyToAllInstances(user string, keyData []byte) error {
 // On most clouds (e.g. GCE) this is the hostname, so we provide the hostname
 func (i *instances) CurrentNodeName(hostname string) (types.NodeName, error) {
 	return types.NodeName(hostname), nil
+}
+
+// InstanceExistsByProviderID returns true if the instance for the given provider id still is running.
+// If false is returned with no error, the instance will be immediately deleted by the cloud controller manager.
+func (i *instances) InstanceExistsByProviderID(providerID string) (bool, error) {
+	return false, nil
 }
 
 // dropletById returns the godo Droplet type corresponding to the provided id

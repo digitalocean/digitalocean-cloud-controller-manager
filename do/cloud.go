@@ -114,3 +114,7 @@ func (c *cloud) ProviderName() string {
 func (c *cloud) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []string) {
 	return nil, nil
 }
+
+func (c *cloud) HasClusterID() bool {
+	return false
+}
