@@ -18,6 +18,7 @@ package do
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -205,7 +206,7 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 		},
 	}
 
-	addresses, err := instances.NodeAddressesByProviderID("123")
+	addresses, err := instances.NodeAddressesByProviderID("digitalocean://123")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {
 		t.Errorf("unexpected node addresses. got: %v want: %v", addresses, expectedAddresses)
@@ -260,4 +261,56 @@ func TestInstanceType(t *testing.T) {
 	if instanceType != "2gb" {
 		t.Errorf("expected type 2gb, got: %s", instanceType)
 	}
+}
+
+func Test_dropletIDFromProviderID(t *testing.T) {
+	testcases := []struct {
+		name       string
+		providerID string
+		dropletID  string
+		err        error
+	}{
+		{
+			"valid providerID",
+			"digitalocean://12345",
+			"12345",
+			nil,
+		},
+		{
+			"invalid providerID - empty string",
+			"",
+			"",
+			errors.New("providerID cannot be empty string"),
+		},
+		{
+			"invalid providerID - wrong format",
+			"digitalocean:/12345",
+			"",
+			errors.New("unexpected providerID format: digitalocean:/12345, format should be: digitalocean://12345"),
+		},
+		{
+			"invalid providerID - wrong provider name",
+			"do://12345",
+			"",
+			errors.New("provider name from providerID should be digitalocean: do://12345"),
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			dropletID, err := dropletIDFromProviderID(testcase.providerID)
+			if dropletID != testcase.dropletID {
+				t.Errorf("actual droplet ID: %s", dropletID)
+				t.Errorf("expected droplet ID: %s", testcase.dropletID)
+				t.Error("unexpected droplet ID")
+			}
+
+			if !reflect.DeepEqual(err, testcase.err) {
+				t.Errorf("actual err: %v", err)
+				t.Errorf("expected err: %v", testcase.err)
+				t.Error("unexpected err")
+			}
+		})
+	}
+
 }

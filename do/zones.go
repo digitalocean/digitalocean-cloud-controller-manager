@@ -42,7 +42,12 @@ func (z zones) GetZone() (cloudprovider.Zone, error) {
 // locality region of the node specified by providerId. GetZoneByProviderID
 // will only fill the Region field of cloudprovider.Zone for DO.
 func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error) {
-	d, err := dropletByID(context.Background(), z.client, providerID)
+	id, err := dropletIDFromProviderID(providerID)
+	if err != nil {
+		return cloudprovider.Zone{}, err
+	}
+
+	d, err := dropletByID(context.Background(), z.client, id)
 	if err != nil {
 		return cloudprovider.Zone{}, err
 	}
