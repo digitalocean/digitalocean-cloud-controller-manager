@@ -14,7 +14,7 @@
 
 .PHONY: clean compile build push test govet gofmt
 
-VERSION ?= v0.1.0
+VERSION ?= v0.1.1
 REGISTRY ?= digitalocean
 
 all: clean compile build push
