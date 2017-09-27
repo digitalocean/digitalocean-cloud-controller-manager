@@ -92,7 +92,6 @@ func (i *instances) ExternalID(nodeName types.NodeName) (string, error) {
 // InstanceID returns the cloud provider ID of the node with the specified NodeName.
 func (i *instances) InstanceID(nodeName types.NodeName) (string, error) {
 	droplet, err := i.dropletByName(context.TODO(), nodeName)
-
 	if err != nil {
 		return "", err
 	}
