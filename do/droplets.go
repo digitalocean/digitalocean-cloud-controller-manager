@@ -155,13 +155,9 @@ func (i *instances) dropletById(ctx context.Context, id string) (*godo.Droplet, 
 // the first one that matches the provided name
 func (i *instances) dropletByName(ctx context.Context, nodeName types.NodeName) (*godo.Droplet, error) {
 	// TODO (andrewsykim): list by tag once a tagging format is determined
-	droplets, resp, err := i.client.Droplets.List(ctx, &godo.ListOptions{})
+	droplets, err := allDropletList(ctx, i.client)
 	if err != nil {
 		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("DO API returned non-200 status code: %d", resp.StatusCode)
 	}
 
 	for _, droplet := range droplets {

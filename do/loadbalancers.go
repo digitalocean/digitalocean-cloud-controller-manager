@@ -229,7 +229,8 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 // nodesToDropletID receives a list of Kubernetes nodes and get's all the corresponding droplet IDs.
 // This function assumes nodes names match that of the droplet name
 func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
-	droplets, _, err := l.client.Droplets.List(context.TODO(), &godo.ListOptions{})
+	droplets, err := allDropletList(context.TODO(), l.client)
+
 	if err != nil {
 		return nil, err
 	}
