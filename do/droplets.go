@@ -43,7 +43,7 @@ func newInstances(client *godo.Client, region string) cloudprovider.Instances {
 // NodeAddresses returns all the valid addresses of the specified node
 // For DO, this is the public/private ipv4 addresses only for now
 func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, error) {
-	droplet, err := i.dropletByName(context.TODO(), nodeName)
+	droplet, err := dropletByName(context.TODO(), i.client, nodeName)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, er
 // node by providerId. For DO this is the public/private ipv4 addresses for now.
 func (i *instances) NodeAddressesByProviderID(providerId string) ([]v1.NodeAddress, error) {
 	// we can technically get all the required data from metadata service
-	droplet, err := i.dropletById(context.TODO(), providerId)
+	droplet, err := dropletByID(context.TODO(), i.client, providerId)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (i *instances) ExternalID(nodeName types.NodeName) (string, error) {
 
 // InstanceID returns the cloud provider ID of the node with the specified NodeName.
 func (i *instances) InstanceID(nodeName types.NodeName) (string, error) {
-	droplet, err := i.dropletByName(context.TODO(), nodeName)
+	droplet, err := dropletByName(context.TODO(), i.client, nodeName)
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +101,7 @@ func (i *instances) InstanceID(nodeName types.NodeName) (string, error) {
 // InstanceType returns the type of the specified instance.
 // Droplet types are defined by amount of memory available
 func (i *instances) InstanceType(name types.NodeName) (string, error) {
-	droplet, err := i.dropletByName(context.TODO(), name)
+	droplet, err := dropletByName(context.TODO(), i.client, name)
 	if err != nil {
 		return "", err
 	}
@@ -111,7 +111,7 @@ func (i *instances) InstanceType(name types.NodeName) (string, error) {
 
 // InstanceTypeByProviderID returns the type of the specified instance.
 func (i *instances) InstanceTypeByProviderID(providerId string) (string, error) {
-	droplet, err := i.dropletById(context.TODO(), providerId)
+	droplet, err := dropletByID(context.TODO(), i.client, providerId)
 	if err != nil {
 		return "", err
 	}
@@ -137,14 +137,14 @@ func (i *instances) InstanceExistsByProviderID(providerID string) (bool, error) 
 	return false, nil
 }
 
-// dropletById returns the godo Droplet type corresponding to the provided id
-func (i *instances) dropletById(ctx context.Context, id string) (*godo.Droplet, error) {
+// dropletByID returns the godo Droplet type corresponding to the provided id
+func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Droplet, error) {
 	intId, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("error converting droplet id to string: %v", err)
 	}
 
-	droplet, resp, err := i.client.Droplets.Get(ctx, intId)
+	droplet, resp, err := client.Droplets.Get(ctx, intId)
 	if err != nil {
 		return nil, err
 	}
@@ -159,9 +159,9 @@ func (i *instances) dropletById(ctx context.Context, id string) (*godo.Droplet, 
 // dropletByName returns the godo Droplet type corresponding to the node name
 // since we can only get droplets by id, we do a list of all droplets and return
 // the first one that matches the provided name
-func (i *instances) dropletByName(ctx context.Context, nodeName types.NodeName) (*godo.Droplet, error) {
+func dropletByName(ctx context.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
 	// TODO (andrewsykim): list by tag once a tagging format is determined
-	droplets, err := allDropletList(ctx, i.client)
+	droplets, err := allDropletList(ctx, client)
 	if err != nil {
 		return nil, err
 	}

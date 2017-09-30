@@ -17,30 +17,47 @@ limitations under the License.
 package do
 
 import (
+	"github.com/digitalocean/godo"
+	"github.com/digitalocean/godo/context"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
 type zones struct {
+	client *godo.Client
 	region string
 }
 
-func newZones(region string) cloudprovider.Zones {
-	return zones{region}
+func newZones(client *godo.Client, region string) cloudprovider.Zones {
+	return zones{client, region}
 }
 
-// GetZone returns a cloudprovider.Zone for the currently running node
-// GetZone will only fill the Region field of cloudprovider.Zone for DO
+// GetZone returns a cloudprovider.Zone for the currently running node.
+// GetZone will only fill the Region field of cloudprovider.Zone for DO.
 func (z zones) GetZone() (cloudprovider.Zone, error) {
 	return cloudprovider.Zone{Region: z.region}, nil
 }
 
-// GetZoneByProviderID returns the zone for a node given its providerID
+// GetZoneByProviderID returns the Zone containing the current zone and
+// locality region of the node specified by providerId. GetZoneByProviderID
+// will only fill the Region field of cloudprovider.Zone for DO.
 func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error) {
-	return cloudprovider.Zone{}, nil
+	d, err := dropletByID(context.Background(), z.client, providerID)
+	if err != nil {
+		return cloudprovider.Zone{}, err
+	}
+
+	return cloudprovider.Zone{Region: d.Region.Name}, nil
 }
 
-// GetZoneByNodeName returns the zone for a node given its node name
+// GetZoneByNodeName returns the Zone containing the current zone and locality
+// region of the node specified by node name. GetZoneByNodeName will only fill
+// the Region field of cloudprovider.Zone for DO.
 func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone, error) {
-	return cloudprovider.Zone{}, nil
+	d, err := dropletByName(context.Background(), z.client, nodeName)
+	if err != nil {
+		return cloudprovider.Zone{}, err
+	}
+
+	return cloudprovider.Zone{Region: d.Region.Name}, nil
 }
