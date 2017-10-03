@@ -116,6 +116,9 @@ func newFakeDroplet() *godo.Droplet {
 				},
 			},
 		},
+		Region: &godo.Region{
+			Name: "test-region",
+		},
 	}
 }
 
@@ -137,7 +140,7 @@ func newFakeNotOKResponse() *godo.Response {
 	}
 }
 
-func TestNodeAddreesses(t *testing.T) {
+func TestNodeAddresses(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 		droplet := newFakeDroplet()
@@ -176,7 +179,7 @@ func TestNodeAddreesses(t *testing.T) {
 	}
 }
 
-func TestNodeAddreessesByProviderID(t *testing.T) {
+func TestNodeAddressesByProviderID(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
 		droplet := newFakeDroplet()

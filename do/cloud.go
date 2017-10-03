@@ -73,7 +73,7 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(doClient, region),
-		zones:         newZones(region),
+		zones:         newZones(doClient, region),
 		loadbalancers: newLoadbalancers(doClient, region),
 	}, nil
 }
