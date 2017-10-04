@@ -24,12 +24,12 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 	client := newFakeClient(fake)
 	zones := newZones(client, "nyc1")
 
-	expected := cloudprovider.Zone{Region: "test-region"}
+	expected := cloudprovider.Zone{Region: "test1"}
 
 	actual, err := zones.GetZoneByNodeName("test-droplet")
 
 	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("unexpected region. got: %v want: %v", actual, expected)
+		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)
 	}
 
 	if err != nil {
@@ -48,12 +48,12 @@ func TestZones_GetZoneByProviderID(t *testing.T) {
 	client := newFakeClient(fake)
 	zones := newZones(client, "nyc1")
 
-	expected := cloudprovider.Zone{Region: "test-region"}
+	expected := cloudprovider.Zone{Region: "test1"}
 
 	actual, err := zones.GetZoneByProviderID("123")
 
 	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("unexpected region. got: %v want: %v", actual, expected)
+		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)
 	}
 
 	if err != nil {

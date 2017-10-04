@@ -118,6 +118,7 @@ func newFakeDroplet() *godo.Droplet {
 		},
 		Region: &godo.Region{
 			Name: "test-region",
+			Slug: "test1",
 		},
 	}
 }
