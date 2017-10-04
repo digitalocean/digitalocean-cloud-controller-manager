@@ -11,6 +11,8 @@ spec:
     metadata:
       labels:
         app: digitalocean-cloud-controller-manager
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       dnsPolicy: Default
       tolerations:
@@ -19,6 +21,11 @@ spec:
         - key: "node.cloudprovider.kubernetes.io/uninitialized"
           value: "true"
           effect: "NoSchedule"
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+        # cloud controller manages should be able to run on masters
+        - key: "node-role.kubernetes.io/master"
+          effect: NoSchedule
       containers:
       - image: digitalocean/digitalocean-cloud-controller-manager:v0.1.1
         name: digitalocean-cloud-controller-manager
@@ -26,6 +33,10 @@ spec:
           - "/bin/digitalocean-cloud-controller-manager"
           - "--cloud-provider=digitalocean"
           - "--leader-elect=false"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 50Mi
         env:
           - name: DO_ACCESS_TOKEN
             valueFrom:
