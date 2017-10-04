@@ -47,7 +47,7 @@ func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error
 		return cloudprovider.Zone{}, err
 	}
 
-	return cloudprovider.Zone{Region: d.Region.Name}, nil
+	return cloudprovider.Zone{Region: d.Region.Slug}, nil
 }
 
 // GetZoneByNodeName returns the Zone containing the current zone and locality
@@ -59,5 +59,5 @@ func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone, e
 		return cloudprovider.Zone{}, err
 	}
 
-	return cloudprovider.Zone{Region: d.Region.Name}, nil
+	return cloudprovider.Zone{Region: d.Region.Slug}, nil
 }
