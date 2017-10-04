@@ -50,7 +50,7 @@ func TestZones_GetZoneByProviderID(t *testing.T) {
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
-	actual, err := zones.GetZoneByProviderID("123")
+	actual, err := zones.GetZoneByProviderID("digitalocean://123")
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)

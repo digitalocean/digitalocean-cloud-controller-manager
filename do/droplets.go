@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,8 +55,12 @@ func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, er
 // NodeAddressesByProviderID returns all the valid addresses of the specified
 // node by providerId. For DO this is the public/private ipv4 addresses for now.
 func (i *instances) NodeAddressesByProviderID(providerId string) ([]v1.NodeAddress, error) {
-	// we can technically get all the required data from metadata service
-	droplet, err := dropletByID(context.TODO(), i.client, providerId)
+	id, err := dropletIDFromProviderID(providerId)
+	if err != nil {
+		return nil, err
+	}
+
+	droplet, err := dropletByID(context.TODO(), i.client, id)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +116,12 @@ func (i *instances) InstanceType(name types.NodeName) (string, error) {
 
 // InstanceTypeByProviderID returns the type of the specified instance.
 func (i *instances) InstanceTypeByProviderID(providerId string) (string, error) {
-	droplet, err := dropletByID(context.TODO(), i.client, providerId)
+	id, err := dropletIDFromProviderID(providerId)
+	if err != nil {
+		return "", err
+	}
+
+	droplet, err := dropletByID(context.TODO(), i.client, id)
 	if err != nil {
 		return "", err
 	}
@@ -173,4 +183,25 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 	}
 
 	return nil, cloudprovider.InstanceNotFound
+}
+
+// dropletIDFromProviderID returns a droplet's ID extracted from the node's
+// providerID spec. The providerID spec should be retrievable from the Kubernetes
+// node object. The expected format is: digitalocean://droplet-id
+func dropletIDFromProviderID(providerID string) (string, error) {
+	if providerID == "" {
+		return "", errors.New("providerID cannot be empty string")
+	}
+
+	split := strings.Split(providerID, "/")
+	if len(split) != 3 {
+		return "", fmt.Errorf("unexpected providerID format: %s, format should be: digitalocean://12345", providerID)
+	}
+
+	// since split[0] is actually "digitalocean:"
+	if strings.TrimSuffix(split[0], ":") != providerName {
+		return "", fmt.Errorf("provider name from providerID should be digitalocean: %s", providerID)
+	}
+
+	return split[2], nil
 }
