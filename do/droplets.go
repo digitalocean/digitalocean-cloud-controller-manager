@@ -144,6 +144,25 @@ func (i *instances) CurrentNodeName(hostname string) (types.NodeName, error) {
 // InstanceExistsByProviderID returns true if the instance for the given provider id still is running.
 // If false is returned with no error, the instance will be immediately deleted by the cloud controller manager.
 func (i *instances) InstanceExistsByProviderID(providerID string) (bool, error) {
+	id, err := dropletIDFromProviderID(providerID)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = dropletByID(context.TODO(), i.client, id)
+	if err == nil {
+		return true, nil
+	}
+
+	godoErr, ok := err.(*godo.ErrorResponse)
+	if !ok {
+		return false, fmt.Errorf("unexpected error type from godo: %T, msg: %v", err, err)
+	}
+
+	if godoErr.Response.StatusCode != http.StatusNotFound {
+		return false, fmt.Errorf("error checking if instance exists: %v", err)
+	}
+
 	return false, nil
 }
 
@@ -154,13 +173,9 @@ func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Dro
 		return nil, fmt.Errorf("error converting droplet id to string: %v", err)
 	}
 
-	droplet, resp, err := client.Droplets.Get(ctx, intId)
+	droplet, _, err := client.Droplets.Get(ctx, intId)
 	if err != nil {
 		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("DO API returned non-200 status code: %d", resp.StatusCode)
 	}
 
 	return droplet, nil
