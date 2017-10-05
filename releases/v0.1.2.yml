@@ -1,4 +1,4 @@
-# NOTE: this release is only compatible with Kubernetes versions v1.7.X
+# NOTE: this release is only compatible with Kubernetes versions v1.8.X
 
 ---
 apiVersion: extensions/v1beta1
@@ -29,7 +29,7 @@ spec:
         - key: "node-role.kubernetes.io/master"
           effect: NoSchedule
       containers:
-      - image: digitalocean/digitalocean-cloud-controller-manager:v0.1.1
+      - image: digitalocean/digitalocean-cloud-controller-manager:v0.1.2
         name: digitalocean-cloud-controller-manager
         command:
           - "/bin/digitalocean-cloud-controller-manager"
