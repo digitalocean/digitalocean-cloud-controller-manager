@@ -1,3 +1,5 @@
+# NOTE: this version is only compatible with Kubernetes versions v1.7.X
+
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
