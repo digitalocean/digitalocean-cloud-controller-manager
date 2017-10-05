@@ -43,4 +43,4 @@ test:
 	go test $(shell go list ./... | grep -v vendor)
 
 check-headers:
-	./ci/headers.sh
+	./ci/headers-*.sh
