@@ -31,7 +31,7 @@ build:
 push:
 	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 
-ci: govet gofmt test
+ci: check-headers govet gofmt test
 
 govet:
 	go vet $(shell go list ./... | grep -v vendor)
@@ -42,3 +42,5 @@ gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 test:
 	go test $(shell go list ./... | grep -v vendor)
 
+check-headers:
+	./ci/headers-*.sh
