@@ -56,7 +56,7 @@ To run digitalocean-cloud-controller-manager, you need a digitalocean access tok
 #### Script
 You can use the script [scripts/generate-secret.sh](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/scripts/generate-secret.sh) in this repo to create the Kubernetes Secret. Note that this will apply changes using your default `kubectl` context. For example, if your token is `abc123abc123abc123`, run the following to create the Kubernetes Secret.
 ```bash
-export DO_ACCESS_TOKEN=abc123abc123abc123
+export DIGITALOCEAN_ACCESS_TOKEN=abc123abc123abc123
 scripts/generate-secret.sh
 ```
 
