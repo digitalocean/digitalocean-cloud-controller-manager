@@ -9,8 +9,8 @@
 At the current state of Kubernetes, running cloud controller manager requires a few things. Please read through the requirements carefully as they are critical to running cloud controller manager on a Kubernetes cluster on DigtialOcean.
 
 ### Version
-Kubernetes version 1.7 for versions <= v0.1.1
-Kubernetes version 1.8 for versions >= v0.1.2
+* Kubernetes version 1.7 for versions <= v0.1.1
+* Kubernetes version 1.8 for versions >= v0.1.2
 
 ### --cloud-provider=external
 All Kubernetes components specifying a cloud provider should set the flag `--cloud-provider=external`. This is required since the core `kube-controller-manager` will overlap with control loops running against `cloud-controller-manager` unless it is told that an external controller will handle those loops. At the time of writing this, the only components that need updating are:
