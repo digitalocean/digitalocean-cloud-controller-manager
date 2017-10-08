@@ -24,8 +24,7 @@ import (
 
 const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
 
-// dropletRegion returns the currently the region of the currently
-// running program
+// dropletRegion returns the region of the currently running program.
 func dropletRegion() (string, error) {
 	return httpGet(dropletRegionMetadataURL)
 }

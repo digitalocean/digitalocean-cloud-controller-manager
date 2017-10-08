@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"k8s.io/api/core/v1"
+	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
@@ -141,6 +142,8 @@ func newFakeNotOKResponse() *godo.Response {
 		},
 	}
 }
+
+var _ cloudprovider.Instances = new(instances)
 
 func TestNodeAddresses(t *testing.T) {
 	fake := &fakeDropletService{}

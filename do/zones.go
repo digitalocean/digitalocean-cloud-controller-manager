@@ -32,15 +32,15 @@ func newZones(client *godo.Client, region string) cloudprovider.Zones {
 	return zones{client, region}
 }
 
-// GetZone returns a cloudprovider.Zone for the currently running node.
-// GetZone will only fill the Region field of cloudprovider.Zone for DO.
+// GetZone returns a cloudprovider.Zone from the region of z. GetZone only sets
+// the Region field of the returned cloudprovider.Zone.
 func (z zones) GetZone() (cloudprovider.Zone, error) {
 	return cloudprovider.Zone{Region: z.region}, nil
 }
 
-// GetZoneByProviderID returns the Zone containing the current zone and
-// locality region of the node specified by providerId. GetZoneByProviderID
-// will only fill the Region field of cloudprovider.Zone for DO.
+// GetZoneByProviderID returns a cloudprovider.Zone from the droplet identified
+// by providerID. GetZoneByProviderID only sets the Region field of the
+// returned cloudprovider.Zone.
 func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
@@ -55,10 +55,11 @@ func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error
 	return cloudprovider.Zone{Region: d.Region.Slug}, nil
 }
 
-// GetZoneByNodeName returns the Zone containing the current zone and locality
-// region of the node specified by node name. GetZoneByNodeName will only fill
-// the Region field of cloudprovider.Zone for DO.
-func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone, error) {
+// GetZoneByNodeName returns a cloudprovider.Zone from the droplet identified
+// by nodeName. GetZoneByNodeName only sets the Region field of the returned
+// cloudprovider.Zone.
+func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone,
+	error) {
 	d, err := dropletByName(context.Background(), z.client, nodeName)
 	if err != nil {
 		return cloudprovider.Zone{}, err
