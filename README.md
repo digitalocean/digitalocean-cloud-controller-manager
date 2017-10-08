@@ -61,9 +61,7 @@ scripts/generate-secret.sh
 ```
 
 #### Manually
-Copy [releases/secret.yml.tmpl](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/releases/secret.yml#L10) to releases/secret.yml and replace the placeholder in the copy with your base64 encoded token.
-
-Copy releases/secret.yml.tmpl to releases/secret.yml:
+Copy [releases/secret.yml.tmpl](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/releases/secret.yml.tmpl) to releases/secret.yml:
 ```bash
 cp releases/secret.yml.tmpl releases/secret.yml
 ```
@@ -73,7 +71,7 @@ If your token is `abc123abc123abc123`, then you want to base64 encode your token
 echo -n "abc123abc123abc123" | base64
 ```
 
-Replace the placeholder in releases/secret.yml with the base64 encoded token. When you're done, the releases/secret.yml should look something like this:
+Replace the placeholder in the copy with your base64 encoded token. When you're done, the releases/secret.yml should look something like this:
 ```yaml
 apiVersion: v1
 kind: Secret
