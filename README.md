@@ -68,7 +68,7 @@ cp releases/secret.yml.tmpl releases/secret.yml
 
 If your token is `abc123abc123abc123`, then you want to base64 encode your token like so:
 ```bash
-echo -n "abc123abc123abc123" | base64
+echo -n "abc123abc123abc123" | base64 | tr -d '\r\n'
 ```
 
 Replace the placeholder in the copy with your base64 encoded token. When you're done, the releases/secret.yml should look something like this:
