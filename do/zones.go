@@ -58,8 +58,7 @@ func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error
 // GetZoneByNodeName returns a cloudprovider.Zone from the droplet identified
 // by nodeName. GetZoneByNodeName only sets the Region field of the returned
 // cloudprovider.Zone.
-func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone,
-	error) {
+func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone, error) {
 	d, err := dropletByName(context.Background(), z.client, nodeName)
 	if err != nil {
 		return cloudprovider.Zone{}, err

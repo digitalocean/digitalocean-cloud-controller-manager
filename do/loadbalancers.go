@@ -80,12 +80,12 @@ type loadbalancers struct {
 	lbActiveCheckTick int
 }
 
-// newLoadbalancers returns a LoadBalancer whose concrete type is a *loadbalancer.
+// newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
 func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
 	return &loadbalancers{client, region, defaultActiveTimeout, defaultActiveCheckTick}
 }
 
-// GetLoadBalancer returns the LoadBalancerStatus of service.
+// GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
 //
 // GetLoadBalancer will not modify service.
 func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {

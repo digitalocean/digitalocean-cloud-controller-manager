@@ -135,12 +135,9 @@ func (i *instances) InstanceTypeByProviderID(providerID string) (string, error) 
 	return droplet.SizeSlug, err
 }
 
-// AddSSHKeyToAllInstances adds an SSH public key as a legal identity for all
-// droplets.
-//
-// The expected key format is the standard ssh-keygen format: <protocol> <blob>.
+// AddSSHKeyToAllInstances is not implemented; it always returns an error.
 func (i *instances) AddSSHKeyToAllInstances(user string, keyData []byte) error {
-	return errors.New("not implemented yet")
+	return errors.New("not implemented")
 }
 
 // CurrentNodeName returns hostname as a NodeName value.
