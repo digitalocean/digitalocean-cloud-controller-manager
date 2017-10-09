@@ -34,6 +34,8 @@ func newZones(client *godo.Client, region string) cloudprovider.Zones {
 
 // GetZone returns a cloudprovider.Zone from the region of z. GetZone only sets
 // the Region field of the returned cloudprovider.Zone.
+//
+// Kuberenetes uses this method to get the region that the program is running in.
 func (z zones) GetZone() (cloudprovider.Zone, error) {
 	return cloudprovider.Zone{Region: z.region}, nil
 }
