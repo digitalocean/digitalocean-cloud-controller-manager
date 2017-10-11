@@ -51,7 +51,7 @@ In the future, it may implement:
 ## Deployment
 
 ### Token
-To run digitalocean-cloud-controller-manager, you need a digitalocean access token. If you are already logged in, you can create one [here](https://cloud.digitalocean.com/settings/api/tokens). Ensure the token you create has both read and write access. Once you have an access token, you want to create a Kubernetes Secret as a way for the cloud controller manager to access your token. You can do this with one of the following methods:
+To run digitalocean-cloud-controller-manager, you need a DigitalOcean personal access token. If you are already logged in, you can create one [here](https://cloud.digitalocean.com/settings/api/tokens). Ensure the token you create has both read and write access. Once you have a personal access token, create a Kubernetes Secret as a way for the cloud controller manager to access your token. You can do this with one of the following methods:
 
 #### Script
 You can use the script [scripts/generate-secret.sh](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/scripts/generate-secret.sh) in this repo to create the Kubernetes Secret. Note that this will apply changes using your default `kubectl` context. For example, if your token is `abc123abc123abc123`, run the following to create the Kubernetes Secret.
@@ -61,12 +61,17 @@ scripts/generate-secret.sh
 ```
 
 #### Manually
+Copy [releases/secret.yml.tmpl](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/releases/secret.yml.tmpl) to releases/secret.yml:
+```bash
+cp releases/secret.yml.tmpl releases/secret.yml
+```
+
 If your token is `abc123abc123abc123`, then you want to base64 encode your token like so:
 ```bash
 echo -n "abc123abc123abc123" | base64
 ```
 
-and then insert the base64 encoded token into the secret file [here](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/releases/token.yml#L10), replacing the placeholder. The secret should look something like this:
+Replace the placeholder in the copy with your base64 encoded token. When you're done, the releases/secret.yml should look something like this:
 ```yaml
 apiVersion: v1
 kind: Secret
@@ -77,9 +82,9 @@ data:
   access-token: "YWJjMTIzYWJjMTIzYWJjMTIz"
 ```
 
-then simply run this command from the root of this repo:
+Finally, run this command from the root of this repo:
 ```bash
-kubectl apply -f releases/token.yml
+kubectl apply -f releases/secret.yml
 ```
 
 You should now see the digitalocean secret in the `kube-system` namespace along with other secrets
