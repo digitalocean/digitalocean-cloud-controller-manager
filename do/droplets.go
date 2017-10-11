@@ -31,7 +31,6 @@ import (
 	"github.com/digitalocean/godo/context"
 )
 
-// instances Implements cloudprovider.Instances
 type instances struct {
 	client *godo.Client
 	region string
@@ -41,8 +40,11 @@ func newInstances(client *godo.Client, region string) cloudprovider.Instances {
 	return &instances{client, region}
 }
 
-// NodeAddresses returns all the valid addresses of the specified node
-// For DO, this is the public/private ipv4 addresses only for now
+// NodeAddresses returns all the valid addresses of the droplet identified by
+// nodeName. Only the public/private IPv4 addresses are considered for now.
+//
+// When nodeName identifies more than one droplet, only the first will be
+// considered.
 func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, error) {
 	droplet, err := dropletByName(context.TODO(), i.client, nodeName)
 	if err != nil {
@@ -52,10 +54,11 @@ func (i *instances) NodeAddresses(nodeName types.NodeName) ([]v1.NodeAddress, er
 	return nodeAddresses(droplet)
 }
 
-// NodeAddressesByProviderID returns all the valid addresses of the specified
-// node by providerId. For DO this is the public/private ipv4 addresses for now.
-func (i *instances) NodeAddressesByProviderID(providerId string) ([]v1.NodeAddress, error) {
-	id, err := dropletIDFromProviderID(providerId)
+// NodeAddressesByProviderID returns all the valid addresses of the droplet
+// identified by providerID. Only the public/private IPv4 addresses will be
+// considered for now.
+func (i *instances) NodeAddressesByProviderID(providerID string) ([]v1.NodeAddress, error) {
+	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +71,7 @@ func (i *instances) NodeAddressesByProviderID(providerId string) ([]v1.NodeAddre
 	return nodeAddresses(droplet)
 }
 
-// nodeAddresses extracts droplet data into []v1.NodeAddress
+// nodeAddresses returns a []v1.NodeAddress from droplet.
 func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
@@ -88,13 +91,17 @@ func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	return addresses, nil
 }
 
-// ExternalID returns the cloud provider ID of the node with the specified NodeName.
-// Note that if the instance does not exist or is no longer running, we must return ("", cloudprovider.InstanceNotFound)
+// ExternalID returns the cloud provider ID of the droplet identified by
+// nodeName. If the droplet does not exist or is no longer running, the
+// returned error will be cloudprovider.InstanceNotFound.
+//
+// When nodeName identifies more than one droplet, only the first will be
+// considered.
 func (i *instances) ExternalID(nodeName types.NodeName) (string, error) {
 	return i.InstanceID(nodeName)
 }
 
-// InstanceID returns the cloud provider ID of the node with the specified NodeName.
+// InstanceID returns the cloud provider ID of the droplet identified by nodeName.
 func (i *instances) InstanceID(nodeName types.NodeName) (string, error) {
 	droplet, err := dropletByName(context.TODO(), i.client, nodeName)
 	if err != nil {
@@ -103,8 +110,7 @@ func (i *instances) InstanceID(nodeName types.NodeName) (string, error) {
 	return strconv.Itoa(droplet.ID), nil
 }
 
-// InstanceType returns the type of the specified instance.
-// Droplet types are defined by amount of memory available
+// InstanceType returns the type of the droplet identified by name.
 func (i *instances) InstanceType(name types.NodeName) (string, error) {
 	droplet, err := dropletByName(context.TODO(), i.client, name)
 	if err != nil {
@@ -114,9 +120,9 @@ func (i *instances) InstanceType(name types.NodeName) (string, error) {
 	return droplet.SizeSlug, nil
 }
 
-// InstanceTypeByProviderID returns the type of the specified instance.
-func (i *instances) InstanceTypeByProviderID(providerId string) (string, error) {
-	id, err := dropletIDFromProviderID(providerId)
+// InstanceTypeByProviderID returns the type of the droplet identified by providerID.
+func (i *instances) InstanceTypeByProviderID(providerID string) (string, error) {
+	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return "", err
 	}
@@ -129,21 +135,22 @@ func (i *instances) InstanceTypeByProviderID(providerId string) (string, error) 
 	return droplet.SizeSlug, err
 }
 
-// AddSSHKeyToAllInstances adds an SSH public key as a legal identity for all instances
-// expected format for the key is standard ssh-keygen format: <protocol> <blob>
+// AddSSHKeyToAllInstances is not implemented; it always returns an error.
 func (i *instances) AddSSHKeyToAllInstances(user string, keyData []byte) error {
-	return errors.New("not implemented yet")
+	return errors.New("not implemented")
 }
 
-// CurrentNodeName returns the name of the node we are currently running on
-// On most clouds (e.g. GCE) this is the hostname, so we provide the hostname
+// CurrentNodeName returns hostname as a NodeName value.
 func (i *instances) CurrentNodeName(hostname string) (types.NodeName, error) {
 	return types.NodeName(hostname), nil
 }
 
-// InstanceExistsByProviderID returns true if the instance for the given provider id still is running.
-// If false is returned with no error, the instance will be immediately deleted by the cloud controller manager.
+// InstanceExistsByProviderID returns true if the droplet identified by
+// providerID is running.
 func (i *instances) InstanceExistsByProviderID(providerID string) (bool, error) {
+	// NOTE: when false is returned with no error, the instance will be
+	// immediately deleted by the cloud controller manager.
+
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return false, err
@@ -166,7 +173,7 @@ func (i *instances) InstanceExistsByProviderID(providerID string) (bool, error) 
 	return false, nil
 }
 
-// dropletByID returns the godo Droplet type corresponding to the provided id
+// dropletByID returns a *godo.Droplet value for the droplet identified by id.
 func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Droplet, error) {
 	intId, err := strconv.Atoi(id)
 	if err != nil {
@@ -181,9 +188,10 @@ func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Dro
 	return droplet, nil
 }
 
-// dropletByName returns the godo Droplet type corresponding to the node name
-// since we can only get droplets by id, we do a list of all droplets and return
-// the first one that matches the provided name
+// dropletByName returns a *godo.Droplet for the droplet identified by nodeName.
+//
+// When nodeName identifies more than one droplet, only the first will be
+// considered.
 func dropletByName(ctx context.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
 	// TODO (andrewsykim): list by tag once a tagging format is determined
 	droplets, err := allDropletList(ctx, client)
@@ -200,8 +208,9 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 	return nil, cloudprovider.InstanceNotFound
 }
 
-// dropletIDFromProviderID returns a droplet's ID extracted from the node's
-// providerID spec. The providerID spec should be retrievable from the Kubernetes
+// dropletIDFromProviderID returns a droplet's ID from providerID.
+//
+// The providerID spec should be retrievable from the Kubernetes
 // node object. The expected format is: digitalocean://droplet-id
 func dropletIDFromProviderID(providerID string) (string, error) {
 	if providerID == "" {

@@ -34,35 +34,35 @@ import (
 const (
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specifed in annDOTLSPorts, this protocol
-	// is overwritten to https. Options are tcp, http and https. Defaults to tcp
+	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
 	annDOProtocol = "service.beta.kubernetes.io/do-loadbalancer-protocol"
 
 	// annDOTLSPorts is the annotation used to specify which ports of the loadbalancer
 	// should use the https protocol. This is a comma separated list of ports
-	// e.g. 443,6443,7443
+	// (e.g. 443,6443,7443).
 	annDOTLSPorts = "service.beta.kubernetes.io/do-loadbalancer-tls-ports"
 
 	// annDOTLSPassThrough is the annotation used to specify whether the
 	// DO loadbalancer should pass encrypted data to backend droplets.
-	// This is optional and defaults to false
+	// This is optional and defaults to false.
 	annDOTLSPassThrough = "service.beta.kubernetes.io/do-loadbalancer-tls-passthrough"
 
 	// annDOCertificateID is the annotation specifying the certificate ID
 	// used for https protocol. This annoataion is required if annDOTLSPorts
-	// is passed
+	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
 
 	// annDOAlgorithm is the annotation specifying which algorithm DO loadbalancer
 	// should use. Options are round_robin and least_connections. Defaults
-	// to round_robin
+	// to round_robin.
 	annDOAlgorithm = "service.beta.kubernetes.io/do-loadbalancer-algorithm"
 
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
-	// reach the active state
+	// reach the active state.
 	defaultActiveTimeout = 90
 
 	// defaultActiveCheckTick is the number of seconds between load balancer
-	// status checks when waiting for activation
+	// status checks when waiting for activation.
 	defaultActiveCheckTick = 5
 
 	// statuses for Digital Ocean load balancer
@@ -73,7 +73,6 @@ const (
 
 var lbNotFound = errors.New("loadbalancer not found")
 
-// loadbalancers implements cloudprovider.Loadbalancer
 type loadbalancers struct {
 	client            *godo.Client
 	region            string
@@ -81,14 +80,14 @@ type loadbalancers struct {
 	lbActiveCheckTick int
 }
 
-// newLoadbalancers returns a type loadbalancer, implementing cloudprovider.Loadbalancer
+// newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
 func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
 	return &loadbalancers{client, region, defaultActiveTimeout, defaultActiveCheckTick}
 }
 
-// GetLoadBalancer specifies whether the loadbalancer exists based on the provided service
-// if exists, will return loadbalancer status. v1.Service provdied must be treated
-// as read only. clusterName is what's specified in the kube-controller-manager
+// GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
+//
+// GetLoadBalancer will not modify service.
 func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
 	lb, err := l.lbByName(context.TODO(), lbName)
@@ -116,9 +115,10 @@ func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service)
 	}, true, nil
 }
 
-// EnsureLoadBalancer will create a new load balancer or updating existing ones
-// Service and Nodes passed in must be treated as read only.
-// clusterName is what's specified in the kube-controller-manager
+// EnsureLoadBalancer ensures that the cluster is running a load balancer for
+// service.
+//
+// EnsureLoadBalancer will not modify service or nodes.
 func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
 	lbStatus, exists, err := l.GetLoadBalancer(clusterName, service)
 	if err != nil {
@@ -164,9 +164,10 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 
 }
 
-// UpdateLoadBalancer updates any droplets under the specified loadbalancer
-// services and nodes passed in are to be treated as read only
-// clusterName is what's specified in the kube-controller-manager
+// UpdateLoadBalancer updates the load balancer for service to balance across
+// the droplets in nodes.
+//
+// UpdateLoadBalancer will not modify service or nodes.
 func (l *loadbalancers) UpdateLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) error {
 	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 	if err != nil {
@@ -183,10 +184,11 @@ func (l *loadbalancers) UpdateLoadBalancer(clusterName string, service *v1.Servi
 	return err
 }
 
-// EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists
-// returning nil if the loadbalancer specifed either didn't exist or
-// was successfully deleted. Services and nodes passed in are to be treated
-// as read only. clusterName is what's specified in kube-controller-manager
+// EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
+// nil is returned if the load balancer for service does not exist or is
+// successfully deleted.
+//
+// EnsureLoadBalancerDeleted will not modify service.
 func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v1.Service) error {
 	_, exists, err := l.GetLoadBalancer(clusterName, service)
 	if err != nil {
@@ -209,8 +211,8 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v
 	return err
 }
 
-// lbByName gets a DigitalOcean loadbalancer provided it's name.
-// returns lbNotFound error if it doesn't exist
+// lbByName gets a DigitalOcean Load Balancer by name. The returned error will
+// be lbNotFound if the load balancer does not exist.
 func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
 	lbs, _, err := l.client.LoadBalancers.List(ctx, &godo.ListOptions{})
 	if err != nil {
@@ -226,8 +228,9 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 	return nil, lbNotFound
 }
 
-// nodesToDropletID receives a list of Kubernetes nodes and get's all the corresponding droplet IDs.
-// This function assumes nodes names match that of the droplet name
+// nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
+//
+// Node names are assumed to match droplet names.
 func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 	droplets, err := allDropletList(context.TODO(), l.client)
 
@@ -248,10 +251,9 @@ func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 	return dropletIDs, nil
 }
 
-// buildLoadBalancerRequest builds godo.LoadBalancerRequest provided
-// kubernetes service and list of kubernetes nodes.
-func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (
-	*godo.LoadBalancerRequest, error) {
+// buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
+// requests for service across nodes.
+func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
 
 	dropletIDs, err := l.nodesToDropletIDs(nodes)
@@ -307,10 +309,11 @@ func (l *loadbalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
 	}
 }
 
-// buildHealthChecks receives a kubernetes service and builds health checks
-// used for DO loadbalancers. Although a Kubernetes Service can have many node ports,
-// DO Loadbalancers can only take 1 node port so we choose the first node port
-// for health checking.
+// buildHealthChecks returns a godo.HealthCheck for service.
+//
+// Although a Kubernetes Service can have many node ports, DigitalOcean Load
+// Balancers can only take one node port so we choose the first node port for
+// health checking.
 func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	protocol, err := getProtocol(service)
 	if err != nil {
@@ -329,8 +332,8 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	}, nil
 }
 
-// buildForwardingRules will build forwarding rules for DigitalOcean loadbalancers
-// based on the given Kubernetes service
+// buildForwardingRules returns the forwarding rules of the Load Balancer of
+// service.
 func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	protocol, err := getProtocol(service)
 	if err != nil {
@@ -394,7 +397,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	return forwardingRules, nil
 }
 
-// getProtocol returns the desired protocol reading annotiation annDOProtocol
+// getProtocol returns the desired protocol of service.
 func getProtocol(service *v1.Service) (string, error) {
 	protocol, ok := service.Annotations[annDOProtocol]
 	if !ok {
@@ -408,8 +411,7 @@ func getProtocol(service *v1.Service) (string, error) {
 	return protocol, nil
 }
 
-// getTLSPorts reads the set of ports that are set to use TLS
-// by reading annotiation annDOTLSPorts
+// getTLSPorts returns the ports of service that are set to use TLS.
 func getTLSPorts(service *v1.Service) ([]int, error) {
 	tlsPorts, ok := service.Annotations[annDOTLSPorts]
 	if !ok {
@@ -431,33 +433,30 @@ func getTLSPorts(service *v1.Service) ([]int, error) {
 	return tlsPortsInt, nil
 }
 
-// getCertificateID gets the certificate ID to use for forwarding rule
-// passed in through annotations annDOCertificateID
+// getCertificateID returns the certificate ID of service to use for fowarding
+// rules.
 func getCertificateID(service *v1.Service) string {
 	return service.Annotations[annDOCertificateID]
 }
 
-// getTlsPassThrough determines if there should be TLS pass through
-// to backend nodes. This is specificed with annotation annDOTlsPassThrough
+// getTLSPassThrough returns true if there should be TLS pass through to
+// backend nodes.
 func getTLSPassThrough(service *v1.Service) bool {
 	passThrough, ok := service.Annotations[annDOTLSPassThrough]
 	if !ok {
-		// this is the DO default
 		return false
 	}
 
 	passThroughBool, err := strconv.ParseBool(passThrough)
 	if err != nil {
-		// this is the DO default
 		return false
 	}
 
 	return passThroughBool
 }
 
-// getAlgorithm will get the desired algorithm by reading
-// an annotation from a service. Defaults to round_robin if
-// annotation doesn't exist
+// getAlgorithm returns the load balancing algorithm to use for service.
+// round_robin is returned when service does not specify an algorithm.
 func getAlgorithm(service *v1.Service) string {
 	algo := service.Annotations[annDOAlgorithm]
 

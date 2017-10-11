@@ -27,7 +27,10 @@ import (
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/kubernetes/pkg/cloudprovider"
 )
+
+var _ cloudprovider.LoadBalancer = new(loadbalancers)
 
 type fakeLBService struct {
 	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
