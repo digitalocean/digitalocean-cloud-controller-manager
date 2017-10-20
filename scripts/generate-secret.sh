@@ -19,7 +19,7 @@ if [[ -z $DIGITALOCEAN_ACCESS_TOKEN ]]; then
   exit 1
 fi
 
-ENCODED_ACCESS_TOKEN=$(echo -n "$DIGITALOCEAN_ACCESS_TOKEN" | base64)
+ENCODED_ACCESS_TOKEN=$(echo -n "$DIGITALOCEAN_ACCESS_TOKEN" | base64 | tr -d '\r\n')
 
 GENERATED_SECRET=./generated-secret.yml
 trap "{ rm $GENERATED_SECRET; }" EXIT
