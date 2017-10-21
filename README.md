@@ -40,7 +40,7 @@ All droplet names in kubernetes must be unique since node names in kubernetes mu
 
 ## Implementation Details
 
-Currently `digital-cloud-controller-manager` implements:
+Currently `digitalocean-cloud-controller-manager` implements:
 * nodecontroller - updates nodes with cloud provider specific labels and addresses, also deletes kubernetes nodes when deleted on the cloud provider.
 * servicecontroller - responsible for creating LoadBalancers when a service of `Type: LoadBalancer` is created in Kubernetes.
 
@@ -51,7 +51,7 @@ In the future, it may implement:
 ## Deployment
 
 ### Token
-To run digitalocean-cloud-controller-manager, you need a DigitalOcean personal access token. If you are already logged in, you can create one [here](https://cloud.digitalocean.com/settings/api/tokens). Ensure the token you create has both read and write access. Once you have a personal access token, create a Kubernetes Secret as a way for the cloud controller manager to access your token. You can do this with one of the following methods:
+To run `digitalocean-cloud-controller-manager`, you need a DigitalOcean personal access token. If you are already logged in, you can create one [here](https://cloud.digitalocean.com/settings/api/tokens). Ensure the token you create has both read and write access. Once you have a personal access token, create a Kubernetes Secret as a way for the cloud controller manager to access your token. You can do this with one of the following methods:
 
 #### Script
 You can use the script [scripts/generate-secret.sh](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/scripts/generate-secret.sh) in this repo to create the Kubernetes Secret. Note that this will apply changes using your default `kubectl` context. For example, if your token is `abc123abc123abc123`, run the following to create the Kubernetes Secret.
@@ -95,7 +95,7 @@ default-token-jskxx   kubernetes.io/service-account-token   3         18h
 digitalocean          Opaque                                1         18h
 ```
 
-### cloud controller manager
+### Cloud controller manager
 Currently we only support alpha release of the `digitalocean-cloud-controller-manager` due to its active development. Run the first alpha release like so
 ```bash
 kubectl apply -f releases/v0.1.2.yml
