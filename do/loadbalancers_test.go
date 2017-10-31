@@ -1042,10 +1042,10 @@ func Test_nodeToDropletIDs(t *testing.T) {
 				},
 			},
 			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-				return nil, nil, errors.New("error!")
+				return nil, nil, errors.New("badness")
 			},
 			nil,
-			errors.New("error!"),
+			errors.New("badness"),
 		},
 		{
 			"node to droplet ID with droplets not in cluster",
@@ -1147,9 +1147,9 @@ func Test_lbByName(t *testing.T) {
 			"lb-0",
 			nil,
 			func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, nil, errors.New("error!")
+				return nil, nil, errors.New("badness")
 			},
-			errors.New("error!"),
+			errors.New("badness"),
 		},
 		{
 			"Loadbalancer not found",
@@ -1163,7 +1163,7 @@ func Test_lbByName(t *testing.T) {
 				}, nil, nil
 
 			},
-			lbNotFound,
+			errLBNotFound,
 		},
 	}
 
@@ -1291,7 +1291,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 				return nil, nil, nil
 			},
 			func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, nil, errors.New("error!")
+				return nil, nil, errors.New("badness")
 			},
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1314,7 +1314,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 			},
 			nil,
 			false,
-			errors.New("error!"),
+			errors.New("badness"),
 		},
 	}
 

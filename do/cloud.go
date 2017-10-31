@@ -30,7 +30,7 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 )
 
-const DOAccessTokenEnv string = "DO_ACCESS_TOKEN"
+const doAccessTokenEnv string = "DO_ACCESS_TOKEN"
 const providerName string = "digitalocean"
 
 type tokenSource struct {
@@ -52,10 +52,10 @@ type cloud struct {
 }
 
 func newCloud(config io.Reader) (cloudprovider.Interface, error) {
-	token := os.Getenv(DOAccessTokenEnv)
+	token := os.Getenv(doAccessTokenEnv)
 
 	if token == "" {
-		return nil, fmt.Errorf("environment variable %q is required", DOAccessTokenEnv)
+		return nil, fmt.Errorf("environment variable %q is required", doAccessTokenEnv)
 	}
 
 	tokenSource := &tokenSource{
