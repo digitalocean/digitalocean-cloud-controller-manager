@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: clean compile build push test govet gofmt
 
 VERSION ?= v0.1.2
 REGISTRY ?= digitalocean
 
 all: clean compile build push
+
+.PHONY: clean compile build push test govet gofmt
 
 clean:
 	rm -f digitalocean-cloud-controller-manager
