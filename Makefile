@@ -17,33 +17,41 @@ REGISTRY ?= digitalocean
 
 all: clean ci compile build push
 
-.PHONY: clean compile build push test govet golint gofmt
-
+.PHONY: clean
 clean:
 	GOOS=linux go clean -i -x ./...
 
+.PHONY: compile
 compile:
 	GOOS=linux go build
 
+.PHONY: build
 build:
 	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) .
 
+.PHONY: push
 push:
 	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 
-ci: check-headers govet gofmt test
+.PHONY: ci
+ci: check-headers gofmt govet golint test
 
+.PHONY: govet
 govet:
 	go vet $(shell go list ./... | grep -v vendor)
 
+.PHONY: golint
 golint:
 	golint $(shell go list ./... | grep -v vendor)
 
+.PHONY: gofmt
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	ci/gofmt.sh
 
+.PHONY: test
 test:
 	go test $(shell go list ./... | grep -v vendor)
 
+.PHONY: check-headers
 check-headers:
 	./ci/headers-*.sh
