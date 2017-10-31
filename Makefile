@@ -15,7 +15,7 @@
 VERSION ?= v0.1.2
 REGISTRY ?= digitalocean
 
-all: clean compile build push
+all: clean ci compile build push
 
 .PHONY: clean compile build push test govet golint gofmt
 
