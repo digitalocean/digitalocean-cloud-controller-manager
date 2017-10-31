@@ -20,10 +20,10 @@ all: clean compile build push
 .PHONY: clean compile build push test govet golint gofmt
 
 clean:
-	rm -f digitalocean-cloud-controller-manager
+	GOOS=linux go clean -i -x ./...
 
 compile:
-	GOOS=linux go build .
+	GOOS=linux go build
 
 build:
 	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) .
