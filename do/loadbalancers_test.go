@@ -363,7 +363,7 @@ func Test_getProtocol(t *testing.T) {
 				},
 			},
 			"",
-			fmt.Errorf("invalid protocol: %q specifed in annotation: %q", "invalid", annDOProtocol),
+			fmt.Errorf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
 		},
 	}
 
@@ -751,7 +751,7 @@ func Test_buildHealthCheck(t *testing.T) {
 				},
 			},
 			nil,
-			fmt.Errorf("invalid protocol: %q specifed in annotation: %q", "invalid", annDOProtocol),
+			fmt.Errorf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
 		},
 	}
 

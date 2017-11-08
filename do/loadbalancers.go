@@ -33,7 +33,7 @@ import (
 
 const (
 	// annDOProtocol is the annotation used to specify the default protocol
-	// for DO load balancers. For ports specifed in annDOTLSPorts, this protocol
+	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
 	annDOProtocol = "service.beta.kubernetes.io/do-loadbalancer-protocol"
 
@@ -405,7 +405,7 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	if protocol != "tcp" && protocol != "http" && protocol != "https" {
-		return "", fmt.Errorf("invalid protocol: %q specifed in annotation: %q", protocol, annDOProtocol)
+		return "", fmt.Errorf("invalid protocol: %q specified in annotation: %q", protocol, annDOProtocol)
 	}
 
 	return protocol, nil
