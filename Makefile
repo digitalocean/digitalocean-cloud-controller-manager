@@ -23,7 +23,7 @@ clean:
 	rm -f digitalocean-cloud-controller-manager
 
 compile:
-	GOOS=linux go build .
+	CGO_ENABLED=0 GOOS=linux go build .
 
 build:
 	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) .

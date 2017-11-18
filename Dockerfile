@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ubuntu:16.04
+FROM alpine:3.6
 
-RUN apt-get update -y && apt-get install -y ca-certificates
+RUN apk add --no-cache ca-certificates
 
 ADD digitalocean-cloud-controller-manager /bin/
 
