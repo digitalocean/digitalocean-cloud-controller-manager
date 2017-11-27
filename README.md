@@ -13,11 +13,7 @@ At the current state of Kubernetes, running cloud controller manager requires a 
 * Kubernetes version 1.8 for versions >= v0.1.2
 
 ### --cloud-provider=external
-All Kubernetes components specifying a cloud provider should set the flag `--cloud-provider=external`. This is required since the core `kube-controller-manager` will overlap with control loops running against `cloud-controller-manager` unless it is told that an external controller will handle those loops. At the time of writing this, the only components that need updating are:
-
-* kube-apiserver
-* kube-controller-manager
-* kubelets
+All `kubelet`s in your cluster **MUST** set the flag `--cloud-provider=external`. `kube-apiserver` and `kube-controller-manager` must **NOT** set the flag `--cloud-provider` which will default them to use no cloud provider natively.
 
 **WARNING**: setting `--cloud-provider=external` will taint all nodes in a cluster with `node.cloudprovider.kubernetes.io/uninitialized`, it is the responsibility of cloud controller managers to untaint those nodes once it has finished initializing them. This means that most pods will be left unscheduable until the cloud controller manager is running.
 
