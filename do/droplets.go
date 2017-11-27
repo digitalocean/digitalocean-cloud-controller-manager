@@ -203,6 +203,12 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 		if droplet.Name == string(nodeName) {
 			return &droplet, nil
 		}
+		addresses, _ := nodeAddresses(&droplet)
+		for _, address := range addresses {
+			if address.Address == string(nodeName) {
+				return &droplet, nil
+			}
+		}
 	}
 
 	return nil, cloudprovider.InstanceNotFound
