@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.1.3 (alpha) - December 13th 2017
+* Support clusters where nodeName is the private or public IP (@klausenbusk)
+* Switch Docker base image to Alpine from Ubuntu (@klausenbusk)
+
+Supports Kubernetes Versions: v1.8
+
 ## v0.1.2 (alpha) - October 5th 2017
 * Implement InstanceExistsByProviderID (@andrewsykim)
 * Cloud Controller Manager should run as a critical pod with resource requests (@andrewsykim)
