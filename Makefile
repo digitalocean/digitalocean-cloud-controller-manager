@@ -12,35 +12,46 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: clean compile build push test govet gofmt
-
 VERSION ?= v0.1.3
 REGISTRY ?= digitalocean
 
-all: clean compile build push
+all: clean ci compile build push
 
+.PHONY: clean
 clean:
-	rm -f digitalocean-cloud-controller-manager
+	GOOS=linux go clean -i -x ./...
 
+.PHONY: compile
 compile:
-	CGO_ENABLED=0 GOOS=linux go build .
+	CGO_ENABLED=0 GOOS=linux go build
 
+.PHONY: build
 build:
 	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) .
 
+.PHONY: push
 push:
 	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 
-ci: check-headers govet gofmt test
+.PHONY: ci
+ci: check-headers gofmt govet golint test
 
+.PHONY: govet
 govet:
 	go vet $(shell go list ./... | grep -v vendor)
 
+.PHONY: golint
+golint:
+	golint $(shell go list ./... | grep -v vendor)
+
+.PHONY: gofmt
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	ci/gofmt.sh
 
+.PHONY: test
 test:
 	go test $(shell go list ./... | grep -v vendor)
 
+.PHONY: check-headers
 check-headers:
 	./ci/headers-*.sh

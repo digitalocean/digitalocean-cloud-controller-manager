@@ -71,7 +71,7 @@ const (
 	lbStatusErrored = "errored"
 )
 
-var lbNotFound = errors.New("loadbalancer not found")
+var errLBNotFound = errors.New("loadbalancer not found")
 
 type loadbalancers struct {
 	client            *godo.Client
@@ -92,7 +92,7 @@ func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service)
 	lbName := cloudprovider.GetLoadBalancerName(service)
 	lb, err := l.lbByName(context.TODO(), lbName)
 	if err != nil {
-		if err == lbNotFound {
+		if err == errLBNotFound {
 			return nil, false, nil
 		}
 
@@ -225,7 +225,7 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 		}
 	}
 
-	return nil, lbNotFound
+	return nil, errLBNotFound
 }
 
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.

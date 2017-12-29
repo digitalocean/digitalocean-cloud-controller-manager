@@ -175,12 +175,12 @@ func (i *instances) InstanceExistsByProviderID(providerID string) (bool, error) 
 
 // dropletByID returns a *godo.Droplet value for the droplet identified by id.
 func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Droplet, error) {
-	intId, err := strconv.Atoi(id)
+	intID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("error converting droplet id to string: %v", err)
 	}
 
-	droplet, _, err := client.Droplets.Get(ctx, intId)
+	droplet, _, err := client.Droplets.Get(ctx, intID)
 	if err != nil {
 		return nil, err
 	}
