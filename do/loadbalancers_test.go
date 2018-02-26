@@ -385,6 +385,203 @@ func Test_getProtocol(t *testing.T) {
 	}
 }
 
+func Test_getStickySessionsType(t *testing.T) {
+	testcases := []struct {
+		name    string
+		service *v1.Service
+		ssType  string
+		err     error
+	}{
+		{
+			"sticky sessions type cookies",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "cookies",
+					},
+				},
+			},
+			"cookies",
+			nil,
+		},
+		{
+			"sticky sessions type none",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "none",
+					},
+				},
+			},
+			"none",
+			nil,
+		},
+		{
+			"sticky sessions type not defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			"none",
+			nil,
+		},
+		{
+			"sticky sessions type incorrect",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "incorrect",
+					},
+				},
+			},
+			"none",
+			nil,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			ssType := getStickySessionsType(test.service)
+			if ssType != test.ssType {
+				t.Error("unexpected sticky sessions type")
+				t.Logf("expected: %q", test.ssType)
+				t.Logf("actual: %q", ssType)
+			}
+		})
+	}
+}
+
+func Test_getStickySessionsCookieName(t *testing.T) {
+	testcases := []struct {
+		name    string
+		service *v1.Service
+		cName   string
+		err     error
+	}{
+		{
+			"sticky sessions cookies name DO-CCM",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:       "cookies",
+						annDOStickySessionsCookieName: "DO-CCM",
+					},
+				},
+			},
+			"DO-CCM",
+			nil,
+		},
+		{
+			"sticky sessions cookies name empty",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:       "cookies",
+						annDOStickySessionsCookieName: "",
+					},
+				},
+			},
+			"",
+			fmt.Errorf("sticky session cookie name not specified, but required"),
+		},
+		{
+			"sticky sessions cookie name not defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "cookies",
+					},
+				},
+			},
+			"",
+			fmt.Errorf("sticky session cookie name not specified, but required"),
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			cName, err := getStickySessionsCookieName(test.service)
+			if cName != test.cName {
+				t.Error("unexpected sticky sessions cookie name")
+				t.Logf("expected: %q", test.cName)
+				t.Logf("actual: %q", cName)
+			}
+
+			if !reflect.DeepEqual(err, test.err) {
+				t.Error("unexpected error")
+				t.Logf("expected: %v", test.err)
+				t.Logf("actual: %v", err)
+			}
+		})
+	}
+}
+
+func Test_getStickySessionsCookieTTL(t *testing.T) {
+	testcases := []struct {
+		name    string
+		service *v1.Service
+		ttl     int
+		err     error
+	}{
+		{
+			"sticky sessions cookies ttl",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:      "cookies",
+						annDOStickySessionsCookieTTL: "300",
+					},
+				},
+			},
+			300,
+			nil,
+		},
+		{
+			"sticky sessions cookie ttl empty",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:      "cookies",
+						annDOStickySessionsCookieTTL: "",
+					},
+				},
+			},
+			0,
+			fmt.Errorf("sticky session cookie ttl not specified, but required"),
+		},
+		{
+			"sticky sessions cookie ttl not defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "cookies",
+					},
+				},
+			},
+			0,
+			fmt.Errorf("sticky session cookie ttl not specified, but required"),
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			ttl, err := getStickySessionsCookieTTL(test.service)
+			if ttl != test.ttl {
+				t.Error("unexpected sticky sessions cookie ttl")
+				t.Logf("expected: %q", test.ttl)
+				t.Logf("actual: %q", ttl)
+			}
+
+			if !reflect.DeepEqual(err, test.err) {
+				t.Error("unexpected error")
+				t.Logf("expected: %v", test.err)
+				t.Logf("actual: %v", err)
+			}
+		})
+	}
+}
+
 func Test_buildForwardingRules(t *testing.T) {
 	testcases := []struct {
 		name            string
@@ -774,6 +971,115 @@ func Test_buildHealthCheck(t *testing.T) {
 
 }
 
+func Test_buildStickySessions(t *testing.T) {
+	testcases := []struct {
+		name          string
+		service       *v1.Service
+		stickysession *godo.StickySessions
+		err           error
+	}{
+		{
+			"sticky sessions type none",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "none",
+					},
+				},
+			},
+			&godo.StickySessions{
+				Type: "none",
+			},
+			nil,
+		},
+		{
+			"sticky sessions type not provided",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			&godo.StickySessions{
+				Type: "none",
+			},
+			nil,
+		},
+		{
+			"sticky sessions type cookies",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:       "cookies",
+						annDOStickySessionsCookieName: "DO-CCM",
+						annDOStickySessionsCookieTTL:  "300",
+					},
+				},
+			},
+			&godo.StickySessions{
+				Type:             "cookies",
+				CookieName:       "DO-CCM",
+				CookieTtlSeconds: 300,
+			},
+			nil,
+		},
+		{
+			"sticky sessions type cookies without ttl",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:       "cookies",
+						annDOStickySessionsCookieName: "DO-CCM",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("sticky session cookie ttl not specified, but required"),
+		},
+		{
+			"sticky sessions type cookies without name",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType:      "cookies",
+						annDOStickySessionsCookieTTL: "300",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("sticky session cookie name not specified, but required"),
+		},
+		{
+			"sticky sessions type cookies without name and ttl",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOStickySessionsType: "cookies",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("sticky session cookie name not specified, but required"),
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			stickysession, err := buildStickySessions(test.service)
+			if !reflect.DeepEqual(stickysession, test.stickysession) {
+				t.Error("unexpected health check")
+				t.Logf("expected: %v", test.stickysession)
+				t.Logf("actual: %v", stickysession)
+			}
+
+			if !reflect.DeepEqual(err, test.err) {
+				t.Error("unexpected error")
+				t.Logf("expected: %v", test.err)
+				t.Logf("actual: %v", err)
+			}
+		})
+	}
+}
+
 func Test_buildLoadBalancerRequest(t *testing.T) {
 	testcases := []struct {
 		name          string
@@ -862,6 +1168,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					UnhealthyThreshold:     3,
 				},
 				Algorithm: "round_robin",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
 			},
 			nil,
 		},
@@ -945,6 +1254,99 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					UnhealthyThreshold:     3,
 				},
 				Algorithm: "least_connections",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+			},
+			nil,
+		},
+		{
+			"successful load balancer request with cookies sticky sessions.",
+			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{
+					{
+						ID:   100,
+						Name: "node-1",
+					},
+					{
+						ID:   101,
+						Name: "node-2",
+					},
+					{
+						ID:   102,
+						Name: "node-3",
+					},
+				}, newFakeOKResponse(), nil
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:                 "http",
+						annDOStickySessionsType:       "cookies",
+						annDOStickySessionsCookieName: "DO-CCM",
+						annDOStickySessionsCookieTTL:  "300",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
+				// as loadbalancer name
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "",
+						TlsPassthrough: false,
+					},
+				},
+				HealthCheck: &godo.HealthCheck{
+					Protocol:               "http",
+					Port:                   30000,
+					CheckIntervalSeconds:   3,
+					ResponseTimeoutSeconds: 5,
+					HealthyThreshold:       5,
+					UnhealthyThreshold:     3,
+				},
+				Algorithm: "round_robin",
+				StickySessions: &godo.StickySessions{
+					Type:             "cookies",
+					CookieName:       "DO-CCM",
+					CookieTtlSeconds: 300,
+				},
 			},
 			nil,
 		},

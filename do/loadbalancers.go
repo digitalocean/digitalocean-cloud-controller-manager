@@ -57,6 +57,21 @@ const (
 	// to round_robin.
 	annDOAlgorithm = "service.beta.kubernetes.io/do-loadbalancer-algorithm"
 
+	// annDOStickySessionsType is the annotation specifying which sticky session type
+	// DO loadbalancer should use. Options are none and cookies. Defaults
+	// to none.
+	annDOStickySessionsType = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type"
+
+	// annDOStickySessionsCookieName is the annotation specifying what cookie name to use for
+	// DO loadbalancer sticky session. This annotation is required if
+	// annDOStickySessionType is set to cookies.
+	annDOStickySessionsCookieName = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name"
+
+	// annDOStickySessionsCookieTTL is the annotation specifing TTL of cookie used for
+	// DO loadbalancer sticky session. This annotation is required if
+	// annDOStickySessionType is set to cookies.
+	annDOStickySessionsCookieTTL = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -271,6 +286,11 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		return nil, err
 	}
 
+	stickySessions, err := buildStickySessions(service)
+	if err != nil {
+		return nil, err
+	}
+
 	algorithm := getAlgorithm(service)
 
 	return &godo.LoadBalancerRequest{
@@ -279,6 +299,7 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		Region:          l.region,
 		ForwardingRules: forwardingRules,
 		HealthCheck:     healthCheck,
+		StickySessions:  stickySessions,
 		Algorithm:       algorithm,
 	}, nil
 }
@@ -397,6 +418,32 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	return forwardingRules, nil
 }
 
+func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
+	t := getStickySessionsType(service)
+
+	if t == "none" {
+		return &godo.StickySessions{
+			Type: t,
+		}, nil
+	}
+
+	name, err := getStickySessionsCookieName(service)
+	if err != nil {
+		return nil, err
+	}
+
+	ttl, err := getStickySessionsCookieTTL(service)
+	if err != nil {
+		return nil, err
+	}
+
+	return &godo.StickySessions{
+		Type:             t,
+		CookieName:       name,
+		CookieTtlSeconds: ttl,
+	}, nil
+}
+
 // getProtocol returns the desired protocol of service.
 func getProtocol(service *v1.Service) (string, error) {
 	protocol, ok := service.Annotations[annDOProtocol]
@@ -466,4 +513,39 @@ func getAlgorithm(service *v1.Service) string {
 	default:
 		return "round_robin"
 	}
+}
+
+// getStickySessionsType returns the sticky session type to use for
+// loadbalancer. none is returned when a type is not specified.
+func getStickySessionsType(service *v1.Service) string {
+	t := service.Annotations[annDOStickySessionsType]
+
+	switch t {
+	case "cookies":
+		return "cookies"
+	default:
+		return "none"
+	}
+}
+
+// getStickySessionsCookieName returns cookie name used for
+// loadbalancer sticky sessions.
+func getStickySessionsCookieName(service *v1.Service) (string, error) {
+	name, ok := service.Annotations[annDOStickySessionsCookieName]
+	if !ok || name == "" {
+		return "", fmt.Errorf("sticky session cookie name not specified, but required")
+	}
+
+	return name, nil
+}
+
+// getStickySessionsCookieTTL returns ttl for cookie used for
+// loadbalancer sticky sessions.
+func getStickySessionsCookieTTL(service *v1.Service) (int, error) {
+	ttl, ok := service.Annotations[annDOStickySessionsCookieTTL]
+	if !ok || ttl == "" {
+		return 0, fmt.Errorf("sticky session cookie ttl not specified, but required")
+	}
+
+	return strconv.Atoi(ttl)
 }
