@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.1.4 (alpha) - December 13th 2017
+* Support loadbalancer sticky sessions (@xmudrii)
+* Add RBAC ClusterRole, ClusterRoleBindings and ServiceAccount
+
+Supports Kubernetes Versions: v1.8.X - v1.9.X
+
 ## v0.1.3 (alpha) - December 13th 2017
 * Support clusters where nodeName is the private or public IP (@klausenbusk)
 * Switch Docker base image to Alpine from Ubuntu (@klausenbusk)
