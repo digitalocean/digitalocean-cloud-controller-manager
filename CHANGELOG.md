@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v0.1.4 (alpha) - December 13th 2017
+## v0.1.4 (alpha) - March 18th 2018
 * Support loadbalancer sticky sessions (@xmudrii)
 * Add RBAC ClusterRole, ClusterRoleBindings and ServiceAccount
 
