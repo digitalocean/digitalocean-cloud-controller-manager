@@ -94,6 +94,15 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - services/status
+  verbs:
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
