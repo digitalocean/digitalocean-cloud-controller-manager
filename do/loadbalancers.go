@@ -68,7 +68,7 @@ const (
 	// annDOStickySessionType is set to cookies.
 	annDOStickySessionsCookieName = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name"
 
-	// annDOStickySessionsCookieTTL is the annotation specifing TTL of cookie used for
+	// annDOStickySessionsCookieTTL is the annotation specifying TTL of cookie used for
 	// DO loadbalancer sticky session. This annotation is required if
 	// annDOStickySessionType is set to cookies.
 	annDOStickySessionsCookieTTL = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl"
