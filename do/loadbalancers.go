@@ -20,7 +20,6 @@ import (
 	goctx "context"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -258,7 +257,7 @@ func (l *loadbalancers) EnsureFirewall(lb *godo.LoadBalancer) error {
 	for _, dropletid := range lb.DropletIDs {
 		firewalls, _, err := l.client.Firewalls.ListByDroplet(context.TODO(), dropletid, nil)
 		if err != nil {
-			log.Print("Something bad happened: %s\n\n", err)
+			return fmt.Errorf("Error listing firewalls for droplet %d", dropletid)
 		}
 
 		if len(firewalls) > 0 {
@@ -298,10 +297,8 @@ func (l *loadbalancers) EnsureFirewall(lb *godo.LoadBalancer) error {
 	for _, ruleToAdd := range rulesToAdd {
 		_, err := l.client.Firewalls.AddRules(context.TODO(), ruleToAdd.firewallId, ruleToAdd.rules)
 		if err != nil {
-			log.Print("error creating firewall rule")
-			log.Print(err)
+			return fmt.Errorf("Error adding rule to firewall %s", ruleToAdd.firewallId)
 		}
-
 	}
 
 	return nil
@@ -370,7 +367,7 @@ func (l *loadbalancers) EnsureFirewallDeleted(lb *godo.LoadBalancer) error {
 		firewalls, _, err := l.client.Firewalls.ListByDroplet(context.TODO(), dropletid, nil)
 
 		if err != nil {
-			log.Print("Something bad happened: %s\n\n", err)
+			return fmt.Errorf("Error listing firewalls for droplet %d", dropletid)
 		}
 
 		if len(firewalls) > 0 {
@@ -410,10 +407,8 @@ func (l *loadbalancers) EnsureFirewallDeleted(lb *godo.LoadBalancer) error {
 	for _, ruleToDelete := range rulesToDelete {
 		_, err := l.client.Firewalls.RemoveRules(context.TODO(), ruleToDelete.firewallId, ruleToDelete.rules)
 		if err != nil {
-			log.Print("error removing firewall rule")
-			log.Print(err)
+			return fmt.Errorf("Error removing rule from firewall %s", ruleToDelete.firewallId)
 		}
-
 	}
 
 	return nil
