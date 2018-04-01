@@ -52,6 +52,7 @@ func (f *fakeLBService) List(ctx context.Context, listOpts *godo.ListOptions) ([
 	return f.listFn(ctx, listOpts)
 }
 
+
 func (f *fakeLBService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 	return f.createFn(ctx, lbr)
 }
@@ -79,10 +80,80 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 	return f.removeForwardingRulesFn(ctx, lbID, rules...)
 }
 
-func newFakeLBClient(fakeLB *fakeLBService, fakeDroplet *fakeDropletService) *godo.Client {
+type fakeFWService struct {
+    addRulesFn              func(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error)
+    createAndDoReqFn        func(ctx context.Context, method, path string, v interface{}) (*godo.Response, error)
+    getFn                   func(ctx context.Context, fID string) (*godo.Firewall, *godo.Response, error)
+    createFn                func(ctx context.Context, fr *godo.FirewallRequest) (*godo.Firewall, *godo.Response, error)
+    updateFn                func(ctx context.Context, fID string, fr *godo.FirewallRequest) (*godo.Firewall, *godo.Response, error)
+    deleteFn                func(ctx context.Context, fID string) (*godo.Response, error)
+    listFn                  func(ctx context.Context, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error)
+    listByDropletFn         func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error)
+    addDropletsFn           func(ctx context.Context, fID string, dropletIDs ...int) (*godo.Response, error)
+    removeDropletsFn        func(ctx context.Context, fID string, dropletIDs ...int) (*godo.Response, error)
+    addTagsFn               func(ctx context.Context, fID string, tags ...string) (*godo.Response, error)
+    removeTagsFn            func(ctx context.Context, fID string, tags ...string) (*godo.Response, error)
+    removeRulesFn           func(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error)
+}
+
+
+func (fw *fakeFWService) AddRules(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error) {
+    return fw.addRulesFn(ctx, fID, rr)
+}
+
+func (fw *fakeFWService) createAndDoReq(ctx context.Context, method, path string, v interface{}) (*godo.Response, error) {
+    return fw.createAndDoReqFn(ctx, method, path, nil)
+}
+
+func (fw *fakeFWService) Get(ctx context.Context, fID string) (*godo.Firewall, *godo.Response, error) {
+    return fw.getFn(ctx, fID)
+}
+
+func (fw *fakeFWService) Create(ctx context.Context, fr *godo.FirewallRequest) (*godo.Firewall, *godo.Response, error) {
+    return fw.createFn(ctx, fr)
+}
+
+func (fw *fakeFWService) Update(ctx context.Context, fID string, fr *godo.FirewallRequest) (*godo.Firewall, *godo.Response, error) {
+    return fw.updateFn(ctx, fID, fr)
+}
+
+func (fw *fakeFWService) Delete(ctx context.Context, fID string) (*godo.Response, error) {
+    return fw.deleteFn(ctx, fID)
+}
+
+func (fw *fakeFWService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error) {
+    return fw.listFn(ctx, opt)
+}
+
+func (fw *fakeFWService) ListByDroplet(ctx context.Context, dID int, listOpts *godo.ListOptions) ([]godo.Firewall, *godo.Response, error) {
+	return fw.listByDropletFn(ctx, dID, listOpts)
+}
+
+func (fw *fakeFWService) AddDroplets(ctx context.Context, fID string, dropletIDs ...int) (*godo.Response, error) {
+    return fw.addDropletsFn(ctx, fID, dropletIDs...)
+}
+
+func (fw *fakeFWService) RemoveDroplets(ctx context.Context, fID string, dropletIDs ...int) (*godo.Response, error) {
+    return fw.removeDropletsFn(ctx, fID, dropletIDs...)
+}
+
+func (fw *fakeFWService) AddTags(ctx context.Context, fID string, tags ...string) (*godo.Response, error) {
+    return fw.addTagsFn(ctx, fID, tags...)
+}
+
+func (fw *fakeFWService) RemoveTags(ctx context.Context, fID string, tags ...string) (*godo.Response, error) {
+    return fw.removeTagsFn(ctx, fID, tags...)
+}
+
+func (fw *fakeFWService) RemoveRules(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error) {
+    return fw.removeRulesFn(ctx, fID, rr)
+}
+
+func newFakeLBClient(fakeLB *fakeLBService, fakeDroplet *fakeDropletService, fakeFW *fakeFWService) *godo.Client {
 	client := godo.NewClient(nil)
 	client.Droplets = fakeDroplet
 	client.LoadBalancers = fakeLB
+	client.Firewalls = fakeFW
 
 	return client
 }
@@ -1356,7 +1427,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fakeDroplet := &fakeDropletService{}
 			fakeDroplet.listFunc = test.dropletListFn
-			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet)
+			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet, &fakeFWService{})
 
 			lb := &loadbalancers{fakeClient, "nyc3", 2, 1}
 
@@ -1501,7 +1572,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fakeDroplet := &fakeDropletService{}
 			fakeDroplet.listFunc = test.dropletListFn
-			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet)
+			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet, &fakeFWService{})
 
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 			dropletIDs, err := lb.nodesToDropletIDs(test.nodes)
@@ -1573,7 +1644,7 @@ func Test_lbByName(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fakeLB := &fakeLBService{}
 			fakeLB.listFn = test.listFn
-			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{})
+			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{}, &fakeFWService{})
 
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 			loadbalancer, err := lb.lbByName(context.TODO(), test.lbName)
@@ -1724,7 +1795,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			fakeLB := &fakeLBService{}
 			fakeLB.listFn = test.listFn
-			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{})
+			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{}, &fakeFWService{})
 
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 
@@ -1758,6 +1829,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		getFn         func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
 		dropletListFn func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 		listFn        func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+        listByDropletFn func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error)
 		createFn      func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		updateFn      func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		service       *v1.Service
@@ -1802,6 +1874,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 						Status: lbStatusActive,
 					},
 				}, newFakeOKResponse(), nil
+			},
+			func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error) {
+				return []godo.Firewall{}, newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				// shouldn't be run in this test case
@@ -1865,8 +1940,20 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			"successfully ensured loadbalancer that didn't exist",
 			func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
 				return &godo.LoadBalancer{
+                    ID:     "4de7ac8b-495b-4884-9a69-1050c6793cd6",
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
+                    ForwardingRules: []godo.ForwardingRule{
+                        {
+                            EntryProtocol:  "http",
+                            EntryPort:      80,
+                            TargetProtocol: "http",
+                            TargetPort:     30000,
+                            CertificateID:  "",
+                            TlsPassthrough: false,
+                        },
+                    },
+                    DropletIDs: []int{100, 101, 102},
 					Status: lbStatusActive,
 				}, newFakeOKResponse(), nil
 			},
@@ -1888,6 +1975,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			},
 			func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{}, nil, nil
+			},
+			func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error) {
+				return []godo.Firewall{}, newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				return &godo.LoadBalancer{
@@ -1958,7 +2048,11 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			fakeDroplet := &fakeDropletService{
 				listFunc: test.dropletListFn,
 			}
-			fakeClient := newFakeLBClient(fakeLB, fakeDroplet)
+			fakeFW := &fakeFWService{
+                listByDropletFn: test.listByDropletFn,
+            }
+
+			fakeClient := newFakeLBClient(fakeLB, fakeDroplet, fakeFW)
 
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 
@@ -2036,7 +2130,7 @@ func Test_waitActive(t *testing.T) {
 				getFn: test.getFn,
 			}
 
-			fakeClient := newFakeLBClient(fakeLB, nil)
+			fakeClient := newFakeLBClient(fakeLB, nil, &fakeFWService{})
 
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 
