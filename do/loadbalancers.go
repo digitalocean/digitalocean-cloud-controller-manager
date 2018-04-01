@@ -185,126 +185,126 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 
 }
 
-func checkIfPortInRange(port int, fwPortRange string) (bool){
+func checkIfPortInRange(port int, fwPortRange string) bool {
 
-    fwPortList := strings.Split(fwPortRange, "-")
-    if(fwPortList[0] == "all"){
-        return true
-    }
-    if(len(fwPortList)==1){
-        fwPort,_ := strconv.Atoi(fwPortList[0])
-        if(port == fwPort){
-            return true
-        }
-    }else{
-        fwLowerVal, _ := strconv.Atoi(fwPortList[0])
-        fwUpperVal, _ := strconv.Atoi(fwPortList[1])
-        if(port >= fwLowerVal && port <= fwUpperVal){
-            return true
-        }
-    }
+	fwPortList := strings.Split(fwPortRange, "-")
+	if fwPortList[0] == "all" {
+		return true
+	}
+	if len(fwPortList) == 1 {
+		fwPort, _ := strconv.Atoi(fwPortList[0])
+		if port == fwPort {
+			return true
+		}
+	} else {
+		fwLowerVal, _ := strconv.Atoi(fwPortList[0])
+		fwUpperVal, _ := strconv.Atoi(fwPortList[1])
+		if port >= fwLowerVal && port <= fwUpperVal {
+			return true
+		}
+	}
 
-    return false
-
-}
-
-func checkIfPortRequiresDeletion(port int, fwPortRange string) (bool){
-
-    fwPortList := strings.Split(fwPortRange, "-")
-    if(fwPortList[0] == "all"){
-        return false
-    }
-    if(len(fwPortList)==1){
-        fwPort,_ := strconv.Atoi(fwPortList[0])
-        if(port == fwPort){
-            return true
-        }
-    }
-
-    return false
+	return false
 
 }
 
-func CreateFirewallsRuleRequest(sourcelb string, targetPort int)(*godo.FirewallRulesRequest) {
-    rr := &godo.FirewallRulesRequest{
-            InboundRules: []godo.InboundRule{
-                {
-                    Protocol:  "tcp",
-                    PortRange: strconv.Itoa(targetPort),
-                    Sources: &godo.Sources{
-                        LoadBalancerUIDs: []string{sourcelb},
-                    },
-                },
-            },
-        }
-    return rr
+func checkIfPortRequiresDeletion(port int, fwPortRange string) bool {
+
+	fwPortList := strings.Split(fwPortRange, "-")
+	if fwPortList[0] == "all" {
+		return false
+	}
+	if len(fwPortList) == 1 {
+		fwPort, _ := strconv.Atoi(fwPortList[0])
+		if port == fwPort {
+			return true
+		}
+	}
+
+	return false
+
+}
+
+func CreateFirewallsRuleRequest(sourcelb string, targetPort int) *godo.FirewallRulesRequest {
+	rr := &godo.FirewallRulesRequest{
+		InboundRules: []godo.InboundRule{
+			{
+				Protocol:  "tcp",
+				PortRange: strconv.Itoa(targetPort),
+				Sources: &godo.Sources{
+					LoadBalancerUIDs: []string{sourcelb},
+				},
+			},
+		},
+	}
+	return rr
 }
 
 type firewallRequest struct {
-    firewallId string
-    rules *godo.FirewallRulesRequest
+	firewallId string
+	rules      *godo.FirewallRulesRequest
 }
 
 // EnsureFirewall ensures that the node firewalls have the correct rules for
 // the load balancer.
 //
 // EnsureFirewall will not modify service or nodes.
-func (l *loadbalancers) EnsureFirewall(lb *godo.LoadBalancer) (error) {
-    var ruleExists bool
-    var rulesToAdd []firewallRequest
-    var alreadyAdded bool
-    //var completedFirewalls []string
+func (l *loadbalancers) EnsureFirewall(lb *godo.LoadBalancer) error {
+	var ruleExists bool
+	var rulesToAdd []firewallRequest
+	var alreadyAdded bool
+	//var completedFirewalls []string
 
-    for _, dropletid := range lb.DropletIDs {
-        firewalls, _, err := l.client.Firewalls.ListByDroplet(context.TODO(),dropletid,nil)
-        if err != nil {
-            log.Print("Something bad happened: %s\n\n", err)
-        }
+	for _, dropletid := range lb.DropletIDs {
+		firewalls, _, err := l.client.Firewalls.ListByDroplet(context.TODO(), dropletid, nil)
+		if err != nil {
+			log.Print("Something bad happened: %s\n\n", err)
+		}
 
-        if(len(firewalls)>0){
-            for _, lbRule := range lb.ForwardingRules {
-                ruleExists = false
-                //check each firewall to see if rule already exists
-                for _, firewall := range firewalls {
-                    for _, fwInboundRule := range firewall.InboundRules {
-                        for _, fwSourcelbs := range fwInboundRule.Sources.LoadBalancerUIDs {
-                            if(fwSourcelbs == lb.ID){
-                                    res := checkIfPortInRange(lbRule.TargetPort,fwInboundRule.PortRange)
-                                    if(res && fwInboundRule.Protocol=="tcp"){
-                                        ruleExists = true
-                                    }
-                            }
-                        }
-                    }
-                }
+		if len(firewalls) > 0 {
+			for _, lbRule := range lb.ForwardingRules {
+				ruleExists = false
+				//check each firewall to see if rule already exists
+				for _, firewall := range firewalls {
+					for _, fwInboundRule := range firewall.InboundRules {
+						for _, fwSourcelbs := range fwInboundRule.Sources.LoadBalancerUIDs {
+							if fwSourcelbs == lb.ID {
+								res := checkIfPortInRange(lbRule.TargetPort, fwInboundRule.PortRange)
+								if res && fwInboundRule.Protocol == "tcp" {
+									ruleExists = true
+								}
+							}
+						}
+					}
+				}
 
-                if ( ruleExists == false){
-                    alreadyAdded = false
-                    for _, ruleToAdd := range rulesToAdd {
-                        if(firewalls[0].ID == ruleToAdd.firewallId && lb.ID == ruleToAdd.rules.InboundRules[0].Sources.LoadBalancerUIDs[0] && strconv.Itoa(lbRule.TargetPort) == ruleToAdd.rules.InboundRules[0].PortRange){
-                            alreadyAdded = true
-                        }
-                    }
-                    if(alreadyAdded==false){
-                        rulesToAdd = append(rulesToAdd,firewallRequest{firewalls[0].ID,CreateFirewallsRuleRequest(lb.ID,lbRule.TargetPort)})
-                    }
-                }
-            }
+				if ruleExists == false {
+					alreadyAdded = false
+					for _, ruleToAdd := range rulesToAdd {
+						if firewalls[0].ID == ruleToAdd.firewallId && lb.ID == ruleToAdd.rules.InboundRules[0].Sources.LoadBalancerUIDs[0] && strconv.Itoa(lbRule.TargetPort) == ruleToAdd.rules.InboundRules[0].PortRange {
+							alreadyAdded = true
+						}
+					}
+					if alreadyAdded == false {
+						rulesToAdd = append(rulesToAdd, firewallRequest{firewalls[0].ID, CreateFirewallsRuleRequest(lb.ID, lbRule.TargetPort)})
+					}
+				}
+			}
 
-        }
+		}
 
-    }
+	}
 
-    for _, ruleToAdd := range rulesToAdd {
-        _, err := l.client.Firewalls.AddRules(context.TODO(), ruleToAdd.firewallId, ruleToAdd.rules)
-        if(err!=nil){
-            log.Print("error creating firewall rule")
-            log.Print(err)
-        }
+	for _, ruleToAdd := range rulesToAdd {
+		_, err := l.client.Firewalls.AddRules(context.TODO(), ruleToAdd.firewallId, ruleToAdd.rules)
+		if err != nil {
+			log.Print("error creating firewall rule")
+			log.Print(err)
+		}
 
-    }
+	}
 
-    return nil
+	return nil
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -350,75 +350,74 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v
 		return err
 	}
 
-    err = l.EnsureFirewallDeleted(lb)
+	err = l.EnsureFirewallDeleted(lb)
 	if err != nil {
 		return err
 	}
 
 	_, err = l.client.LoadBalancers.Delete(ctx, lb.ID)
-    return err
+	return err
 }
 
-func (l *loadbalancers) EnsureFirewallDeleted(lb *godo.LoadBalancer) (error) {
-    var ruleRequiresDeletion bool
-    var rulesToDelete []firewallRequest
-    var alreadyDeleted bool
-    //var completedFirewalls []string
+func (l *loadbalancers) EnsureFirewallDeleted(lb *godo.LoadBalancer) error {
+	var ruleRequiresDeletion bool
+	var rulesToDelete []firewallRequest
+	var alreadyDeleted bool
+	//var completedFirewalls []string
 
-    for _, dropletid := range lb.DropletIDs {
+	for _, dropletid := range lb.DropletIDs {
 
-        firewalls, _, err := l.client.Firewalls.ListByDroplet(context.TODO(),dropletid,nil)
+		firewalls, _, err := l.client.Firewalls.ListByDroplet(context.TODO(), dropletid, nil)
 
-        if err != nil {
-            log.Print("Something bad happened: %s\n\n", err)
-        }
+		if err != nil {
+			log.Print("Something bad happened: %s\n\n", err)
+		}
 
-        if(len(firewalls)>0){
-            for _, lbRule := range lb.ForwardingRules {
-                ruleRequiresDeletion = false
-                //check each firewall to see if rule need deleting
-                for _, firewall := range firewalls {
-                    for _, fwInboundRule := range firewall.InboundRules {
-                        for _, fwSourcelbs := range fwInboundRule.Sources.LoadBalancerUIDs {
-                            if(fwSourcelbs == lb.ID){
-                                    res := checkIfPortRequiresDeletion(lbRule.TargetPort,fwInboundRule.PortRange)
-                                    if(res && fwInboundRule.Protocol=="tcp"){
-                                        ruleRequiresDeletion = true
-                                    }
-                            }
-                        }
-                    }
-                }
+		if len(firewalls) > 0 {
+			for _, lbRule := range lb.ForwardingRules {
+				ruleRequiresDeletion = false
+				//check each firewall to see if rule need deleting
+				for _, firewall := range firewalls {
+					for _, fwInboundRule := range firewall.InboundRules {
+						for _, fwSourcelbs := range fwInboundRule.Sources.LoadBalancerUIDs {
+							if fwSourcelbs == lb.ID {
+								res := checkIfPortRequiresDeletion(lbRule.TargetPort, fwInboundRule.PortRange)
+								if res && fwInboundRule.Protocol == "tcp" {
+									ruleRequiresDeletion = true
+								}
+							}
+						}
+					}
+				}
 
-                if ( ruleRequiresDeletion == true){
-                    alreadyDeleted = false
-                    for _, ruleToDelete := range rulesToDelete {
-                        if(firewalls[0].ID == ruleToDelete.firewallId && lb.ID == ruleToDelete.rules.InboundRules[0].Sources.LoadBalancerUIDs[0] && strconv.Itoa(lbRule.TargetPort) == ruleToDelete.rules.InboundRules[0].PortRange){
-                            alreadyDeleted = true
-                        }
-                    }
-                    if(alreadyDeleted==false){
-                        rulesToDelete = append(rulesToDelete,firewallRequest{firewalls[0].ID,CreateFirewallsRuleRequest(lb.ID,lbRule.TargetPort)})
-                    }
-                }
-            }
+				if ruleRequiresDeletion == true {
+					alreadyDeleted = false
+					for _, ruleToDelete := range rulesToDelete {
+						if firewalls[0].ID == ruleToDelete.firewallId && lb.ID == ruleToDelete.rules.InboundRules[0].Sources.LoadBalancerUIDs[0] && strconv.Itoa(lbRule.TargetPort) == ruleToDelete.rules.InboundRules[0].PortRange {
+							alreadyDeleted = true
+						}
+					}
+					if alreadyDeleted == false {
+						rulesToDelete = append(rulesToDelete, firewallRequest{firewalls[0].ID, CreateFirewallsRuleRequest(lb.ID, lbRule.TargetPort)})
+					}
+				}
+			}
 
-        }
+		}
 
-    }
+	}
 
-    for _, ruleToDelete := range rulesToDelete {
-        _, err := l.client.Firewalls.RemoveRules(context.TODO(), ruleToDelete.firewallId, ruleToDelete.rules)
-        if(err!=nil){
-            log.Print("error removing firewall rule")
-            log.Print(err)
-        }
+	for _, ruleToDelete := range rulesToDelete {
+		_, err := l.client.Firewalls.RemoveRules(context.TODO(), ruleToDelete.firewallId, ruleToDelete.rules)
+		if err != nil {
+			log.Print("error removing firewall rule")
+			log.Print(err)
+		}
 
-    }
+	}
 
-    return nil
+	return nil
 }
-
 
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will
 // be lbNotFound if the load balancer does not exist.
