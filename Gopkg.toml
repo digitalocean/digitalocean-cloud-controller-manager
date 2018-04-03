@@ -65,3 +65,7 @@
 [[constraint]]
   name = "k8s.io/kubernetes"
   version = "1.8.2"
+
+[[constraint]]
+  name = "github.com/container-storage-interface/spec"
+  version = "0.2.0"
