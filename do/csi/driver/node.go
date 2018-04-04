@@ -10,36 +10,37 @@ package driver
 
 import (
 	"context"
+	"errors"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 )
 
 // NodeStageVolume
 func (d *Driver) NodeStageVolume(context.Context, *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // NodeUnstageVolume ...
 func (d *Driver) NodeUnstageVolume(context.Context, *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // NodePublishVolume ...
 func (d *Driver) NodePublishVolume(context.Context, *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // NodeUnpublishVolume ...
 func (d *Driver) NodeUnpublishVolume(context.Context, *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // NodeGetId ...
 func (d *Driver) NodeGetId(context.Context, *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
 }
 
 // NodeGetCapabilities ...
 func (d *Driver) NodeGetCapabilities(context.Context, *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	panic("not implemented")
+	return nil, errors.New("not implemented")
 }
