@@ -38,12 +38,6 @@
   version = "v3.1.0"
 
 [[projects]]
-  name = "github.com/digitalocean/digitalocean-cloud-controller-manager"
-  packages = ["do"]
-  revision = "03534897c1b1532fd6b731a5e84a9cd18388d178"
-  version = "v0.1.4"
-
-[[projects]]
   branch = "master"
   name = "github.com/digitalocean/godo"
   packages = [
@@ -704,6 +698,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "813fc0f1d05937777b5fc584ce168a4ba79f4fe58567b8f3b88b8da926634010"
+  inputs-digest = "6436d5f8315c61f198a6aab2550f9616123b365c581dba3937bb3e998e01eb67"
   solver-name = "gps-cdcl"
   solver-version = 1
