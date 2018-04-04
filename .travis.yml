@@ -10,7 +10,3 @@ dist: trusty
 script:
   - go get github.com/golang/lint/golint
   - make ci
-
-branches:
-  only:
-    - master
