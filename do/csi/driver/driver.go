@@ -35,10 +35,9 @@ type Driver struct {
 // interfaces to interact with Kubernetes over unix domain sockets for
 // managaing DigitalOcean Block Storage
 func NewDriver(ep, nodeId, token string) (*Driver, error) {
-	tokenSource := &TokenSource{
+	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: token,
-	}
-
+	})
 	oauthClient := oauth2.NewClient(context.Background(), tokenSource)
 
 	all, err := metadata.NewClient().Metadata()
@@ -83,16 +82,4 @@ func (d *Driver) Run() error {
 
 	log.Printf("server started listening to: %q\n", addr)
 	return server.Serve(listener)
-}
-
-type TokenSource struct {
-	AccessToken string
-}
-
-// Token satisifes the oauth2.TokenSource interface
-func (t *TokenSource) Token() (*oauth2.Token, error) {
-	token := &oauth2.Token{
-		AccessToken: t.AccessToken,
-	}
-	return token, nil
 }
