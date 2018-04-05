@@ -16,6 +16,11 @@ func TestDriverSuite(t *testing.T) {
 		t.Skip("skipping test suite. enable by adding the flag '-suite'")
 	}
 
+	token := os.Getenv("DIGITALOCEAN_ACCESS_TOKEN")
+	if token == "" {
+		t.Skip("skipping test suite. DIGITALOCEAN_ACCESS_TOKEN needs to be set")
+	}
+
 	socket := "/tmp/csi.sock"
 	endpoint := "unix://" + socket
 	if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
@@ -23,7 +28,11 @@ func TestDriverSuite(t *testing.T) {
 	}
 
 	// run the driver
-	go NewDriver(endpoint).Run()
+	driver, err := NewDriver(endpoint, "123456", token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go driver.Run()
 
 	mntDir, err := ioutil.TempDir("", "mnt")
 	if err != nil {
