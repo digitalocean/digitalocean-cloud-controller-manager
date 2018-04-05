@@ -9,7 +9,7 @@ import (
 
 func main() {
 	var (
-		endpoint = flag.String("endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
+		endpoint = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/com.digitalocean.csi.dobs/csi.sock", "CSI endpoint")
 	)
 
 	flag.Parse()
