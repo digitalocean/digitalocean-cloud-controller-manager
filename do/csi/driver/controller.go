@@ -25,15 +25,25 @@ const (
 const (
 	defaultVolumeSizeInGB = 16 * GB
 
-	defaultMinVolumeSizeInGB = 1 * GB
-	defaultMaxVolumeSizeInGB = 16 * TB
-
 	createdByDO = "Created by DigitalOcean CSI driver"
 )
 
 // CreateVolume creates a new volume from the given request. The function is
 // idempotent.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
+	if req.Name == "" {
+		return nil, status.Error(codes.InvalidArgument, "CreateVolume Name must be provided")
+	}
+
+	if req.VolumeCapabilities == nil || len(req.VolumeCapabilities) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "CreateVolume Volume capabilities must be provided")
+	}
+
+	size, err := extractStorage(req.CapacityRange)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
 	volumeName := req.Name
 
 	// get volume first, if it's created do no thing
@@ -42,7 +52,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		Name:   volumeName,
 	})
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	// volume already exist, do not thing
@@ -58,6 +68,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 				vol.Name, vol.Description)
 		}
 
+		if vol.SizeGigaBytes*GB != size {
+			return nil, status.Error(codes.AlreadyExists, fmt.Sprintf("invalid option requested size: %d", size))
+		}
+
 		return &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
 				Id:            vol.ID,
@@ -66,16 +80,11 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}, nil
 	}
 
-	size, err := extractStorage(req.CapacityRange)
-	if err != nil {
-		return nil, err
-	}
-
 	volumeReq := &godo.VolumeCreateRequest{
 		Region:        d.nodeId,
 		Name:          volumeName,
 		Description:   createdByDO,
-		SizeGigaBytes: size,
+		SizeGigaBytes: size / GB,
 	}
 
 	// TODO(arslan): Currently DO only supports SINGLE_NODE_WRITER mode. In the
@@ -84,19 +93,23 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	// test req.VolumeCapabilities
 	vol, _, err := d.doClient.Storage.CreateVolume(ctx, volumeReq)
 	if err != nil {
-		return nil, err
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			Id:            vol.ID,
-			CapacityBytes: size * GB,
+			CapacityBytes: size,
 		},
 	}, nil
 }
 
 // DeleteVolume deletes the given volume. The function is idempotent.
 func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "DeleteVolume Volume ID must be provided")
+	}
+
 	_, err := d.doClient.Storage.DeleteVolume(ctx, req.VolumeId)
 	if err != nil {
 		return nil, err
@@ -107,6 +120,18 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 
 // ControllerPublishVolume attaches the given volume to the node
 func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume Volume ID must be provided")
+	}
+
+	if req.NodeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume Node ID must be provided")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume Volume capability must be provided")
+	}
+
 	dropletID, err := strconv.Atoi(req.NodeId)
 	if err != nil {
 		return nil, fmt.Errorf("malformed nodeId %q detected: %s", req.NodeId, err)
@@ -128,6 +153,10 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 
 // ControllerUnpublishVolume deattaches the given volume from the node
 func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ControllerPublishVolume Volume ID must be provided")
+	}
+
 	dropletID, err := strconv.Atoi(req.NodeId)
 	if err != nil {
 		return nil, fmt.Errorf("malformed nodeId %q detected: %s", req.NodeId, err)
@@ -147,6 +176,14 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 // ValidateVolumeCapabilities checks whether the volume capabilities requested
 // are supported.
 func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume ID must be provided")
+	}
+
+	if req.VolumeCapabilities == nil {
+		return nil, status.Error(codes.InvalidArgument, "ValidateVolumeCapabilities Volume Capabilities must be provided")
+	}
+
 	var vcaps []*csi.VolumeCapability_AccessMode
 	for _, mode := range []csi.VolumeCapability_AccessMode_Mode{
 		// DO currently only support a single node to be attached to a single
@@ -185,10 +222,13 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 
 // ListVolumes returns a list of all requested volumes
 func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-
-	page, err := strconv.Atoi(req.StartingToken)
-	if err != nil {
-		return nil, err
+	var page int
+	var err error
+	if req.StartingToken != "" {
+		page, err = strconv.Atoi(req.StartingToken)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	listOpts := &godo.ListVolumeParams{
@@ -200,7 +240,7 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 	}
 
 	var volumes []godo.Volume
-	var lastPage int
+	lastPage := 0
 	for {
 		vols, resp, err := d.doClient.Storage.ListVolumes(ctx, listOpts)
 		if err != nil {
@@ -212,12 +252,14 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 		}
 
 		if resp.Links == nil || resp.Links.IsLastPage() {
-			page, err := resp.Links.CurrentPage()
-			if err != nil {
-				return nil, err
+			if resp.Links != nil {
+				page, err := resp.Links.CurrentPage()
+				if err != nil {
+					return nil, err
+				}
+				// save this for the response
+				lastPage = page
 			}
-			// save this for the response
-			lastPage = page
 			break
 		}
 
@@ -287,8 +329,17 @@ func extractStorage(capRange *csi.CapacityRange) (int64, error) {
 		return defaultVolumeSizeInGB, nil
 	}
 
-	minSize := (capRange.RequiredBytes) / GB
-	maxSize := (capRange.LimitBytes) / GB
+	if capRange.RequiredBytes == 0 && capRange.LimitBytes == 0 {
+		return defaultVolumeSizeInGB, nil
+	}
+
+	minSize := capRange.RequiredBytes
+
+	// limitBytes might be zero
+	maxSize := capRange.LimitBytes
+	if capRange.LimitBytes == 0 {
+		maxSize = minSize
+	}
 
 	if minSize == maxSize {
 		return minSize, nil
