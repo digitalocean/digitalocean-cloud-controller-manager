@@ -19,6 +19,8 @@ package do
 import (
 	"fmt"
 
+	"k8s.io/api/core/v1"
+
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
 )
@@ -55,4 +57,24 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 	}
 
 	return list, nil
+}
+
+// nodeAddresses returns a []v1.NodeAddress from droplet.
+func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
+	var addresses []v1.NodeAddress
+	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
+
+	privateIP, err := droplet.PrivateIPv4()
+	if err != nil || privateIP == "" {
+		return nil, fmt.Errorf("could not get private ip: %v", err)
+	}
+	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
+
+	publicIP, err := droplet.PublicIPv4()
+	if err != nil || publicIP == "" {
+		return nil, fmt.Errorf("could not get public ip: %v", err)
+	}
+	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIP})
+
+	return addresses, nil
 }

@@ -29,6 +29,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
+	"github.com/golang/glog"
 )
 
 const (
@@ -255,10 +256,22 @@ func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 
 	var dropletIDs []int
 	for _, node := range nodes {
+	Loop:
 		for _, droplet := range droplets {
 			if node.Name == droplet.Name {
 				dropletIDs = append(dropletIDs, droplet.ID)
 				break
+			}
+			addresses, err := nodeAddresses(&droplet)
+			if err != nil {
+				glog.Errorf("error getting node addresses for %s: %v", droplet.Name, err)
+				continue
+			}
+			for _, address := range addresses {
+				if address.Address == string(node.Name) {
+					dropletIDs = append(dropletIDs, droplet.ID)
+					break Loop
+				}
 			}
 		}
 	}
