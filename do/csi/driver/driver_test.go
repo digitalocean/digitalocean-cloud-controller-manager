@@ -32,6 +32,8 @@ func TestDriverSuite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer driver.Stop()
+
 	go driver.Run()
 
 	mntDir, err := ioutil.TempDir("", "mnt")

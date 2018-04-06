@@ -28,6 +28,7 @@ type Driver struct {
 	nodeId   string
 	region   string
 
+	srv      *grpc.Server
 	doClient *godo.Client
 }
 
@@ -75,11 +76,16 @@ func (d *Driver) Run() error {
 		return fmt.Errorf("failed to listen: %v", err)
 	}
 
-	server := grpc.NewServer()
-	csi.RegisterIdentityServer(server, d)
-	csi.RegisterControllerServer(server, d)
-	csi.RegisterNodeServer(server, d)
+	d.srv = grpc.NewServer()
+	csi.RegisterIdentityServer(d.srv, d)
+	csi.RegisterControllerServer(d.srv, d)
+	csi.RegisterNodeServer(d.srv, d)
 
 	log.Printf("server started listening to: %q\n", addr)
-	return server.Serve(listener)
+	return d.srv.Serve(listener)
+}
+
+// Stop stops the plugin
+func (d *Driver) Stop() {
+	d.srv.Stop()
 }
