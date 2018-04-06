@@ -28,7 +28,7 @@ func TestDriverSuite(t *testing.T) {
 	}
 
 	// run the driver
-	driver, err := NewDriver(endpoint, "123456", token)
+	driver, err := NewDriver(endpoint, token)
 	if err != nil {
 		t.Fatal(err)
 	}

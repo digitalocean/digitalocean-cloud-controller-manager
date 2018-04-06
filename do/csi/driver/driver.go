@@ -34,7 +34,7 @@ type Driver struct {
 // NewDriver returns a CSI plugin that contains the necessary gRPC
 // interfaces to interact with Kubernetes over unix domain sockets for
 // managaing DigitalOcean Block Storage
-func NewDriver(ep, nodeId, token string) (*Driver, error) {
+func NewDriver(ep, token string) (*Driver, error) {
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: token,
 	})
