@@ -3,6 +3,10 @@ package driver
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/digitalocean/godo"
@@ -21,24 +25,36 @@ const (
 
 	defaultMinVolumeSizeInGB = 1 * GB
 	defaultMaxVolumeSizeInGB = 16 * TB
+
+	createdByDO = "Created by DigitalOcean CSI driver"
 )
 
-// CreateVolume creates a new volume
+// CreateVolume creates a new volume from the given request. The function is
+// idempotent.
 func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest) (*csi.CreateVolumeResponse, error) {
 	volumeName := req.Name
 
-	// get volume first
-	//  3. if created, do nothing
-	//  2. if not created, create it
+	// get volume first, if it's created do no thing
 	volumes, _, err := d.doClient.Storage.ListVolumes(ctx, &godo.ListVolumeParams{
 		Region: d.region,
 		Name:   volumeName,
 	})
-	// TODO(arslan): return if error is *not* type "not found"
-	if err == nil {
-		// TODO(arslan): what happens if there are multiple volumes with the
-		// same name, possible? Check it out
+	if err != nil {
+		return nil, err
+	}
+
+	// volume already exist, do not thing
+	if len(volumes) != 0 {
+		if len(volumes) > 1 {
+			return nil, fmt.Errorf("fatal issue: duplicate volume %q exists", volumeName)
+		}
 		vol := volumes[0]
+
+		// check if it was created by the CSI driver
+		if vol.Description != createdByDO {
+			return nil, fmt.Errorf("fatal issue: volume %q (%s) was not created by CSI",
+				vol.Name, vol.Description)
+		}
 
 		return &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
@@ -48,6 +64,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}, nil
 	}
 
+	// TODO(arslan): check volume capabilities as well
 	size, err := extractStorage(req.CapacityRange)
 	if err != nil {
 		return nil, err
@@ -56,7 +73,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	volumeReq := &godo.VolumeCreateRequest{
 		Region:        d.nodeId,
 		Name:          volumeName,
-		Description:   "Created by DigitalOcean CSI driver",
+		Description:   createdByDO,
 		SizeGigaBytes: size,
 	}
 
