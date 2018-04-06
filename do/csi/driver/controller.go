@@ -73,21 +73,55 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}, nil
 }
 
-// DeleteVolume deletes the given volume. This doesn't mean it needs to be
-// purged away. It needs to be deprovisioned, which means it should not be
-// accesible by anymore.
-func (d *Driver) DeleteVolume(context.Context, *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// DeleteVolume deletes the given volume. The function is idempotent.
+func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest) (*csi.DeleteVolumeResponse, error) {
+	_, err := d.doClient.Storage.DeleteVolume(ctx, req.VolumeId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &csi.DeleteVolumeResponse{}, nil
 }
 
-// ControllerPublishVolume ...
-func (d *Driver) ControllerPublishVolume(context.Context, *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// ControllerPublishVolume attaches the given volume to the node
+// TODO(arslan): check volume capabilities as well
+func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
+	dropletID, err := strconv.Atoi(req.NodeId)
+	if err != nil {
+		return nil, fmt.Errorf("malformed nodeId %q detected: %s", req.NodeId, err)
+	}
+
+	// TODO(arslan): wait volume to attach
+	_, resp, err := d.doClient.StorageActions.Attach(ctx, req.VolumeId, dropletID)
+	if err != nil {
+		// don't do anything if attached
+		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "This volume is already attached") {
+			return &csi.ControllerPublishVolumeResponse{}, nil
+		}
+
+		return nil, err
+	}
+
+	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
-// ControllerUnpublishVolume ...
-func (d *Driver) ControllerUnpublishVolume(context.Context, *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// ControllerUnpublishVolume deattaches the given volume from the node
+// TODO(arslan): check volume capabilities as well
+func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
+	dropletID, err := strconv.Atoi(req.NodeId)
+	if err != nil {
+		return nil, fmt.Errorf("malformed nodeId %q detected: %s", req.NodeId, err)
+	}
+
+	// TODO(arslan): wait volume to deattach
+	_, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.NodeId, dropletID)
+	if err != nil {
+		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "Attachment not found") {
+			return &csi.ControllerUnpublishVolumeResponse{}, nil
+		}
+		return nil, err
+	}
+	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
 // ValidateVolumeCapabilities ...
