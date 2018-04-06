@@ -10,6 +10,8 @@ import (
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/digitalocean/godo"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -246,7 +248,8 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 
 // GetCapacity returns the capacity of the storage pool
 func (d *Driver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
-	return nil, errors.New("not implemented")
+	// TODO(arslan): check if we can provide this information somehow
+	return nil, status.Error(codes.Unimplemented, "")
 }
 
 // ControllerGetCapabilities returns the capabilities of the controller service.
@@ -267,7 +270,6 @@ func (d *Driver) ControllerGetCapabilities(ctx context.Context, req *csi.Control
 		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
 		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
 		csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
-		csi.ControllerServiceCapability_RPC_GET_CAPACITY,
 	} {
 		caps = append(caps, newCap(cap))
 	}
