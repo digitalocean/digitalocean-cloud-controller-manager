@@ -105,9 +105,32 @@ func (d *Driver) GetCapacity(context.Context, *csi.GetCapacityRequest) (*csi.Get
 	return nil, errors.New("not implemented")
 }
 
-// ControllerGetCapabilities ...
-func (d *Driver) ControllerGetCapabilities(context.Context, *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
-	return nil, errors.New("not implemented")
+// ControllerGetCapabilities returns the capabilities of the controller service.
+func (d *Driver) ControllerGetCapabilities(ctx context.Context, req *csi.ControllerGetCapabilitiesRequest) (*csi.ControllerGetCapabilitiesResponse, error) {
+	newCap := func(cap csi.ControllerServiceCapability_RPC_Type) *csi.ControllerServiceCapability {
+		return &csi.ControllerServiceCapability{
+			Type: &csi.ControllerServiceCapability_Rpc{
+				Rpc: &csi.ControllerServiceCapability_RPC{
+					Type: cap,
+				},
+			},
+		}
+	}
+
+	// TODO(arslan): checkout if the capabilities are worth supporting
+	var caps []*csi.ControllerServiceCapability
+	for _, cap := range []csi.ControllerServiceCapability_RPC_Type{
+		csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
+		csi.ControllerServiceCapability_RPC_PUBLISH_UNPUBLISH_VOLUME,
+		csi.ControllerServiceCapability_RPC_LIST_VOLUMES,
+		csi.ControllerServiceCapability_RPC_GET_CAPACITY,
+	} {
+		caps = append(caps, newCap(cap))
+	}
+
+	return &csi.ControllerGetCapabilitiesResponse{
+		Capabilities: caps,
+	}, nil
 }
 
 // extractStorage extracts the storage size in GB from the given capacity
