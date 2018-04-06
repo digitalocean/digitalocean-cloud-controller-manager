@@ -141,9 +141,43 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
-// ValidateVolumeCapabilities ...
-func (d *Driver) ValidateVolumeCapabilities(context.Context, *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
-	return nil, errors.New("not implemented")
+// ValidateVolumeCapabilities checks whether the volume capabilities requested
+// are supported.
+func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.ValidateVolumeCapabilitiesRequest) (*csi.ValidateVolumeCapabilitiesResponse, error) {
+	var vcaps []*csi.VolumeCapability_AccessMode
+	for _, mode := range []csi.VolumeCapability_AccessMode_Mode{
+		// DO currently only support a single node to be attached to a single
+		// node in read/write mode
+		csi.VolumeCapability_AccessMode_SINGLE_NODE_WRITER,
+	} {
+		vcaps = append(vcaps, &csi.VolumeCapability_AccessMode{Mode: mode})
+	}
+
+	hasSupport := func(mode csi.VolumeCapability_AccessMode_Mode) bool {
+		for _, m := range vcaps {
+			if mode == m.Mode {
+				return true
+			}
+		}
+		return false
+	}
+
+	resp := &csi.ValidateVolumeCapabilitiesResponse{
+		Supported: false,
+	}
+
+	for _, cap := range req.VolumeCapabilities {
+		// cap.AccessMode.Mode
+		if hasSupport(cap.AccessMode.Mode) {
+			resp.Supported = true
+		} else {
+			// we need to make sure all capabilities are supported. Revert back
+			// in case we have a cap that is supported, but is invalidated now
+			resp.Supported = false
+		}
+	}
+
+	return resp, nil
 }
 
 // ListVolumes ...
