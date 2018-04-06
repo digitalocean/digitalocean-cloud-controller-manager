@@ -1,11 +1,16 @@
 package driver
 
 import (
+	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 
+	"github.com/digitalocean/godo"
 	"github.com/kubernetes-csi/csi-test/pkg/sanity"
 )
 
@@ -16,21 +21,41 @@ func TestDriverSuite(t *testing.T) {
 		t.Skip("skipping test suite. enable by adding the flag '-suite'")
 	}
 
-	token := os.Getenv("DIGITALOCEAN_ACCESS_TOKEN")
-	if token == "" {
-		t.Skip("skipping test suite. DIGITALOCEAN_ACCESS_TOKEN needs to be set")
-	}
-
 	socket := "/tmp/csi.sock"
 	endpoint := "unix://" + socket
 	if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
 		t.Fatalf("failed to remove unix domain socket file %s, error: %s", socket, err)
 	}
 
-	// run the driver
-	driver, err := NewDriver(endpoint, token)
-	if err != nil {
-		t.Fatal(err)
+	// fake DO Server, not working yet ...
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var resp = struct {
+			Volume *godo.Volume
+			Links  *godo.Links
+		}{
+			Volume: &godo.Volume{
+				Region: &godo.Region{
+					Slug: "tor1",
+				},
+				ID:            "123456",
+				Name:          "my-app",
+				Description:   "Created by VolumeController",
+				SizeGigaBytes: 15,
+			},
+		}
+		_ = json.NewEncoder(w).Encode(&resp)
+	}))
+	defer ts.Close()
+
+	doClient := godo.NewClient(nil)
+	url, _ := url.Parse(ts.URL)
+	doClient.BaseURL = url
+
+	driver := &Driver{
+		endpoint: endpoint,
+		nodeId:   "987654",
+		region:   "nyc3",
+		doClient: doClient,
 	}
 	defer driver.Stop()
 
