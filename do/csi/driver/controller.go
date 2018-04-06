@@ -64,7 +64,6 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		}, nil
 	}
 
-	// TODO(arslan): check volume capabilities as well
 	size, err := extractStorage(req.CapacityRange)
 	if err != nil {
 		return nil, err
@@ -77,6 +76,10 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		SizeGigaBytes: size,
 	}
 
+	// TODO(arslan): Currently DO only supports SINGLE_NODE_WRITER mode. In the
+	// future, if we support more modes, we need to make sure to create a
+	// volume that aligns with the incoming capability. We need to make sure to
+	// test req.VolumeCapabilities
 	vol, _, err := d.doClient.Storage.CreateVolume(ctx, volumeReq)
 	if err != nil {
 		return nil, err
@@ -101,7 +104,6 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 }
 
 // ControllerPublishVolume attaches the given volume to the node
-// TODO(arslan): check volume capabilities as well
 func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.ControllerPublishVolumeRequest) (*csi.ControllerPublishVolumeResponse, error) {
 	dropletID, err := strconv.Atoi(req.NodeId)
 	if err != nil {
@@ -123,7 +125,6 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 }
 
 // ControllerUnpublishVolume deattaches the given volume from the node
-// TODO(arslan): check volume capabilities as well
 func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.ControllerUnpublishVolumeRequest) (*csi.ControllerUnpublishVolumeResponse, error) {
 	dropletID, err := strconv.Atoi(req.NodeId)
 	if err != nil {
@@ -180,13 +181,71 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	return resp, nil
 }
 
-// ListVolumes ...
-func (d *Driver) ListVolumes(context.Context, *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
-	return nil, errors.New("not implemented")
+// ListVolumes returns a list of all requested volumes
+func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (*csi.ListVolumesResponse, error) {
+
+	page, err := strconv.Atoi(req.StartingToken)
+	if err != nil {
+		return nil, err
+	}
+
+	listOpts := &godo.ListVolumeParams{
+		ListOptions: &godo.ListOptions{
+			PerPage: int(req.MaxEntries),
+			Page:    page,
+		},
+		Region: d.region,
+	}
+
+	var volumes []godo.Volume
+	var lastPage int
+	for {
+		vols, resp, err := d.doClient.Storage.ListVolumes(ctx, listOpts)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, vol := range vols {
+			volumes = append(volumes, vol)
+		}
+
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			page, err := resp.Links.CurrentPage()
+			if err != nil {
+				return nil, err
+			}
+			// save this for the response
+			lastPage = page
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		listOpts.ListOptions.Page = page + 1
+	}
+
+	var entries []*csi.ListVolumesResponse_Entry
+	for _, vol := range volumes {
+		entries = append(entries, &csi.ListVolumesResponse_Entry{
+			Volume: &csi.Volume{
+				Id:            vol.ID,
+				CapacityBytes: vol.SizeGigaBytes * GB,
+			},
+		})
+	}
+
+	// TODO(arslan): check that the NextToken logic works fine, might be racy
+	return &csi.ListVolumesResponse{
+		Entries:   entries,
+		NextToken: strconv.Itoa(lastPage),
+	}, nil
 }
 
-// GetCapacity ...
-func (d *Driver) GetCapacity(context.Context, *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
+// GetCapacity returns the capacity of the storage pool
+func (d *Driver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	return nil, errors.New("not implemented")
 }
 
