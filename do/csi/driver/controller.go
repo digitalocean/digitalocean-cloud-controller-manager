@@ -81,7 +81,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 	}
 
 	volumeReq := &godo.VolumeCreateRequest{
-		Region:        d.nodeId,
+		Region:        d.region,
 		Name:          volumeName,
 		Description:   createdByDO,
 		SizeGigaBytes: size / GB,
@@ -247,9 +247,7 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 			return nil, err
 		}
 
-		for _, vol := range vols {
-			volumes = append(volumes, vol)
-		}
+		volumes = append(volumes, vols...)
 
 		if resp.Links == nil || resp.Links.IsLastPage() {
 			if resp.Links != nil {
