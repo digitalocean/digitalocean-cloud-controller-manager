@@ -1828,6 +1828,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		dropletListFn   func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 		listFn          func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		listByDropletFn func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error)
+		addRulesFn      func(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error)
 		createFn        func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		updateFn        func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		service         *v1.Service
@@ -1874,7 +1875,26 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				}, newFakeOKResponse(), nil
 			},
 			func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error) {
-				return []godo.Firewall{}, newFakeOKResponse(), nil
+				return []godo.Firewall{
+					{
+						ID: "fb6045f1-cf1d-4ca3-bfac-18832663025b",
+						InboundRules: []godo.InboundRule{
+							{
+								Protocol:  "tcp",
+								PortRange: "80",
+								Sources: &godo.Sources{
+									LoadBalancerUIDs: []string{
+										"4de7ac8b-495b-4884-9a69-1050c6793cd6",
+									},
+								},
+							},
+						},
+					},
+				}, newFakeOKResponse(), nil
+			},
+			func(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error) {
+				// shouldn't be run in this test case
+				return newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				// shouldn't be run in this test case
@@ -1975,7 +1995,26 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				return []godo.LoadBalancer{}, nil, nil
 			},
 			func(ctx context.Context, dID int, opt *godo.ListOptions) ([]godo.Firewall, *godo.Response, error) {
-				return []godo.Firewall{}, newFakeOKResponse(), nil
+				return []godo.Firewall{
+					{
+						ID: "fb6045f1-cf1d-4ca3-bfac-18832663025b",
+						InboundRules: []godo.InboundRule{
+							{
+								Protocol:  "tcp",
+								PortRange: "80",
+								Sources: &godo.Sources{
+									LoadBalancerUIDs: []string{
+										"4de7ac8b-495b-4884-9a69-1050c6793cd6",
+									},
+								},
+							},
+						},
+					},
+				}, newFakeOKResponse(), nil
+			},
+			func(ctx context.Context, fID string, rr *godo.FirewallRulesRequest) (*godo.Response, error) {
+				//Simulate rules being added
+				return newFakeOKResponse(), nil
 			},
 			func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				return &godo.LoadBalancer{
@@ -2048,6 +2087,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			}
 			fakeFW := &fakeFWService{
 				listByDropletFn: test.listByDropletFn,
+				addRulesFn:      test.addRulesFn,
 			}
 
 			fakeClient := newFakeLBClient(fakeLB, fakeDroplet, fakeFW)
