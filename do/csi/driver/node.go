@@ -35,12 +35,32 @@ func (d *Driver) NodeUnpublishVolume(context.Context, *csi.NodeUnpublishVolumeRe
 	return nil, errors.New("not implemented")
 }
 
-// NodeGetId ...
-func (d *Driver) NodeGetId(context.Context, *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeGetId returns the unique id of the node. This should eventually return
+// the droplet ID if possible. This is used so the CO knows where to place the
+// workload. The result of this function will be used by the CO in
+// ControllerPublishVolume.
+func (d *Driver) NodeGetId(ctx context.Context, req *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
+	return &csi.NodeGetIdResponse{
+		// TODO: use metada if possible: https://github.com/digitalocean/go-metadata
+		// We should fetch it only once in NewDriver() and set it to driver.nodeId
+		NodeId: d.nodeId,
+	}, nil
 }
 
-// NodeGetCapabilities ...
-func (d *Driver) NodeGetCapabilities(context.Context, *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeGetCapabilities returns the supported capabilities of the node server
+func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
+	// currently there is a single NodeServer capability according to the spec
+	nscap := &csi.NodeServiceCapability{
+		Type: &csi.NodeServiceCapability_Rpc{
+			Rpc: &csi.NodeServiceCapability_RPC{
+				Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME,
+			},
+		},
+	}
+
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: []*csi.NodeServiceCapability{
+			nscap,
+		},
+	}, nil
 }

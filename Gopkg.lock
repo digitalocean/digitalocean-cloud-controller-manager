@@ -39,6 +39,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/digitalocean/go-metadata"
+  packages = ["."]
+  revision = "15bd36e5f6f745f32074d0705a27aee05ae0a216"
+
+[[projects]]
+  branch = "master"
   name = "github.com/digitalocean/godo"
   packages = [
     ".",
@@ -766,6 +772,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "cab23640d697920d6279ee6b2d65f4d61148f6aefc8d3e13af6989dbcce43902"
+  inputs-digest = "3941f41a07090e8537e45d58e870147c11c79927de1a738178fa169ca05b908f"
   solver-name = "gps-cdcl"
   solver-version = 1

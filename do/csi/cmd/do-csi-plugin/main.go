@@ -9,12 +9,17 @@ import (
 
 func main() {
 	var (
-		endpoint = flag.String("endpoint", "unix:///tmp/csi.sock", "CSI endpoint")
+		endpoint = flag.String("endpoint", "unix:///var/lib/kubelet/plugins/com.digitalocean.csi.dobs/csi.sock", "CSI endpoint")
+		token    = flag.String("token", "", "DigitalOcean access token")
 	)
 
 	flag.Parse()
 
-	drv := driver.NewDriver(*endpoint)
+	drv, err := driver.NewDriver(*endpoint, *token)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
 	if err := drv.Run(); err != nil {
 		log.Fatalln(err)
 	}
