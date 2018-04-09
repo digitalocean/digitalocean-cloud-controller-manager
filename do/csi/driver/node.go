@@ -10,29 +10,77 @@ package driver
 
 import (
 	"context"
-	"errors"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// NodeStageVolume
-func (d *Driver) NodeStageVolume(context.Context, *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeStageVolume mounts the volume to a staging path on the node. This is
+// called by the CO before NodePublishVolume and is used to temporary mount the
+// volume to a staging path. Once mounted, NodePublishVolume will make sure to
+// mount it to the appropriate path
+func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume ID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Staging Target Path must be provided")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume Capability must be provided")
+	}
+
+	return &csi.NodeStageVolumeResponse{}, nil
 }
 
-// NodeUnstageVolume ...
-func (d *Driver) NodeUnstageVolume(context.Context, *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeUnstageVolume unstages the volume from the staging path
+func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnstageVolume Volume ID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnstageVolume Staging Target Path must be provided")
+	}
+
+	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-// NodePublishVolume ...
-func (d *Driver) NodePublishVolume(context.Context, *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodePublishVolume mounts the volume mounted to the staging path to the target path
+func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Volume ID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Staging Target Path must be provided")
+	}
+
+	if req.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Target Path must be provided")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Volume Capability must be provided")
+	}
+
+	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-// NodeUnpublishVolume ...
-func (d *Driver) NodeUnpublishVolume(context.Context, *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeUnpublishVolume unmounts the volume from the target path
+func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnpublishVolume Volume ID must be provided")
+	}
+
+	if req.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnpublishVolume Target Path must be provided")
+	}
+
+	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
 // NodeGetId returns the unique id of the node. This should eventually return
@@ -41,8 +89,6 @@ func (d *Driver) NodeUnpublishVolume(context.Context, *csi.NodeUnpublishVolumeRe
 // ControllerPublishVolume.
 func (d *Driver) NodeGetId(ctx context.Context, req *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
 	return &csi.NodeGetIdResponse{
-		// TODO: use metada if possible: https://github.com/digitalocean/go-metadata
-		// We should fetch it only once in NewDriver() and set it to driver.nodeId
 		NodeId: d.nodeId,
 	}, nil
 }

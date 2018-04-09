@@ -2,7 +2,6 @@ package driver
 
 import (
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -21,13 +20,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-var suite = flag.Bool("suite", false, "run the csi test suite")
-
 func TestDriverSuite(t *testing.T) {
-	if !*suite {
-		t.Skip("skipping test suite. enable by adding the flag '-suite'")
-	}
-
 	socket := "/tmp/csi.sock"
 	endpoint := "unix://" + socket
 	if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
@@ -61,9 +54,15 @@ func TestDriverSuite(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	mntStageDir, err := ioutil.TempDir("", "mnt-stage")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	cfg := &sanity.Config{
-		TargetPath: mntDir,
-		Address:    endpoint,
+		StagingPath: mntStageDir,
+		TargetPath:  mntDir,
+		Address:     endpoint,
 	}
 
 	sanity.Test(t, cfg)
