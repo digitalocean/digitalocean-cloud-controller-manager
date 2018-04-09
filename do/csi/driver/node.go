@@ -10,6 +10,7 @@ package driver
 
 import (
 	"context"
+	"path/filepath"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"google.golang.org/grpc/codes"
@@ -32,6 +33,33 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 	if req.VolumeCapability == nil {
 		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume Capability must be provided")
 	}
+
+	vol, _, err := d.doClient.Storage.GetVolume(ctx, req.VolumeId)
+	if err != nil {
+		return nil, err
+	}
+
+	source := getDiskSource(vol.Name)
+	target := req.StagingTargetPath
+
+	mnt := req.VolumeCapability.GetMount()
+	options := mnt.MountFlags
+
+	fsType := "ext4"
+	if mnt.FsType != "" {
+		fsType = mnt.FsType
+	}
+
+	if err := d.mounter.Format(source, fsType); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if err := d.mounter.Mount(source, target, fsType, options...); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// Change fstab so the volume will be mounted after a reboot
+	// echo /dev/disk/by-id/scsi-0DO_Volume_volume-nyc3-01 /mnt/volume-nyc3-01 ext4 defaults,nofail,discard 0 0 | sudo tee -a /etc/fstab
 
 	return &csi.NodeStageVolumeResponse{}, nil
 }
@@ -109,4 +137,12 @@ func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 			nscap,
 		},
 	}, nil
+}
+
+// getDiskSource returns the absolute path of the attached volume for the given
+// DO volume name
+func getDiskSource(volumeName string) string {
+	diskIDPath := "/dev/disk/by-id"
+	diskDOPrefix := "scsi-0DO_Volume_"
+	return filepath.Join(diskIDPath, diskDOPrefix+volumeName)
 }

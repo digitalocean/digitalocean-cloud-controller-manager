@@ -44,6 +44,7 @@ func TestDriverSuite(t *testing.T) {
 		nodeId:   "987654",
 		region:   "nyc3",
 		doClient: doClient,
+		mounter:  &fakeMounter{},
 	}
 	defer driver.Stop()
 
@@ -78,19 +79,35 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		name := r.URL.Query().Get("name")
-		for _, vol := range f.volumes {
-			if vol.Name == name {
-				var resp = struct {
-					Volumes []*godo.Volume
-					Links   *godo.Links
-				}{
-					Volumes: []*godo.Volume{vol},
+		if name != "" {
+			// a list of volumes for the given name
+			for _, vol := range f.volumes {
+				if vol.Name == name {
+					var resp = struct {
+						Volumes []*godo.Volume
+						Links   *godo.Links
+					}{
+						Volumes: []*godo.Volume{vol},
+					}
+					_ = json.NewEncoder(w).Encode(&resp)
+					return
 				}
-				_ = json.NewEncoder(w).Encode(&resp)
-				return
 			}
+		} else {
+			// single volume get
+			id := filepath.Base(r.URL.Path)
+			vol := f.volumes[id]
+			var resp = struct {
+				Volume *godo.Volume
+				Links  *godo.Links
+			}{
+				Volume: vol,
+			}
+			_ = json.NewEncoder(w).Encode(&resp)
+			return
 		}
 
+		// response with zero items
 		var resp = struct {
 			Volume []*godo.Volume
 			Links  *godo.Links
@@ -137,4 +154,18 @@ func randString(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+type fakeMounter struct{}
+
+func (f *fakeMounter) Format(source string, fsType string) error {
+	return nil
+}
+
+func (f *fakeMounter) Mount(source string, target string, fsType string, options ...string) error {
+	return nil
+}
+
+func (f *fakeMounter) Unmount(target string) error {
+	return nil
 }
