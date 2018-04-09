@@ -27,6 +27,15 @@ type mounter struct{}
 
 func (m *mounter) Format(source, fsType string) error {
 	mkfsCmd := fmt.Sprintf("mkfs.%s", fsType)
+
+	_, err := exec.LookPath(mkfsCmd)
+	if err != nil {
+		if err == exec.ErrNotFound {
+			return fmt.Errorf("%q executable not found in $PATH", mkfsCmd)
+		}
+		return err
+	}
+
 	mkfsArgs := []string{}
 
 	if fsType == "" {
