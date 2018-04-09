@@ -30,6 +30,7 @@ type Driver struct {
 
 	srv      *grpc.Server
 	doClient *godo.Client
+	mounter  Mounter
 }
 
 // NewDriver returns a CSI plugin that contains the necessary gRPC
@@ -51,6 +52,7 @@ func NewDriver(ep, token string) (*Driver, error) {
 		nodeId:   strconv.Itoa(all.DropletID),
 		region:   all.Region,
 		doClient: godo.NewClient(oauthClient),
+		mounter:  &mounter{},
 	}, nil
 }
 
