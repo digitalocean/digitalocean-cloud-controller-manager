@@ -58,6 +58,7 @@ func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRe
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// TODO(arslan): is this needed?
 	// Change fstab so the volume will be mounted after a reboot
 	// echo /dev/disk/by-id/scsi-0DO_Volume_volume-nyc3-01 /mnt/volume-nyc3-01 ext4 defaults,nofail,discard 0 0 | sudo tee -a /etc/fstab
 
@@ -72,6 +73,11 @@ func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolu
 
 	if req.StagingTargetPath == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeUnstageVolume Staging Target Path must be provided")
+	}
+
+	err := d.mounter.Unmount(req.StagingTargetPath)
+	if err != nil {
+		return nil, err
 	}
 
 	return &csi.NodeUnstageVolumeResponse{}, nil
@@ -95,6 +101,37 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Volume Capability must be provided")
 	}
 
+	// TODO(arslan): early return if already mounted
+
+	source := req.StagingTargetPath
+	target := req.TargetPath
+
+	mnt := req.VolumeCapability.GetMount()
+	options := mnt.MountFlags
+
+	// TODO(arslan): do we need bind here? check it out
+	// Perform a bind mount to the full path to allow duplicate mounts of the same PD.
+	options = append(options, "bind")
+	if req.Readonly {
+		options = append(options, "ro")
+	}
+
+	fsType := "ext4"
+	if mnt.FsType != "" {
+		fsType = mnt.FsType
+	}
+
+	if err := d.mounter.Format(source, fsType); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// TODO(arslan)
+	// * check if mount already exist, make this function idempotent
+	// * remove target path if mounting fails and wee need ot return
+	if err := d.mounter.Mount(source, target, fsType, options...); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
 	return &csi.NodePublishVolumeResponse{}, nil
 }
 
@@ -106,6 +143,11 @@ func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublish
 
 	if req.TargetPath == "" {
 		return nil, status.Error(codes.InvalidArgument, "NodeUnpublishVolume Target Path must be provided")
+	}
+
+	err := d.mounter.Unmount(req.TargetPath)
+	if err != nil {
+		return nil, err
 	}
 
 	return &csi.NodeUnpublishVolumeResponse{}, nil
