@@ -54,11 +54,13 @@ func TestDriverSuite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(mntDir)
 
 	mntStageDir, err := ioutil.TempDir("", "mnt-stage")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(mntStageDir)
 
 	cfg := &sanity.Config{
 		StagingPath: mntStageDir,
