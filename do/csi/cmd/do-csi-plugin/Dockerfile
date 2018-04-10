@@ -18,4 +18,4 @@ RUN apk add --no-cache ca-certificates
 
 ADD do-csi-plugin /bin/
 
-CMD ["/bin/do-csi-plugin"]
+ENTRYPOINT ["/bin/do-csi-plugin"]

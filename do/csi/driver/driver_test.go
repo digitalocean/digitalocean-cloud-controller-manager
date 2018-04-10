@@ -89,7 +89,10 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					}{
 						Volumes: []*godo.Volume{vol},
 					}
-					_ = json.NewEncoder(w).Encode(&resp)
+					err := json.NewEncoder(w).Encode(&resp)
+					if err != nil {
+						f.t.Fatal(err)
+					}
 					return
 				}
 			}
@@ -112,7 +115,10 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Volume []*godo.Volume
 			Links  *godo.Links
 		}{}
-		_ = json.NewEncoder(w).Encode(&resp)
+		err := json.NewEncoder(w).Encode(&resp)
+		if err != nil {
+			f.t.Fatal(err)
+		}
 	case "POST":
 		v := new(godo.VolumeCreateRequest)
 		err := json.NewDecoder(r.Body).Decode(v)
@@ -140,7 +146,10 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}{
 			Volume: vol,
 		}
-		_ = json.NewEncoder(w).Encode(&resp)
+		err = json.NewEncoder(w).Encode(&resp)
+		if err != nil {
+			f.t.Fatal(err)
+		}
 	case "DELETE":
 		id := filepath.Base(r.URL.Path)
 		delete(f.volumes, id)

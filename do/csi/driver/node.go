@@ -17,6 +17,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+const (
+	diskIDPath   = "/dev/disk/by-id"
+	diskDOPrefix = "scsi-0DO_Volume_"
+)
+
 // NodeStageVolume mounts the volume to a staging path on the node. This is
 // called by the CO before NodePublishVolume and is used to temporary mount the
 // volume to a staging path. Once mounted, NodePublishVolume will make sure to
@@ -184,7 +189,5 @@ func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 // getDiskSource returns the absolute path of the attached volume for the given
 // DO volume name
 func getDiskSource(volumeName string) string {
-	diskIDPath := "/dev/disk/by-id"
-	diskDOPrefix := "scsi-0DO_Volume_"
 	return filepath.Join(diskIDPath, diskDOPrefix+volumeName)
 }
