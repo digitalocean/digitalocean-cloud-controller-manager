@@ -10,29 +10,152 @@ package driver
 
 import (
 	"context"
-	"errors"
+	"path/filepath"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-// NodeStageVolume
-func (d *Driver) NodeStageVolume(context.Context, *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+const (
+	diskIDPath   = "/dev/disk/by-id"
+	diskDOPrefix = "scsi-0DO_Volume_"
+)
+
+// NodeStageVolume mounts the volume to a staging path on the node. This is
+// called by the CO before NodePublishVolume and is used to temporary mount the
+// volume to a staging path. Once mounted, NodePublishVolume will make sure to
+// mount it to the appropriate path
+func (d *Driver) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume ID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Staging Target Path must be provided")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "NodeStageVolume Volume Capability must be provided")
+	}
+
+	vol, _, err := d.doClient.Storage.GetVolume(ctx, req.VolumeId)
+	if err != nil {
+		return nil, err
+	}
+
+	source := getDiskSource(vol.Name)
+	target := req.StagingTargetPath
+
+	mnt := req.VolumeCapability.GetMount()
+	options := mnt.MountFlags
+
+	fsType := "ext4"
+	if mnt.FsType != "" {
+		fsType = mnt.FsType
+	}
+
+	if err := d.mounter.Format(source, fsType); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if err := d.mounter.Mount(source, target, fsType, options...); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// TODO(arslan): is this needed?
+	// Change fstab so the volume will be mounted after a reboot
+	// echo /dev/disk/by-id/scsi-0DO_Volume_volume-nyc3-01 /mnt/volume-nyc3-01 ext4 defaults,nofail,discard 0 0 | sudo tee -a /etc/fstab
+
+	return &csi.NodeStageVolumeResponse{}, nil
 }
 
-// NodeUnstageVolume ...
-func (d *Driver) NodeUnstageVolume(context.Context, *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeUnstageVolume unstages the volume from the staging path
+func (d *Driver) NodeUnstageVolume(ctx context.Context, req *csi.NodeUnstageVolumeRequest) (*csi.NodeUnstageVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnstageVolume Volume ID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnstageVolume Staging Target Path must be provided")
+	}
+
+	err := d.mounter.Unmount(req.StagingTargetPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &csi.NodeUnstageVolumeResponse{}, nil
 }
 
-// NodePublishVolume ...
-func (d *Driver) NodePublishVolume(context.Context, *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodePublishVolume mounts the volume mounted to the staging path to the target path
+func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolumeRequest) (*csi.NodePublishVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Volume ID must be provided")
+	}
+
+	if req.StagingTargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Staging Target Path must be provided")
+	}
+
+	if req.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Target Path must be provided")
+	}
+
+	if req.VolumeCapability == nil {
+		return nil, status.Error(codes.InvalidArgument, "NodePublishVolume Volume Capability must be provided")
+	}
+
+	// TODO(arslan): early return if already mounted
+
+	source := req.StagingTargetPath
+	target := req.TargetPath
+
+	mnt := req.VolumeCapability.GetMount()
+	options := mnt.MountFlags
+
+	// TODO(arslan): do we need bind here? check it out
+	// Perform a bind mount to the full path to allow duplicate mounts of the same PD.
+	options = append(options, "bind")
+	if req.Readonly {
+		options = append(options, "ro")
+	}
+
+	fsType := "ext4"
+	if mnt.FsType != "" {
+		fsType = mnt.FsType
+	}
+
+	if err := d.mounter.Format(source, fsType); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	// TODO(arslan)
+	// * check if mount already exist, make this function idempotent
+	// * remove target path if mounting fails and wee need ot return
+	if err := d.mounter.Mount(source, target, fsType, options...); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &csi.NodePublishVolumeResponse{}, nil
 }
 
-// NodeUnpublishVolume ...
-func (d *Driver) NodeUnpublishVolume(context.Context, *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
-	return nil, errors.New("not implemented")
+// NodeUnpublishVolume unmounts the volume from the target path
+func (d *Driver) NodeUnpublishVolume(ctx context.Context, req *csi.NodeUnpublishVolumeRequest) (*csi.NodeUnpublishVolumeResponse, error) {
+	if req.VolumeId == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnpublishVolume Volume ID must be provided")
+	}
+
+	if req.TargetPath == "" {
+		return nil, status.Error(codes.InvalidArgument, "NodeUnpublishVolume Target Path must be provided")
+	}
+
+	err := d.mounter.Unmount(req.TargetPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &csi.NodeUnpublishVolumeResponse{}, nil
 }
 
 // NodeGetId returns the unique id of the node. This should eventually return
@@ -41,8 +164,6 @@ func (d *Driver) NodeUnpublishVolume(context.Context, *csi.NodeUnpublishVolumeRe
 // ControllerPublishVolume.
 func (d *Driver) NodeGetId(ctx context.Context, req *csi.NodeGetIdRequest) (*csi.NodeGetIdResponse, error) {
 	return &csi.NodeGetIdResponse{
-		// TODO: use metada if possible: https://github.com/digitalocean/go-metadata
-		// We should fetch it only once in NewDriver() and set it to driver.nodeId
 		NodeId: d.nodeId,
 	}, nil
 }
@@ -63,4 +184,10 @@ func (d *Driver) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabi
 			nscap,
 		},
 	}, nil
+}
+
+// getDiskSource returns the absolute path of the attached volume for the given
+// DO volume name
+func getDiskSource(volumeName string) string {
+	return filepath.Join(diskIDPath, diskDOPrefix+volumeName)
 }

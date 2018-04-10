@@ -2,7 +2,6 @@ package driver
 
 import (
 	"encoding/json"
-	"flag"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -21,13 +20,7 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-var suite = flag.Bool("suite", false, "run the csi test suite")
-
 func TestDriverSuite(t *testing.T) {
-	if !*suite {
-		t.Skip("skipping test suite. enable by adding the flag '-suite'")
-	}
-
 	socket := "/tmp/csi.sock"
 	endpoint := "unix://" + socket
 	if err := os.Remove(socket); err != nil && !os.IsNotExist(err) {
@@ -51,6 +44,7 @@ func TestDriverSuite(t *testing.T) {
 		nodeId:   "987654",
 		region:   "nyc3",
 		doClient: doClient,
+		mounter:  &fakeMounter{},
 	}
 	defer driver.Stop()
 
@@ -61,9 +55,15 @@ func TestDriverSuite(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	mntStageDir, err := ioutil.TempDir("", "mnt-stage")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	cfg := &sanity.Config{
-		TargetPath: mntDir,
-		Address:    endpoint,
+		StagingPath: mntStageDir,
+		TargetPath:  mntDir,
+		Address:     endpoint,
 	}
 
 	sanity.Test(t, cfg)
@@ -79,24 +79,46 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		name := r.URL.Query().Get("name")
-		for _, vol := range f.volumes {
-			if vol.Name == name {
-				var resp = struct {
-					Volumes []*godo.Volume
-					Links   *godo.Links
-				}{
-					Volumes: []*godo.Volume{vol},
+		if name != "" {
+			// a list of volumes for the given name
+			for _, vol := range f.volumes {
+				if vol.Name == name {
+					var resp = struct {
+						Volumes []*godo.Volume
+						Links   *godo.Links
+					}{
+						Volumes: []*godo.Volume{vol},
+					}
+					err := json.NewEncoder(w).Encode(&resp)
+					if err != nil {
+						f.t.Fatal(err)
+					}
+					return
 				}
-				_ = json.NewEncoder(w).Encode(&resp)
-				return
 			}
+		} else {
+			// single volume get
+			id := filepath.Base(r.URL.Path)
+			vol := f.volumes[id]
+			var resp = struct {
+				Volume *godo.Volume
+				Links  *godo.Links
+			}{
+				Volume: vol,
+			}
+			_ = json.NewEncoder(w).Encode(&resp)
+			return
 		}
 
+		// response with zero items
 		var resp = struct {
 			Volume []*godo.Volume
 			Links  *godo.Links
 		}{}
-		_ = json.NewEncoder(w).Encode(&resp)
+		err := json.NewEncoder(w).Encode(&resp)
+		if err != nil {
+			f.t.Fatal(err)
+		}
 	case "POST":
 		v := new(godo.VolumeCreateRequest)
 		err := json.NewDecoder(r.Body).Decode(v)
@@ -124,7 +146,10 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}{
 			Volume: vol,
 		}
-		_ = json.NewEncoder(w).Encode(&resp)
+		err = json.NewEncoder(w).Encode(&resp)
+		if err != nil {
+			f.t.Fatal(err)
+		}
 	case "DELETE":
 		id := filepath.Base(r.URL.Path)
 		delete(f.volumes, id)
@@ -138,4 +163,18 @@ func randString(n int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+type fakeMounter struct{}
+
+func (f *fakeMounter) Format(source string, fsType string) error {
+	return nil
+}
+
+func (f *fakeMounter) Mount(source string, target string, fsType string, options ...string) error {
+	return nil
+}
+
+func (f *fakeMounter) Unmount(target string) error {
+	return nil
 }
