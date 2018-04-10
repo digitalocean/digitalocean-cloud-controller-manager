@@ -55,7 +55,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	// volume already exist, do not thing
+	// volume already exist, do nothing
 	if len(volumes) != 0 {
 		if len(volumes) > 1 {
 			return nil, fmt.Errorf("fatal issue: duplicate volume %q exists", volumeName)
@@ -163,7 +163,7 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	}
 
 	// TODO(arslan): wait volume to deattach
-	_, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.NodeId, dropletID)
+	_, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.VolumeId, dropletID)
 	if err != nil {
 		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "Attachment not found") {
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
