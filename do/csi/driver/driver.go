@@ -3,7 +3,6 @@ package driver
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
@@ -14,6 +13,7 @@ import (
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	metadata "github.com/digitalocean/go-metadata"
 	"github.com/digitalocean/godo"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"google.golang.org/grpc"
 )
@@ -32,6 +32,7 @@ type Driver struct {
 	srv      *grpc.Server
 	doClient *godo.Client
 	mounter  Mounter
+	log      *logrus.Entry
 }
 
 // NewDriver returns a CSI plugin that contains the necessary gRPC
@@ -48,12 +49,19 @@ func NewDriver(ep, token string) (*Driver, error) {
 		return nil, fmt.Errorf("couldn't get metadata: %s", err)
 	}
 
+	region := all.Region
+	nodeId := strconv.Itoa(all.DropletID)
+
 	return &Driver{
 		endpoint: ep,
-		nodeId:   strconv.Itoa(all.DropletID),
-		region:   all.Region,
+		nodeId:   nodeId,
+		region:   region,
 		doClient: godo.NewClient(oauthClient),
 		mounter:  &mounter{},
+		log: logrus.New().WithFields(logrus.Fields{
+			"region":  region,
+			"node_id": nodeId,
+		}),
 	}, nil
 }
 
@@ -76,6 +84,7 @@ func (d *Driver) Run() error {
 		// remove the socket if it's already there. This can happen if we
 		// deploy a new version and the socket was created from the old running
 		// plugin.
+		d.log.WithField("socket", addr).Info("removing socket")
 		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("failed to remove unix domain socket file %s, error: %s", addr, err)
 		}
@@ -91,11 +100,12 @@ func (d *Driver) Run() error {
 	csi.RegisterControllerServer(d.srv, d)
 	csi.RegisterNodeServer(d.srv, d)
 
-	log.Printf("server started listening to: %q\n", addr)
+	d.log.WithField("addr", addr).Info("server started")
 	return d.srv.Serve(listener)
 }
 
 // Stop stops the plugin
 func (d *Driver) Stop() {
+	d.log.Info("server stopped")
 	d.srv.Stop()
 }

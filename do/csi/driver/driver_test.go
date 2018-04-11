@@ -14,6 +14,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/kubernetes-csi/csi-test/pkg/sanity"
+	"github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -45,6 +46,7 @@ func TestDriverSuite(t *testing.T) {
 		region:   "nyc3",
 		doClient: doClient,
 		mounter:  &fakeMounter{},
+		log:      logrus.New().WithField("test_enabed", true),
 	}
 	defer driver.Stop()
 
