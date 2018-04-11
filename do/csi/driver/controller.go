@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/digitalocean/godo"
@@ -161,14 +162,18 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 	})
 	ll.Info("controller publish volume called")
 
-	// TODO(arslan): wait volume to attach
-	_, resp, err := d.doClient.StorageActions.Attach(ctx, req.VolumeId, dropletID)
+	action, resp, err := d.doClient.StorageActions.Attach(ctx, req.VolumeId, dropletID)
 	if err != nil {
 		// don't do anything if attached
 		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "This volume is already attached") {
 			return &csi.ControllerPublishVolumeResponse{}, nil
 		}
 
+		return nil, err
+	}
+
+	ll.Info("waiting until volume is attached")
+	if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
 		return nil, err
 	}
 
@@ -194,12 +199,16 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 	})
 	ll.Info("controller unpublish volume called")
 
-	// TODO(arslan): wait volume to deattach
-	_, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.VolumeId, dropletID)
+	action, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.VolumeId, dropletID)
 	if err != nil {
 		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "Attachment not found") {
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
+		return nil, err
+	}
+
+	ll.Info("waiting until volume is detached")
+	if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
 		return nil, err
 	}
 
@@ -399,4 +408,41 @@ func extractStorage(capRange *csi.CapacityRange) (int64, error) {
 	}
 
 	return 0, errors.New("requiredBytes and LimitBytes are not the same")
+}
+
+// waitAction waits until the given action for the volume is completed
+func (d *Driver) waitAction(ctx context.Context, volumeId string, actionId int) error {
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_id": volumeId,
+		"action_id": actionId,
+	})
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	// TODO(arslan): use backoff in the future
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			action, _, err := d.doClient.StorageActions.Get(ctx, volumeId, actionId)
+			if err != nil {
+				ll.WithError(err).Info("waiting for volume errored")
+				continue
+			}
+			ll.WithField("action_status", action.Status).Info("action received")
+
+			if action.Status == godo.ActionCompleted {
+				ll.Info("action completed")
+				return nil
+			}
+
+			if action.Status == godo.ActionInProgress {
+				continue
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("timeout occured waiting for storage action of volume: %q", volumeId)
+		}
+	}
 }
