@@ -1,3 +1,5 @@
+# NOTE: under development, not ready for production.
+
 1. Create a secret with your DigitalOcean API Access Token:
 
 
