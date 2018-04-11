@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -63,14 +64,21 @@ func (d *Driver) Run() error {
 		return fmt.Errorf("unable to parse address: %q", err)
 	}
 
-	// CSI plugins talk only over UNIX sockets currently
-	if u.Scheme != "unix" {
-		return fmt.Errorf("currently only unix domain sockets are supported, have: %s", u.Scheme)
-	}
-
 	addr := path.Join(u.Host, filepath.FromSlash(u.Path))
 	if u.Host == "" {
 		addr = filepath.FromSlash(u.Path)
+	}
+
+	// CSI plugins talk only over UNIX sockets currently
+	if u.Scheme != "unix" {
+		return fmt.Errorf("currently only unix domain sockets are supported, have: %s", u.Scheme)
+	} else {
+		// remove the socket if it's already there. This can happen if we
+		// deploy a new version and the socket was created from the old running
+		// plugin.
+		if err := os.Remove(addr); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to remove unix domain socket file %s, error: %s", addr, err)
+		}
 	}
 
 	listener, err := net.Listen(u.Scheme, addr)
