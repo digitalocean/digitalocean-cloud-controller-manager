@@ -129,7 +129,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 	}
 
 	// TODO(arslan): early return if already mounted
-
 	source := req.StagingTargetPath
 	target := req.TargetPath
 
@@ -155,11 +154,6 @@ func (d *Driver) NodePublishVolume(ctx context.Context, req *csi.NodePublishVolu
 		"fsType":        fsType,
 		"mount_options": options,
 	})
-
-	ll.Info("formatting the volume")
-	if err := d.mounter.Format(source, fsType); err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
 
 	// TODO(arslan)
 	// * check if mount already exist, make this function idempotent
