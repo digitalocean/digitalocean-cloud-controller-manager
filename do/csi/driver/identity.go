@@ -13,15 +13,18 @@ const (
 
 // GetPluginInfo returns metadata of the plugin
 func (d *Driver) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	return &csi.GetPluginInfoResponse{
+	resp := &csi.GetPluginInfoResponse{
 		Name:          driverName,
 		VendorVersion: vendorVersion,
-	}, nil
+	}
+
+	d.log.WithField("response", resp).Info("get plugin info called")
+	return resp, nil
 }
 
 // GetPluginCapabilities returns available capabilities of the plugin
 func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	return &csi.GetPluginCapabilitiesResponse{
+	resp := &csi.GetPluginCapabilitiesResponse{
 		Capabilities: []*csi.PluginCapability{
 			{
 				Type: &csi.PluginCapability_Service_{
@@ -31,10 +34,14 @@ func (d *Driver) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCa
 				},
 			},
 		},
-	}, nil
+	}
+
+	d.log.WithField("response", resp).Info("get plugin capabitilies called")
+	return resp, nil
 }
 
 // Probe returns the health and readiness of the plugin
 func (d *Driver) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
+	d.log.Info("probe called")
 	return &csi.ProbeResponse{}, nil
 }

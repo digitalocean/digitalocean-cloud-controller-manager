@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	csi "github.com/container-storage-interface/spec/lib/go/csi/v0"
 	"github.com/digitalocean/godo"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -46,6 +48,12 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 
 	volumeName := req.Name
 
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_name":             volumeName,
+		"storage_size_giga_bytes": size / GB,
+	})
+	ll.Info("create volume called")
+
 	// get volume first, if it's created do no thing
 	volumes, _, err := d.doClient.Storage.ListVolumes(ctx, &godo.ListVolumeParams{
 		Region: d.region,
@@ -72,6 +80,7 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 			return nil, status.Error(codes.AlreadyExists, fmt.Sprintf("invalid option requested size: %d", size))
 		}
 
+		ll.Info("volume already created")
 		return &csi.CreateVolumeResponse{
 			Volume: &csi.Volume{
 				Id:            vol.ID,
@@ -87,6 +96,8 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		SizeGigaBytes: size / GB,
 	}
 
+	ll.WithField("volume_req", volumeReq).Info("creating volume")
+
 	// TODO(arslan): Currently DO only supports SINGLE_NODE_WRITER mode. In the
 	// future, if we support more modes, we need to make sure to create a
 	// volume that aligns with the incoming capability. We need to make sure to
@@ -96,12 +107,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &csi.CreateVolumeResponse{
+	resp := &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			Id:            vol.ID,
 			CapacityBytes: size,
 		},
-	}, nil
+	}
+
+	ll.WithField("response", resp).Info("volume created")
+	return resp, nil
 }
 
 // DeleteVolume deletes the given volume. The function is idempotent.
@@ -110,11 +124,17 @@ func (d *Driver) DeleteVolume(ctx context.Context, req *csi.DeleteVolumeRequest)
 		return nil, status.Error(codes.InvalidArgument, "DeleteVolume Volume ID must be provided")
 	}
 
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_id": req.VolumeId,
+	})
+	ll.Info("delete volume called")
+
 	_, err := d.doClient.Storage.DeleteVolume(ctx, req.VolumeId)
 	if err != nil {
 		return nil, err
 	}
 
+	ll.Info("volume is deleted")
 	return &csi.DeleteVolumeResponse{}, nil
 }
 
@@ -137,8 +157,14 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		return nil, fmt.Errorf("malformed nodeId %q detected: %s", req.NodeId, err)
 	}
 
-	// TODO(arslan): wait volume to attach
-	_, resp, err := d.doClient.StorageActions.Attach(ctx, req.VolumeId, dropletID)
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_id":  req.VolumeId,
+		"node_id":    req.NodeId,
+		"droplet_id": dropletID,
+	})
+	ll.Info("controller publish volume called")
+
+	action, resp, err := d.doClient.StorageActions.Attach(ctx, req.VolumeId, dropletID)
 	if err != nil {
 		// don't do anything if attached
 		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "This volume is already attached") {
@@ -148,6 +174,14 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		return nil, err
 	}
 
+	if action != nil {
+		ll.Info("waiting until volume is attached")
+		if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	ll.Info("volume is attached")
 	return &csi.ControllerPublishVolumeResponse{}, nil
 }
 
@@ -162,14 +196,29 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 		return nil, fmt.Errorf("malformed nodeId %q detected: %s", req.NodeId, err)
 	}
 
-	// TODO(arslan): wait volume to deattach
-	_, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.VolumeId, dropletID)
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_id":  req.VolumeId,
+		"node_id":    req.NodeId,
+		"droplet_id": dropletID,
+	})
+	ll.Info("controller unpublish volume called")
+
+	action, resp, err := d.doClient.StorageActions.DetachByDropletID(ctx, req.VolumeId, dropletID)
 	if err != nil {
 		if resp.StatusCode == http.StatusUnprocessableEntity || strings.Contains(err.Error(), "Attachment not found") {
 			return &csi.ControllerUnpublishVolumeResponse{}, nil
 		}
 		return nil, err
 	}
+
+	if action != nil {
+		ll.Info("waiting until volume is detached")
+		if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	ll.Info("volume is detached")
 	return &csi.ControllerUnpublishVolumeResponse{}, nil
 }
 
@@ -192,6 +241,13 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 	} {
 		vcaps = append(vcaps, &csi.VolumeCapability_AccessMode{Mode: mode})
 	}
+
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_id":              req.VolumeId,
+		"volume_capabilities":    req.VolumeCapabilities,
+		"supported_capabilities": vcaps,
+	})
+	ll.Info("validate volume capabilities called")
 
 	hasSupport := func(mode csi.VolumeCapability_AccessMode_Mode) bool {
 		for _, m := range vcaps {
@@ -217,6 +273,7 @@ func (d *Driver) ValidateVolumeCapabilities(ctx context.Context, req *csi.Valida
 		}
 	}
 
+	ll.WithField("response", resp).Info("supported capabilities")
 	return resp, nil
 }
 
@@ -238,6 +295,12 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 		},
 		Region: d.region,
 	}
+
+	ll := d.log.WithFields(logrus.Fields{
+		"list_opts":          listOpts,
+		"req_starting_token": req.StartingToken,
+	})
+	ll.Info("list volumes called")
 
 	var volumes []godo.Volume
 	lastPage := 0
@@ -280,15 +343,19 @@ func (d *Driver) ListVolumes(ctx context.Context, req *csi.ListVolumesRequest) (
 	}
 
 	// TODO(arslan): check that the NextToken logic works fine, might be racy
-	return &csi.ListVolumesResponse{
+	resp := &csi.ListVolumesResponse{
 		Entries:   entries,
 		NextToken: strconv.Itoa(lastPage),
-	}, nil
+	}
+
+	ll.WithField("response", resp).Info("volumes listed")
+	return resp, nil
 }
 
 // GetCapacity returns the capacity of the storage pool
 func (d *Driver) GetCapacity(ctx context.Context, req *csi.GetCapacityRequest) (*csi.GetCapacityResponse, error) {
 	// TODO(arslan): check if we can provide this information somehow
+	d.log.WithField("params", req.Parameters).Warn("get capacity is not implemented")
 	return nil, status.Error(codes.Unimplemented, "")
 }
 
@@ -314,9 +381,12 @@ func (d *Driver) ControllerGetCapabilities(ctx context.Context, req *csi.Control
 		caps = append(caps, newCap(cap))
 	}
 
-	return &csi.ControllerGetCapabilitiesResponse{
+	resp := &csi.ControllerGetCapabilitiesResponse{
 		Capabilities: caps,
-	}, nil
+	}
+
+	d.log.WithField("response", resp).Info("controller get capabilities called")
+	return resp, nil
 }
 
 // extractStorage extracts the storage size in GB from the given capacity
@@ -344,4 +414,41 @@ func extractStorage(capRange *csi.CapacityRange) (int64, error) {
 	}
 
 	return 0, errors.New("requiredBytes and LimitBytes are not the same")
+}
+
+// waitAction waits until the given action for the volume is completed
+func (d *Driver) waitAction(ctx context.Context, volumeId string, actionId int) error {
+	ll := d.log.WithFields(logrus.Fields{
+		"volume_id": volumeId,
+		"action_id": actionId,
+	})
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
+	// TODO(arslan): use backoff in the future
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			action, _, err := d.doClient.StorageActions.Get(ctx, volumeId, actionId)
+			if err != nil {
+				ll.WithError(err).Info("waiting for volume errored")
+				continue
+			}
+			ll.WithField("action_status", action.Status).Info("action received")
+
+			if action.Status == godo.ActionCompleted {
+				ll.Info("action completed")
+				return nil
+			}
+
+			if action.Status == godo.ActionInProgress {
+				continue
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("timeout occured waiting for storage action of volume: %q", volumeId)
+		}
+	}
 }
