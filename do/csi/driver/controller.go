@@ -107,13 +107,15 @@ func (d *Driver) CreateVolume(ctx context.Context, req *csi.CreateVolumeRequest)
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	ll.Info("volume created")
-	return &csi.CreateVolumeResponse{
+	resp := &csi.CreateVolumeResponse{
 		Volume: &csi.Volume{
 			Id:            vol.ID,
 			CapacityBytes: size,
 		},
-	}, nil
+	}
+
+	ll.WithField("response", resp).Info("volume created")
+	return resp, nil
 }
 
 // DeleteVolume deletes the given volume. The function is idempotent.
@@ -172,9 +174,11 @@ func (d *Driver) ControllerPublishVolume(ctx context.Context, req *csi.Controlle
 		return nil, err
 	}
 
-	ll.Info("waiting until volume is attached")
-	if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
-		return nil, err
+	if action != nil {
+		ll.Info("waiting until volume is attached")
+		if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
+			return nil, err
+		}
 	}
 
 	ll.Info("volume is attached")
@@ -207,9 +211,11 @@ func (d *Driver) ControllerUnpublishVolume(ctx context.Context, req *csi.Control
 		return nil, err
 	}
 
-	ll.Info("waiting until volume is detached")
-	if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
-		return nil, err
+	if action != nil {
+		ll.Info("waiting until volume is detached")
+		if err := d.waitAction(ctx, req.VolumeId, action.ID); err != nil {
+			return nil, err
+		}
 	}
 
 	ll.Info("volume is detached")
