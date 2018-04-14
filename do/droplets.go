@@ -71,26 +71,6 @@ func (i *instances) NodeAddressesByProviderID(providerID string) ([]v1.NodeAddre
 	return nodeAddresses(droplet)
 }
 
-// nodeAddresses returns a []v1.NodeAddress from droplet.
-func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
-	var addresses []v1.NodeAddress
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
-
-	privateIP, err := droplet.PrivateIPv4()
-	if err != nil || privateIP == "" {
-		return nil, fmt.Errorf("could not get private ip: %v", err)
-	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
-
-	publicIP, err := droplet.PublicIPv4()
-	if err != nil || publicIP == "" {
-		return nil, fmt.Errorf("could not get public ip: %v", err)
-	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIP})
-
-	return addresses, nil
-}
-
 // ExternalID returns the cloud provider ID of the droplet identified by
 // nodeName. If the droplet does not exist or is no longer running, the
 // returned error will be cloudprovider.InstanceNotFound.
