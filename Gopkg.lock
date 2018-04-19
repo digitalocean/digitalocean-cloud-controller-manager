@@ -402,10 +402,10 @@
   revision = "4df58c811fe2e65feb879227b2b245e4dc26e7ad"
 
 [[projects]]
-  branch = "master"
   name = "k8s.io/apiextensions-apiserver"
   packages = ["pkg/features"]
-  revision = "51a1910459f074162eb4e25233e461fe91e99405"
+  revision = "e509bb64fe1116e12a32273a2032426aa1a5fd26"
+  version = "kubernetes-1.8.2"
 
 [[projects]]
   branch = "release-1.8"
@@ -586,8 +586,8 @@
     "util/retry",
     "util/workqueue"
   ]
-  revision = "2ae454230481a7cb5544325e12ad7658ecccd19b"
-  version = "v5.0.1"
+  revision = "35ccd4336052e7d73018b1382413534936f34eee"
+  version = "kubernetes-1.8.2"
 
 [[projects]]
   branch = "master"
@@ -654,6 +654,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "5531f38fc70ea52058e4c812486d1526bb1255c81f1b9b820a5199ab789713b4"
+  inputs-digest = "81985ebad47dd34c62a716cc7df8d4a5316f133a595f09c9d30e8d2ddbdde084"
   solver-name = "gps-cdcl"
   solver-version = 1
