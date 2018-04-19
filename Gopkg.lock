@@ -274,10 +274,10 @@
   version = "v0.0.1"
 
 [[projects]]
-  branch = "master"
   name = "github.com/spf13/pflag"
   packages = ["."]
-  revision = "97afa5e7ca8a08a383cb259e06636b5e2cc7897f"
+  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
+  version = "v1.0.1"
 
 [[projects]]
   branch = "master"
