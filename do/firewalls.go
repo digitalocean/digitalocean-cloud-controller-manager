@@ -52,6 +52,7 @@ func checkIfPortInRange(port int, fwPortRange string) bool {
 
 }
 
+// Rule only requires deletion if it is not in a range
 func checkIfPortRequiresDeletion(port int, fwPortRange string) bool {
 
 	fwPortList := strings.Split(fwPortRange, "-")
@@ -84,16 +85,15 @@ func createRuleRequest(sourcelb string, targetPort int) *godo.FirewallRulesReque
 	return rr
 }
 
-// Check if a firewall rule already exists for a load balancer
-// forwarding rule ( returns true if covered by ALL, a port range or a single port)
-func lbfwRuleExists(lbID string, lbRule godo.ForwardingRule, firewalls []godo.Firewall) bool {
+// Check if a firewall rule exists for a load balancer forwarding rule
+func lbfwRuleExists(lbID string, lbRule godo.ForwardingRule, firewalls []godo.Firewall, checkFunc func(port int, fwPortRange string) bool) bool {
 	ruleExists := false
 	//check each firewall to see if rule already exists
 	for _, firewall := range firewalls {
 		for _, fwInboundRule := range firewall.InboundRules {
 			for _, fwSourcelbs := range fwInboundRule.Sources.LoadBalancerUIDs {
 				if fwSourcelbs == lbID {
-					res := checkIfPortInRange(lbRule.TargetPort, fwInboundRule.PortRange)
+					res := checkFunc(lbRule.TargetPort, fwInboundRule.PortRange)
 					if res && fwInboundRule.Protocol == "tcp" {
 						ruleExists = true
 					}
@@ -117,28 +117,6 @@ func requestExists(requests []firewallRequest, firewallID string, lbID string, t
 	}
 
 	return false
-}
-
-// Check if a single port rule exists for a load balancer
-// forwarding rule ( will not remove ranges defined by ports or ALL )
-func lbfwRuleRequiresDeletion(lbID string, lbRule godo.ForwardingRule, firewalls []godo.Firewall) bool {
-	requiresDeletion := false
-	//check each firewall to see if rule need deleting
-	for _, firewall := range firewalls {
-		for _, fwInboundRule := range firewall.InboundRules {
-			for _, fwSourcelbs := range fwInboundRule.Sources.LoadBalancerUIDs {
-				if fwSourcelbs == lbID {
-					res := checkIfPortRequiresDeletion(lbRule.TargetPort, fwInboundRule.PortRange)
-					if res && fwInboundRule.Protocol == "tcp" {
-						requiresDeletion = true
-					}
-				}
-			}
-		}
-	}
-
-	return requiresDeletion
-
 }
 
 func addRules(client *godo.Client, rulesToAdd []firewallRequest) error {
@@ -181,7 +159,7 @@ func (l *loadbalancers) EnsureFWRuleExists(lb *godo.LoadBalancer) ([]firewallReq
 		}
 
 		for _, lbRule := range lb.ForwardingRules {
-			if lbfwRuleExists(lb.ID, lbRule, firewalls) == false &&
+			if lbfwRuleExists(lb.ID, lbRule, firewalls, checkIfPortInRange) == false &&
 				requestExists(rulesToAdd, firewalls[0].ID, lb.ID, lbRule.TargetPort) == false {
 
 				rulesToAdd = append(rulesToAdd, firewallRequest{firewalls[0].ID, createRuleRequest(lb.ID, lbRule.TargetPort)})
@@ -216,7 +194,7 @@ func (l *loadbalancers) EnsureFWRuleDeleted(lb *godo.LoadBalancer) ([]firewallRe
 
 		for _, lbRule := range lb.ForwardingRules {
 
-			if lbfwRuleRequiresDeletion(lb.ID, lbRule, firewalls) == true &&
+			if lbfwRuleExists(lb.ID, lbRule, firewalls, checkIfPortRequiresDeletion) == true &&
 				requestExists(rulesToDelete, firewalls[0].ID, lb.ID, lbRule.TargetPort) == false {
 
 				rulesToDelete = append(rulesToDelete, firewallRequest{firewalls[0].ID, createRuleRequest(lb.ID, lbRule.TargetPort)})
