@@ -19,11 +19,10 @@ package do
 import (
 	"errors"
 	"fmt"
-	"reflect"
-	"testing"
-
 	"github.com/digitalocean/godo"
 	"github.com/digitalocean/godo/context"
+	"reflect"
+	"testing"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
