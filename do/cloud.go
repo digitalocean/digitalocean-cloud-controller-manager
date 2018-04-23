@@ -17,7 +17,6 @@ limitations under the License.
 package do
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -79,7 +78,7 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 
 	region, err := dropletRegion()
 	if err != nil {
-		return nil, errors.New("failed to get region from droplet metadata")
+		return nil, fmt.Errorf("failed to get region from droplet metadata: %s", err)
 	}
 
 	return &cloud{
