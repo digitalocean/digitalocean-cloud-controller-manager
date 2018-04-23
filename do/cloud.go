@@ -30,8 +30,11 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 )
 
-const doAccessTokenEnv string = "DO_ACCESS_TOKEN"
-const providerName string = "digitalocean"
+const (
+	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
+	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
+	providerName        string = "digitalocean"
+)
 
 type tokenSource struct {
 	AccessToken string
@@ -54,6 +57,12 @@ type cloud struct {
 func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	token := os.Getenv(doAccessTokenEnv)
 
+	opts := []godo.ClientOpt{}
+
+	if overrideURL := os.Getenv(doOverrideAPIURLEnv); overrideURL != "" {
+		opts = append(opts, godo.SetBaseURL(overrideURL))
+	}
+
 	if token == "" {
 		return nil, fmt.Errorf("environment variable %q is required", doAccessTokenEnv)
 	}
@@ -63,11 +72,14 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	}
 
 	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
-	doClient := godo.NewClient(oauthClient)
+	doClient, err := godo.New(oauthClient, opts...)
+	if err != nil {
+		return nil, errors.New("failed to create godo client")
+	}
 
 	region, err := dropletRegion()
 	if err != nil {
-		return nil, errors.New("faild to get region from droplet metadata")
+		return nil, errors.New("failed to get region from droplet metadata")
 	}
 
 	return &cloud{
