@@ -315,7 +315,7 @@ func Test_lbfwRuleExists(t *testing.T) {
 			},
 			checkIfPortRequiresDeletion,
 			//A rule does exist for port 30000 but it lies within a range
-			//therefore no rule requres deletion
+			//therefore no rule requires deletion
 			false,
 		},
 	}
@@ -327,6 +327,116 @@ func Test_lbfwRuleExists(t *testing.T) {
 				t.Errorf("actual result of check firewall rule required is: %t", result)
 				t.Errorf("expected result: %t", testcase.result)
 				t.Error("unexpected check if rule is required for forwarding rule result")
+			}
+		})
+	}
+
+}
+
+func Test_requestExists(t *testing.T) {
+	testcases := []struct {
+		name       string
+		requests   []firewallRequest
+		firewallID string
+		lbID       string
+		targetPort int
+		result     bool
+	}{
+		{
+			"Firewall request already exists",
+			[]firewallRequest{
+				{
+					firewallID: "bb4b2611-3d72-467b-8602-280330ecd65c",
+					rules: &godo.FirewallRulesRequest{
+						InboundRules: []godo.InboundRule{
+							{
+								Protocol:  "tcp",
+								PortRange: "123",
+								Sources: &godo.Sources{
+									LoadBalancerUIDs: []string{
+										"4de7ac8b-495b-4884-9a69-1050c6793cd6",
+									},
+								},
+							},
+						},
+						OutboundRules: []godo.OutboundRule{},
+					},
+				},
+				{
+					firewallID: "bb4b2611-aaaa-467b-8602-280330ecd65c",
+					rules: &godo.FirewallRulesRequest{
+						InboundRules: []godo.InboundRule{
+							{
+								Protocol:  "tcp",
+								PortRange: "30000",
+								Sources: &godo.Sources{
+									LoadBalancerUIDs: []string{
+										"4de7ac8b-aaaa-4884-9a69-1050c6793cd6",
+									},
+								},
+							},
+						},
+						OutboundRules: []godo.OutboundRule{},
+					},
+				},
+			},
+			"bb4b2611-3d72-467b-8602-280330ecd65c",
+			"4de7ac8b-495b-4884-9a69-1050c6793cd6",
+			123,
+			true,
+		},
+		{
+			"Firewall request does not exist",
+			[]firewallRequest{
+				{
+					firewallID: "bb4b2611-3d72-467b-8602-280330ecd65c",
+					rules: &godo.FirewallRulesRequest{
+						InboundRules: []godo.InboundRule{
+							{
+								Protocol:  "tcp",
+								PortRange: "123",
+								Sources: &godo.Sources{
+									LoadBalancerUIDs: []string{
+										"4de7ac8b-495b-4884-9a69-1050c6793cd6",
+									},
+								},
+							},
+						},
+						OutboundRules: []godo.OutboundRule{},
+					},
+				},
+				{
+					firewallID: "bb4b2611-aaaa-467b-8602-280330ecd65c",
+					rules: &godo.FirewallRulesRequest{
+						InboundRules: []godo.InboundRule{
+							{
+								Protocol:  "tcp",
+								PortRange: "30000",
+								Sources: &godo.Sources{
+									LoadBalancerUIDs: []string{
+										"4de7ac8b-aaaa-4884-9a69-1050c6793cd6",
+									},
+								},
+							},
+						},
+						OutboundRules: []godo.OutboundRule{},
+					},
+				},
+			},
+			"bb4b2611-bbbb-467b-8602-280330ecd65c",
+			"4de7ac8b-cccc-4884-9a69-1050c6793cd6",
+			30000,
+			false,
+		},
+	}
+
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			result := requestExists(testcase.requests, testcase.firewallID, testcase.lbID, testcase.targetPort)
+			if result != testcase.result {
+				t.Errorf("actual result if firewall request exists is: %t", result)
+				t.Errorf("expected result: %t", testcase.result)
+				t.Error("unexpected check if firewall request exists result")
 			}
 		})
 	}
