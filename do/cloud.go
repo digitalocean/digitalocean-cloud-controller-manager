@@ -74,7 +74,7 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
 	doClient, err := godo.New(oauthClient, opts...)
 	if err != nil {
-		return nil, errors.New("failed to create godo client")
+		return nil, fmt.Errorf("failed to create godo client: %s", err)
 	}
 
 	region, err := dropletRegion()
