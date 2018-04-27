@@ -105,6 +105,8 @@ func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBala
 //
 // GetLoadBalancer will not modify service.
 func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
+	glog.Infof("getting load balancer cluster=%s service=%s", clusterName, service.Name)
+
 	lbName := cloudprovider.GetLoadBalancerName(service)
 	lb, err := l.lbByName(context.TODO(), lbName)
 	if err != nil {
@@ -136,6 +138,8 @@ func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service)
 //
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+	glog.Infof("ensuring load balancer cluster=%s service=%s", clusterName, service.Name)
+
 	lbStatus, exists, err := l.GetLoadBalancer(clusterName, service)
 	if err != nil {
 		return nil, err
@@ -171,13 +175,12 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 		return nil, err
 	}
 
-	lbStatus, exists, err = l.GetLoadBalancer(clusterName, service)
+	lbStatus, _, err = l.GetLoadBalancer(clusterName, service)
 	if err != nil {
 		return nil, err
 	}
 
 	return lbStatus, nil
-
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -185,6 +188,8 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 //
 // UpdateLoadBalancer will not modify service or nodes.
 func (l *loadbalancers) UpdateLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) error {
+	glog.Infof("updating load balancer cluster=%s service=%s", clusterName, service.Name)
+
 	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 	if err != nil {
 		return err
@@ -206,6 +211,8 @@ func (l *loadbalancers) UpdateLoadBalancer(clusterName string, service *v1.Servi
 //
 // EnsureLoadBalancerDeleted will not modify service.
 func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v1.Service) error {
+	glog.Infof("ensuring load balancer deleted cluster=%s service=%s", clusterName, service.Name)
+
 	_, exists, err := l.GetLoadBalancer(clusterName, service)
 	if err != nil {
 		return err
@@ -249,7 +256,6 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 // Node names are assumed to match droplet names.
 func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 	droplets, err := allDropletList(context.TODO(), l.client)
-
 	if err != nil {
 		return nil, err
 	}
@@ -264,7 +270,6 @@ func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 			}
 			addresses, err := nodeAddresses(&droplet)
 			if err != nil {
-				glog.Errorf("error getting node addresses for %s: %v", droplet.Name, err)
 				continue
 			}
 			for _, address := range addresses {
