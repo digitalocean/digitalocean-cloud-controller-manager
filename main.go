@@ -26,8 +26,7 @@ import (
 	"k8s.io/kubernetes/cmd/cloud-controller-manager/app"
 	"k8s.io/kubernetes/cmd/cloud-controller-manager/app/options"
 	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
-	"k8s.io/kubernetes/pkg/cloudprovider"
-	_ "k8s.io/kubernetes/pkg/version/prometheus" // for version metric registration
+	_ "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
 	"k8s.io/kubernetes/pkg/version/verflag"
 
 	_ "github.com/digitalocean/digitalocean-cloud-controller-manager/do"
@@ -40,7 +39,7 @@ func init() {
 }
 
 func main() {
-	s := options.NewCloudControllerManagerServer()
+	s := options.NewCloudControllerManagerOptions()
 	s.AddFlags(pflag.CommandLine)
 
 	flag.InitFlags()
@@ -49,12 +48,12 @@ func main() {
 
 	verflag.PrintAndExitIfRequested()
 
-	cloud, err := cloudprovider.InitCloudProvider("digitalocean", s.CloudConfigFile)
+	config, err := s.Config()
 	if err != nil {
-		glog.Fatalf("failed to initialize cloud provider: %v", err)
+		glog.Fatalf("failed to create componeont config: %s", err)
 	}
 
-	if err := app.Run(s, cloud); err != nil {
+	if err := app.Run(config.Complete()); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
