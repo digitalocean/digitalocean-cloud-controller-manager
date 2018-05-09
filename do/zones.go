@@ -17,8 +17,9 @@ limitations under the License.
 package do
 
 import (
+	"context"
+
 	"github.com/digitalocean/godo"
-	"github.com/digitalocean/godo/context"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
@@ -36,20 +37,20 @@ func newZones(client *godo.Client, region string) cloudprovider.Zones {
 // the Region field of the returned cloudprovider.Zone.
 //
 // Kuberenetes uses this method to get the region that the program is running in.
-func (z zones) GetZone() (cloudprovider.Zone, error) {
+func (z zones) GetZone(ctx context.Context) (cloudprovider.Zone, error) {
 	return cloudprovider.Zone{Region: z.region}, nil
 }
 
 // GetZoneByProviderID returns a cloudprovider.Zone from the droplet identified
 // by providerID. GetZoneByProviderID only sets the Region field of the
 // returned cloudprovider.Zone.
-func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error) {
+func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (cloudprovider.Zone, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return cloudprovider.Zone{}, err
 	}
 
-	d, err := dropletByID(context.Background(), z.client, id)
+	d, err := dropletByID(ctx, z.client, id)
 	if err != nil {
 		return cloudprovider.Zone{}, err
 	}
@@ -60,8 +61,8 @@ func (z zones) GetZoneByProviderID(providerID string) (cloudprovider.Zone, error
 // GetZoneByNodeName returns a cloudprovider.Zone from the droplet identified
 // by nodeName. GetZoneByNodeName only sets the Region field of the returned
 // cloudprovider.Zone.
-func (z zones) GetZoneByNodeName(nodeName types.NodeName) (cloudprovider.Zone, error) {
-	d, err := dropletByName(context.Background(), z.client, nodeName)
+func (z zones) GetZoneByNodeName(ctx context.Context, nodeName types.NodeName) (cloudprovider.Zone, error) {
+	d, err := dropletByName(ctx, z.client, nodeName)
 	if err != nil {
 		return cloudprovider.Zone{}, err
 	}

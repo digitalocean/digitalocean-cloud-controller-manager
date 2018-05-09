@@ -17,7 +17,7 @@ limitations under the License.
 package do
 
 import (
-	goctx "context"
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -28,7 +28,6 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
-	"github.com/digitalocean/godo/context"
 	"github.com/golang/glog"
 )
 
@@ -104,9 +103,9 @@ func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBala
 // GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
 //
 // GetLoadBalancer will not modify service.
-func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
+func (l *loadbalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
-	lb, err := l.lbByName(context.TODO(), lbName)
+	lb, err := l.lbByName(ctx, lbName)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil, false, nil
@@ -135,8 +134,8 @@ func (l *loadbalancers) GetLoadBalancer(clusterName string, service *v1.Service)
 // service.
 //
 // EnsureLoadBalancer will not modify service or nodes.
-func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	lbStatus, exists, err := l.GetLoadBalancer(clusterName, service)
+func (l *loadbalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+	lbStatus, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +146,7 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 			return nil, err
 		}
 
-		lb, _, err := l.client.LoadBalancers.Create(context.TODO(), lbRequest)
+		lb, _, err := l.client.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -166,12 +165,12 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 		}, nil
 	}
 
-	err = l.UpdateLoadBalancer(clusterName, service, nodes)
+	err = l.UpdateLoadBalancer(ctx, clusterName, service, nodes)
 	if err != nil {
 		return nil, err
 	}
 
-	lbStatus, exists, err = l.GetLoadBalancer(clusterName, service)
+	lbStatus, exists, err = l.GetLoadBalancer(ctx, clusterName, service)
 	if err != nil {
 		return nil, err
 	}
@@ -184,19 +183,19 @@ func (l *loadbalancers) EnsureLoadBalancer(clusterName string, service *v1.Servi
 // the droplets in nodes.
 //
 // UpdateLoadBalancer will not modify service or nodes.
-func (l *loadbalancers) UpdateLoadBalancer(clusterName string, service *v1.Service, nodes []*v1.Node) error {
+func (l *loadbalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
 	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 	if err != nil {
 		return err
 	}
 
 	lbName := cloudprovider.GetLoadBalancerName(service)
-	lb, err := l.lbByName(context.TODO(), lbName)
+	lb, err := l.lbByName(ctx, lbName)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = l.client.LoadBalancers.Update(context.TODO(), lb.ID, lbRequest)
+	_, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	return err
 }
 
@@ -205,8 +204,8 @@ func (l *loadbalancers) UpdateLoadBalancer(clusterName string, service *v1.Servi
 // successfully deleted.
 //
 // EnsureLoadBalancerDeleted will not modify service.
-func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v1.Service) error {
-	_, exists, err := l.GetLoadBalancer(clusterName, service)
+func (l *loadbalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+	_, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
 	if err != nil {
 		return err
 	}
@@ -215,7 +214,6 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(clusterName string, service *v
 		return nil
 	}
 
-	ctx := context.TODO()
 	lbName := cloudprovider.GetLoadBalancerName(service)
 
 	lb, err := l.lbByName(ctx, lbName)
@@ -319,7 +317,7 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 
 func (l *loadbalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
 
-	ctx, cancel := goctx.WithTimeout(goctx.TODO(), time.Second*time.Duration(l.lbActiveTimeout))
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*time.Duration(l.lbActiveTimeout))
 	defer cancel()
 	ticker := time.NewTicker(time.Second * time.Duration(l.lbActiveCheckTick))
 	defer ticker.Stop()

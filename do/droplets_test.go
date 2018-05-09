@@ -18,6 +18,7 @@ package do
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -28,7 +29,6 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
-	"github.com/digitalocean/godo/context"
 )
 
 type fakeDropletService struct {
@@ -173,7 +173,7 @@ func TestNodeAddresses(t *testing.T) {
 		},
 	}
 
-	addresses, err := instances.NodeAddresses("test-droplet")
+	addresses, err := instances.NodeAddresses(context.TODO(), "test-droplet")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {
 		t.Errorf("unexpected node addresses. got: %v want: %v", addresses, expectedAddresses)
@@ -209,7 +209,7 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 		},
 	}
 
-	addresses, err := instances.NodeAddressesByProviderID("digitalocean://123")
+	addresses, err := instances.NodeAddressesByProviderID(context.TODO(), "digitalocean://123")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {
 		t.Errorf("unexpected node addresses. got: %v want: %v", addresses, expectedAddresses)
@@ -233,7 +233,7 @@ func TestInstanceID(t *testing.T) {
 	client := newFakeClient(fake)
 	instances := newInstances(client, "nyc1")
 
-	id, err := instances.InstanceID("test-droplet")
+	id, err := instances.InstanceID(context.TODO(), "test-droplet")
 	if err != nil {
 		t.Errorf("expected nil error, got: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestInstanceType(t *testing.T) {
 	client := newFakeClient(fake)
 	instances := newInstances(client, "nyc1")
 
-	instanceType, err := instances.InstanceType("test-droplet")
+	instanceType, err := instances.InstanceType(context.TODO(), "test-droplet")
 	if err != nil {
 		t.Errorf("expected nil error, got: %v", err)
 	}

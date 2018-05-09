@@ -1,11 +1,11 @@
 package do
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/digitalocean/godo"
-	"github.com/digitalocean/godo/context"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
@@ -26,7 +26,7 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
-	actual, err := zones.GetZoneByNodeName("test-droplet")
+	actual, err := zones.GetZoneByNodeName(context.TODO(), "test-droplet")
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)
@@ -50,7 +50,7 @@ func TestZones_GetZoneByProviderID(t *testing.T) {
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
-	actual, err := zones.GetZoneByProviderID("digitalocean://123")
+	actual, err := zones.GetZoneByProviderID(context.TODO(), "digitalocean://123")
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)

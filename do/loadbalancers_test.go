@@ -17,13 +17,13 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/digitalocean/godo"
-	"github.com/digitalocean/godo/context"
 
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1729,7 +1729,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 
 			// we don't actually use clusterName param in GetLoadBalancer
-			lbStatus, exists, err := lb.GetLoadBalancer("test", test.service)
+			lbStatus, exists, err := lb.GetLoadBalancer(context.TODO(), "test", test.service)
 			if !reflect.DeepEqual(lbStatus, test.lbStatus) {
 				t.Error("unexpected LB status")
 				t.Logf("expected: %v", test.lbStatus)
@@ -1963,7 +1963,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
 
 			// clusterName param in EnsureLoadBalancer currently not used
-			lbStatus, err := lb.EnsureLoadBalancer("test", test.service, test.nodes)
+			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "test", test.service, test.nodes)
 			if !reflect.DeepEqual(lbStatus, test.lbStatus) {
 				t.Error("unexpected LB status")
 				t.Logf("expected: %v", test.lbStatus)
