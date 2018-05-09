@@ -1,11 +1,12 @@
 package do
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	"github.com/digitalocean/godo"
-	"github.com/digitalocean/godo/context"
+	godocontext "github.com/digitalocean/godo/context"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
@@ -13,7 +14,7 @@ var _ cloudprovider.Zones = new(zones)
 
 func TestZones_GetZoneByNodeName(t *testing.T) {
 	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	fake.listFunc = func(ctx godocontext.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 		droplet := newFakeDroplet()
 		droplets := []godo.Droplet{*droplet}
 
@@ -26,7 +27,7 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
-	actual, err := zones.GetZoneByNodeName("test-droplet")
+	actual, err := zones.GetZoneByNodeName(context.TODO(), "test-droplet")
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)
@@ -40,7 +41,7 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 func TestZones_GetZoneByProviderID(t *testing.T) {
 	fake := &fakeDropletService{}
 
-	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+	fake.getFunc = func(ctx godocontext.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
 		droplet := newFakeDroplet()
 		resp := newFakeOKResponse()
 		return droplet, resp, nil
@@ -50,7 +51,7 @@ func TestZones_GetZoneByProviderID(t *testing.T) {
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
-	actual, err := zones.GetZoneByProviderID("digitalocean://123")
+	actual, err := zones.GetZoneByProviderID(context.TODO(), "digitalocean://123")
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)
