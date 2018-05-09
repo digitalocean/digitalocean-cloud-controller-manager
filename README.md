@@ -14,6 +14,7 @@ These are the recommended versions to run the cloud controller manager based on 
 * Use CCM versions <= v0.1.1 if you're running Kubernetes version v1.7
 * Use CCM versions >= v0.1.2 if you're running Kubernetes version v1.8
 * Use CCM versions >= v0.1.4 if you're running Kubernetes version v1.9 - v1.10
+* Use CCM versions >= v0.1.5 if you're running Kubernetes version >= v1.10
 
 ### --cloud-provider=external
 All `kubelet`s in your cluster **MUST** set the flag `--cloud-provider=external`. `kube-apiserver` and `kube-controller-manager` must **NOT** set the flag `--cloud-provider` which will default them to use no cloud provider natively.
@@ -92,7 +93,7 @@ digitalocean          Opaque                                1         18h
 ### Cloud controller manager
 Currently we only support alpha release of the `digitalocean-cloud-controller-manager` due to its active development. Run the first alpha release like so
 ```bash
-kubectl apply -f releases/v0.1.2.yml
+kubectl apply -f releases/v0.1.5.yml
 deployment "digitalocean-cloud-controller-manager" created
 ```
 
@@ -110,4 +111,3 @@ At DigitalOcean we value and love our community! If you have any issues or would
 ### Maintainers
 * Fatih Arslan - @fatih
 * Andrew Sy Kim - @andrewsykim
-* Pablo Mercado - @odacremolbap

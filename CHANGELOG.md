@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.1.5 (alpha) - May 9th 2018
+* loadbalancers: Support nodes where nodeName is the private or public IP (@klausenbusk)
+* Add the ability to overide the DO API address (@cagedmantis)
+* update godo to v1.2.0 (@andrewsykim)
+* update kubernetes dependenicies to v1.10.2 (@andrewsykim)
+
 ## v0.1.4 (alpha) - March 18th 2018
 * Support loadbalancer sticky sessions (@xmudrii)
 * Add RBAC ClusterRole, ClusterRoleBindings and ServiceAccount
