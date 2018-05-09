@@ -29,7 +29,6 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
-	godocontext "github.com/digitalocean/godo/context"
 )
 
 type instances struct {
@@ -47,7 +46,7 @@ func newInstances(client *godo.Client, region string) cloudprovider.Instances {
 // When nodeName identifies more than one droplet, only the first will be
 // considered.
 func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
-	droplet, err := dropletByName(godocontext.TODO(), i.client, nodeName)
+	droplet, err := dropletByName(ctx, i.client, nodeName)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +63,7 @@ func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID st
 		return nil, err
 	}
 
-	droplet, err := dropletByID(godocontext.TODO(), i.client, id)
+	droplet, err := dropletByID(ctx, i.client, id)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +83,7 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceID returns the cloud provider ID of the droplet identified by nodeName.
 func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
-	droplet, err := dropletByName(godocontext.TODO(), i.client, nodeName)
+	droplet, err := dropletByName(ctx, i.client, nodeName)
 	if err != nil {
 		return "", err
 	}
@@ -93,7 +92,7 @@ func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceType returns the type of the droplet identified by name.
 func (i *instances) InstanceType(ctx context.Context, name types.NodeName) (string, error) {
-	droplet, err := dropletByName(godocontext.TODO(), i.client, name)
+	droplet, err := dropletByName(ctx, i.client, name)
 	if err != nil {
 		return "", err
 	}
@@ -108,7 +107,7 @@ func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID str
 		return "", err
 	}
 
-	droplet, err := dropletByID(godocontext.TODO(), i.client, id)
+	droplet, err := dropletByID(ctx, i.client, id)
 	if err != nil {
 		return "", err
 	}
@@ -137,7 +136,7 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 		return false, err
 	}
 
-	_, err = dropletByID(godocontext.TODO(), i.client, id)
+	_, err = dropletByID(ctx, i.client, id)
 	if err == nil {
 		return true, nil
 	}
@@ -155,7 +154,7 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 }
 
 // dropletByID returns a *godo.Droplet value for the droplet identified by id.
-func dropletByID(ctx godocontext.Context, client *godo.Client, id string) (*godo.Droplet, error) {
+func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Droplet, error) {
 	intID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("error converting droplet id to string: %v", err)
@@ -173,7 +172,7 @@ func dropletByID(ctx godocontext.Context, client *godo.Client, id string) (*godo
 //
 // When nodeName identifies more than one droplet, only the first will be
 // considered.
-func dropletByName(ctx godocontext.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
+func dropletByName(ctx context.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
 	// TODO (andrewsykim): list by tag once a tagging format is determined
 	droplets, err := allDropletList(ctx, client)
 	if err != nil {

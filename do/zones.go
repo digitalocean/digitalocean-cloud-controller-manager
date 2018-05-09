@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/digitalocean/godo"
-	godocontext "github.com/digitalocean/godo/context"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
@@ -51,7 +50,7 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 		return cloudprovider.Zone{}, err
 	}
 
-	d, err := dropletByID(godocontext.Background(), z.client, id)
+	d, err := dropletByID(ctx, z.client, id)
 	if err != nil {
 		return cloudprovider.Zone{}, err
 	}
@@ -63,7 +62,7 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 // by nodeName. GetZoneByNodeName only sets the Region field of the returned
 // cloudprovider.Zone.
 func (z zones) GetZoneByNodeName(ctx context.Context, nodeName types.NodeName) (cloudprovider.Zone, error) {
-	d, err := dropletByName(godocontext.Background(), z.client, nodeName)
+	d, err := dropletByName(ctx, z.client, nodeName)
 	if err != nil {
 		return cloudprovider.Zone{}, err
 	}

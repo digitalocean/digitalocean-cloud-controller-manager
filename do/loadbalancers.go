@@ -28,7 +28,6 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
-	godocontext "github.com/digitalocean/godo/context"
 	"github.com/golang/glog"
 )
 
@@ -106,7 +105,7 @@ func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBala
 // GetLoadBalancer will not modify service.
 func (l *loadbalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
-	lb, err := l.lbByName(godocontext.TODO(), lbName)
+	lb, err := l.lbByName(ctx, lbName)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil, false, nil
@@ -147,7 +146,7 @@ func (l *loadbalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 			return nil, err
 		}
 
-		lb, _, err := l.client.LoadBalancers.Create(godocontext.TODO(), lbRequest)
+		lb, _, err := l.client.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -191,12 +190,12 @@ func (l *loadbalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	lbName := cloudprovider.GetLoadBalancerName(service)
-	lb, err := l.lbByName(godocontext.TODO(), lbName)
+	lb, err := l.lbByName(ctx, lbName)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = l.client.LoadBalancers.Update(godocontext.TODO(), lb.ID, lbRequest)
+	_, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	return err
 }
 
@@ -217,7 +216,7 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 	lbName := cloudprovider.GetLoadBalancerName(service)
 
-	lb, err := l.lbByName(godocontext.TODO(), lbName)
+	lb, err := l.lbByName(ctx, lbName)
 	if err != nil {
 		return err
 	}
@@ -228,7 +227,7 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will
 // be lbNotFound if the load balancer does not exist.
-func (l *loadbalancers) lbByName(ctx godocontext.Context, name string) (*godo.LoadBalancer, error) {
+func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
 	lbs, _, err := l.client.LoadBalancers.List(ctx, &godo.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -247,7 +246,7 @@ func (l *loadbalancers) lbByName(ctx godocontext.Context, name string) (*godo.Lo
 //
 // Node names are assumed to match droplet names.
 func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
-	droplets, err := allDropletList(godocontext.TODO(), l.client)
+	droplets, err := allDropletList(context.TODO(), l.client)
 
 	if err != nil {
 		return nil, err
