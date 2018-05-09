@@ -34,7 +34,7 @@
   version = "kubernetes-1.10.2"
 
 [[constraint]]
-  branch = "master"
+  version = "v1.2.0"
   name = "github.com/digitalocean/godo"
 
 [[constraint]]

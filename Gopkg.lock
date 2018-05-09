@@ -81,13 +81,10 @@
   version = "v1.1.0"
 
 [[projects]]
-  branch = "master"
   name = "github.com/digitalocean/godo"
-  packages = [
-    ".",
-    "context"
-  ]
-  revision = "801cee9569723107654606a8e00d79b56470072e"
+  packages = ["."]
+  revision = "970b46ffe46bacda668dd58a8a1aba9d775b8895"
+  version = "v1.2.0"
 
 [[projects]]
   name = "github.com/docker/distribution"
@@ -894,6 +891,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "eb2c5c48de1ee8c2a3f0a64a51c6668d6d79c6c635ce05ec792d5ce47e17dcf9"
+  inputs-digest = "4a2e96ac6f20fce393e34f84537e651720b621860fb3963e4e4e51278f52d380"
   solver-name = "gps-cdcl"
   solver-version = 1
