@@ -48,6 +48,9 @@ func main() {
 
 	verflag.PrintAndExitIfRequested()
 
+	// digitalocean overrides
+	s.Generic.ComponentConfig.AllowUntaggedCloud = true
+
 	config, err := s.Config()
 	if err != nil {
 		glog.Fatalf("failed to create componeont config: %s", err)
