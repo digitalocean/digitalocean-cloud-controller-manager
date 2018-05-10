@@ -200,7 +200,7 @@ func Test_getTLSPassThrough(t *testing.T) {
 			false,
 		},
 		{
-			"Service annotatiosn nil",
+			"Service annotations nil",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
