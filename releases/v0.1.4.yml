@@ -1,4 +1,4 @@
-# NOTE: this release is only compatible with Kubernetes versions v1.8.X - v1.9.X
+# NOTE: this release is only compatible with Kubernetes versions v1.9.X - v1.10.X
 
 ---
 apiVersion: extensions/v1beta1
