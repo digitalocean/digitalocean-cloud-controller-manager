@@ -72,6 +72,10 @@ const (
 	// annDOStickySessionType is set to cookies.
 	annDOStickySessionsCookieTTL = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl"
 
+        // annDORedirectHttpToHttps is the annotation specifying whether or not Http traffic
+        // should be redirected to Https. Defaults to false
+        annDORedirectHttpToHttps = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -304,14 +308,17 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 
 	algorithm := getAlgorithm(service)
 
+        redirectHttpToHttps := getRedirectHttpToHttps(service)
+
 	return &godo.LoadBalancerRequest{
-		Name:            lbName,
-		DropletIDs:      dropletIDs,
-		Region:          l.region,
-		ForwardingRules: forwardingRules,
-		HealthCheck:     healthCheck,
-		StickySessions:  stickySessions,
-		Algorithm:       algorithm,
+		Name:                   lbName,
+		DropletIDs:             dropletIDs,
+		Region:                 l.region,
+		ForwardingRules:        forwardingRules,
+		HealthCheck:            healthCheck,
+		StickySessions:         stickySessions,
+		Algorithm:              algorithm,
+                RedirectHttpToHttps:    redirectHttpToHttps,
 	}, nil
 }
 
@@ -559,4 +566,20 @@ func getStickySessionsCookieTTL(service *v1.Service) (int, error) {
 	}
 
 	return strconv.Atoi(ttl)
+}
+
+// getRedirectHttpToHttps returns whether or not Http traffic should be redirected
+// to Https traffic for the loadbalancer. false is returned if not specified.
+func getRedirectHttpToHttps(service *v1.Service) bool {
+	redirectHttpToHttps, ok := service.Annotations[annDORedirectHttpToHttps]
+	if !ok {
+		return false
+	}
+
+	redirectHttpToHttpsBool, err := strconv.ParseBool(redirectHttpToHttps)
+	if err != nil {
+		return false
+	}
+
+	return redirectHttpToHttpsBool
 }
