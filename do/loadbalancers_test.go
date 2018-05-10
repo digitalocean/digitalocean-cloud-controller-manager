@@ -1080,6 +1080,74 @@ func Test_buildStickySessions(t *testing.T) {
 	}
 }
 
+func Test_getRedirectHttpToHttps(t *testing.T) {
+	testcases := []struct {
+		name                string
+		service             *v1.Service
+		redirectHttpToHttps bool
+	}{
+		{
+			"Redirect Http to Https true",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORedirectHttpToHttps: "true",
+					},
+				},
+			},
+			true,
+		},
+		{
+			"Redirect Http to Https false",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORedirectHttpToHttps: "false",
+					},
+				},
+			},
+			false,
+		},
+		{
+			"Redirect Http to Https not defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			false,
+		},
+		{
+			"Service annotations nil",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			redirectHttpToHttps := getRedirectHttpToHttps(test.service)
+			if redirectHttpToHttps != test.redirectHttpToHttps {
+				t.Error("unexpected redirect Http to Https")
+				t.Logf("expected: %t", test.redirectHttpToHttps)
+				t.Logf("actual: %t", redirectHttpToHttps)
+			}
+		})
+	}
+
+}
+
 func Test_buildLoadBalancerRequest(t *testing.T) {
 	testcases := []struct {
 		name          string
