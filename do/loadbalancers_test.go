@@ -200,7 +200,7 @@ func Test_getTLSPassThrough(t *testing.T) {
 			false,
 		},
 		{
-			"Service annotatiosn nil",
+			"Service annotations nil",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1080,6 +1080,74 @@ func Test_buildStickySessions(t *testing.T) {
 	}
 }
 
+func Test_getRedirectHttpToHttps(t *testing.T) {
+	testcases := []struct {
+		name                string
+		service             *v1.Service
+		redirectHttpToHttps bool
+	}{
+		{
+			"Redirect Http to Https true",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORedirectHttpToHttps: "true",
+					},
+				},
+			},
+			true,
+		},
+		{
+			"Redirect Http to Https false",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORedirectHttpToHttps: "false",
+					},
+				},
+			},
+			false,
+		},
+		{
+			"Redirect Http to Https not defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			false,
+		},
+		{
+			"Service annotations nil",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			redirectHttpToHttps := getRedirectHttpToHttps(test.service)
+			if redirectHttpToHttps != test.redirectHttpToHttps {
+				t.Error("unexpected redirect Http to Https")
+				t.Logf("expected: %t", test.redirectHttpToHttps)
+				t.Logf("actual: %t", redirectHttpToHttps)
+			}
+		})
+	}
+
+}
+
 func Test_buildLoadBalancerRequest(t *testing.T) {
 	testcases := []struct {
 		name          string
@@ -1346,6 +1414,107 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type:             "cookies",
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
+				},
+			},
+			nil,
+		},
+		{
+			"successful load balancer request with redirect_http_to_https",
+			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{
+					{
+						ID:   100,
+						Name: "node-1",
+					},
+					{
+						ID:   101,
+						Name: "node-2",
+					},
+					{
+						ID:   102,
+						Name: "node-3",
+					},
+				}, newFakeOKResponse(), nil
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http",
+						annDOAlgorithm:           "round_robin",
+						annDORedirectHttpToHttps: "true",
+						annDOTLSPorts:            "443",
+						annDOCertificateID:       "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
+				// as loadbalancer name
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+					},
+					{
+						EntryProtocol:  "https",
+						EntryPort:      443,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
+					},
+				},
+				HealthCheck: &godo.HealthCheck{
+					Protocol:               "http",
+					Port:                   30000,
+					CheckIntervalSeconds:   3,
+					ResponseTimeoutSeconds: 5,
+					HealthyThreshold:       5,
+					UnhealthyThreshold:     3,
+				},
+				Algorithm:           "round_robin",
+				RedirectHttpToHttps: true,
+				StickySessions: &godo.StickySessions{
+					Type: "none",
 				},
 			},
 			nil,
