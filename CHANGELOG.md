@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## v0.1.6 (alpha) - May 11th 2018
+* support loadbalancer http -> https redirect (@peterver)
+
 ## v0.1.5 (alpha) - May 9th 2018
 * loadbalancers: Support nodes where nodeName is the private or public IP (@klausenbusk)
 * Add the ability to overide the DO API address (@cagedmantis)
