@@ -23,11 +23,11 @@ clean:
 
 .PHONY: compile
 compile:
-	CGO_ENABLED=0 GOOS=linux go build
+	CGO_ENABLED=0 GOOS=linux go build ./cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 
 .PHONY: build
 build:
-	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) .
+	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
 .PHONY: push
 push:
