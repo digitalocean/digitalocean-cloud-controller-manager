@@ -29,7 +29,7 @@ import (
 	_ "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
 	"k8s.io/kubernetes/pkg/version/verflag"
 
-	_ "github.com/digitalocean/digitalocean-cloud-controller-manager/do"
+	_ "github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 )

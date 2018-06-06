@@ -1,5 +1,5 @@
 # binaries
-digitalocean-cloud-controller-manager
+/digitalocean-cloud-controller-manager
 
 # generated kubernetes manifests
 generated-secret.yml
