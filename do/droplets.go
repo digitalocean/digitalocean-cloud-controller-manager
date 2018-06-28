@@ -153,6 +153,11 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 	return false, nil
 }
 
+// InstanceShutdownByProviderID returns true if the droplet is turned off
+func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (bool, error) {
+	return false, errors.New("not implemented yet")
+}
+
 // dropletByID returns a *godo.Droplet value for the droplet identified by id.
 func dropletByID(ctx context.Context, client *godo.Client, id string) (*godo.Droplet, error) {
 	intID, err := strconv.Atoi(id)
