@@ -39,7 +39,11 @@ func init() {
 }
 
 func main() {
-	s := options.NewCloudControllerManagerOptions()
+	s, err := options.NewCloudControllerManagerOptions()
+	if err != nil {
+		glog.Fatalf("failed to create config options: %s", err)
+	}
+
 	s.AddFlags(pflag.CommandLine)
 
 	flag.InitFlags()
@@ -49,11 +53,11 @@ func main() {
 	verflag.PrintAndExitIfRequested()
 
 	// digitalocean overrides
-	s.Generic.ComponentConfig.AllowUntaggedCloud = true
+	s.KubeCloudShared.AllowUntaggedCloud = true
 
 	config, err := s.Config()
 	if err != nil {
-		glog.Fatalf("failed to create componeont config: %s", err)
+		glog.Fatalf("failed to create component config: %s", err)
 	}
 
 	if err := app.Run(config.Complete()); err != nil {
