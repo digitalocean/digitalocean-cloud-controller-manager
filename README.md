@@ -109,5 +109,5 @@ Here are some examples of how you could leverage `digitalocean-cloud-controller-
 At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
 
 ### Maintainers
-* Fatih Arslan - @fatih
 * Andrew Sy Kim - @andrewsykim
+* Billie Cleek - @bhcleek
