@@ -125,6 +125,31 @@ func newFakeDroplet() *godo.Droplet {
 	}
 }
 
+func newFakeShutdownDroplet() *godo.Droplet {
+	return &godo.Droplet{
+		ID:       123,
+		Name:     "test-droplet",
+		SizeSlug: "2gb",
+		Status:   "off",
+		Networks: &godo.Networks{
+			V4: []godo.NetworkV4{
+				{
+					IPAddress: "10.0.0.0",
+					Type:      "private",
+				},
+				{
+					IPAddress: "99.99.99.99",
+					Type:      "public",
+				},
+			},
+		},
+		Region: &godo.Region{
+			Name: "test-region",
+			Slug: "test1",
+		},
+	}
+}
+
 func newFakeOKResponse() *godo.Response {
 	return &godo.Response{
 		Response: &http.Response{
@@ -263,6 +288,27 @@ func TestInstanceType(t *testing.T) {
 
 	if instanceType != "2gb" {
 		t.Errorf("expected type 2gb, got: %s", instanceType)
+	}
+}
+
+func Test_InstanceShutdownByProviderID(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+		droplet := newFakeShutdownDroplet()
+		resp := newFakeOKResponse()
+		return droplet, resp, nil
+	}
+
+	client := newFakeClient(fake)
+	instances := newInstances(client, "nyc1")
+
+	shutdown, err := instances.InstanceShutdownByProviderID(context.TODO(), "digitalocean://123")
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	if !shutdown {
+		t.Errorf("expected node to be shutdown, but it wasn't")
 	}
 }
 
