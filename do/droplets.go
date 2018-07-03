@@ -31,6 +31,10 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+const (
+	dropletShutdownStatus = "off"
+)
+
 type instances struct {
 	client *godo.Client
 	region string
@@ -155,7 +159,17 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 
 // InstanceShutdownByProviderID returns true if the droplet is turned off
 func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (bool, error) {
-	return false, errors.New("not implemented yet")
+	dropletID, err := dropletIDFromProviderID(providerID)
+	if err != nil {
+		return false, fmt.Errorf("error getting droplet ID from provider ID %s, err: %v", providerID, err)
+	}
+
+	droplet, err := dropletByID(ctx, i.client, dropletID)
+	if err != nil {
+		return false, fmt.Errorf("error getting droplet %s by ID: %s", dropletID, err)
+	}
+
+	return droplet.Status == dropletShutdownStatus, nil
 }
 
 // dropletByID returns a *godo.Droplet value for the droplet identified by id.
