@@ -19,6 +19,11 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+[prune]
+  unused-packages = true
+  go-tests = true
+	non-go = true
+
 [[override]]
   # only needed until kubernetes moves to dep or github.com/docker/distribution's latest tag builds with kubernetes.
   name = "github.com/docker/distribution"
