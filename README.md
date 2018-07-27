@@ -12,8 +12,8 @@ Learn more about running DigitalOcean cloud controller manager [here](docs/getti
 ## Examples
 
 Here are some examples of how you could leverage `digitalocean-cloud-controller-manager`:
-* [loadbalancers](examples/loadbalancers/)
-* [node labels and addresses](examples/nodes/)
+* [loadbalancers](docs/examples/loadbalancers/)
+* [node labels and addresses](docs/examples/nodes/)
 
 ## Contributing
 At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
