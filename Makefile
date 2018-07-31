@@ -23,7 +23,7 @@ clean:
 
 .PHONY: compile
 compile:
-	CGO_ENABLED=0 GOOS=linux go build ./cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
+	CGO_ENABLED=0 GOOS=linux go build -ldflags '-X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION)' ./cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 
 .PHONY: build
 build:
