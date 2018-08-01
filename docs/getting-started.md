@@ -10,6 +10,7 @@ These are the recommended versions to run the cloud controller manager based on 
 * Use CCM versions >= v0.1.2 if you're running Kubernetes version v1.8
 * Use CCM versions >= v0.1.4 if you're running Kubernetes version v1.9 - v1.10
 * Use CCM versions >= v0.1.5 if you're running Kubernetes version >= v1.10
+* Use CCM versions >= v0.1.7 if you're running Kubernetes version >= v1.11
 
 ### --cloud-provider=external
 All `kubelet`s in your cluster **MUST** set the flag `--cloud-provider=external`. `kube-apiserver` and `kube-controller-manager` must **NOT** set the flag `--cloud-provider` which will default them to use no cloud provider natively.
