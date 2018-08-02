@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## v0.1.7 (beta) - Aug 1st 2018
+* implement InstanceShutdownByProviderID which adds taints to droplets that are shutdown (@andrewsykim)
+
 ## v0.1.6 (alpha) - May 11th 2018
 * support loadbalancer http -> https redirect (@peterver)
 
