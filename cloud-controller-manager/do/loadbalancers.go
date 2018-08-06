@@ -37,6 +37,10 @@ const (
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
 	annDOProtocol = "service.beta.kubernetes.io/do-loadbalancer-protocol"
 
+	// annDOHealthCheckPath is the annotation used to specify the health check path
+	// for DO load balancers. Defaults to '/'.
+	annDOHealthCheckPath = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-path"
+
 	// annDOTLSPorts is the annotation used to specify which ports of the loadbalancer
 	// should use the https protocol. This is a comma separated list of ports
 	// (e.g. 443,6443,7443).
@@ -359,11 +363,13 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		return nil, err
 	}
 
+	healthCheckPath := healthCheckPath(service)
 	port := service.Spec.Ports[0].NodePort
 
 	return &godo.HealthCheck{
 		Protocol:               protocol,
 		Port:                   int(port),
+		Path:                   healthCheckPath,
 		CheckIntervalSeconds:   3,
 		ResponseTimeoutSeconds: 5,
 		HealthyThreshold:       5,
@@ -474,6 +480,17 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	return protocol, nil
+}
+
+// getHealthCheckPath returns the desired path for health checking
+// health check path should default to / if not specified
+func healthCheckPath(service *v1.Service) string {
+	path, ok := service.Annotations[annDOHealthCheckPath]
+	if !ok {
+		return ""
+	}
+
+	return path
 }
 
 // getTLSPorts returns the ports of service that are set to use TLS.

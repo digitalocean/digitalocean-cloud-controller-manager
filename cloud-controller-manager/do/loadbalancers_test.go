@@ -927,6 +927,39 @@ func Test_buildHealthCheck(t *testing.T) {
 			nil,
 		},
 		{
+			"http health check with path",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annDOHealthCheckPath: "/health",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			&godo.HealthCheck{
+				Protocol:               "http",
+				Port:                   30000,
+				Path:                   "/health",
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				HealthyThreshold:       5,
+				UnhealthyThreshold:     3,
+			},
+			nil,
+		},
+		{
 			"invalid protocol health check",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1180,7 +1213,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol: "http",
+						annDOProtocol:        "http",
+						annDOHealthCheckPath: "/health",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -1230,6 +1264,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				HealthCheck: &godo.HealthCheck{
 					Protocol:               "http",
 					Port:                   30000,
+					Path:                   "/health",
 					CheckIntervalSeconds:   3,
 					ResponseTimeoutSeconds: 5,
 					HealthyThreshold:       5,
