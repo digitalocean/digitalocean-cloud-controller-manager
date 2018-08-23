@@ -14,7 +14,7 @@ product](https://www.digitalocean.com/products/kubernetes/) is released and
 will continue following the rules below:
 
 * Bug fixes will be released as a `PATCH` update.
-* New features (such as CSI spec bumps) will be released as a `MINOR` update.
+* New features will be released as a `MINOR` update.
 * Significant breaking changes makes a `MAJOR` update.
 
 Because of the fast Kubernetes release cycles, CCM (Cloud Controller Manager)
