@@ -1,0 +1,13 @@
+[Unit]
+Description=Kubernetes Kubelet Server
+Documentation=https://github.com/kubernetes/kubernetes
+After=docker.service
+
+[Service]
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/kubernetes/bin
+ExecStart=/opt/kubernetes/bin/kubelet --allow-privileged=true --cgroup-root=/ --cloud-provider=external --cluster-dns=100.64.0.10 --cluster-domain=cluster.local --enable-debugging-handlers=true --eviction-hard=memory.available<100Mi,nodefs.available<10%,nodefs.inodesFree<5%,imagefs.available<10%,imagefs.inodesFree<5% --feature-gates=ExperimentalCriticalPodAnnotation=true --hostname-override=10.137.104.166 --kubeconfig=/var/lib/kubelet/kubeconfig --network-plugin=cni --node-labels=kops.k8s.io/instancegroup=nodes,kubernetes.io/role=node,node-role.kubernetes.io/node= --non-masquerade-cidr=100.64.0.0/10 --pod-infra-container-image=k8s.gcr.io/pause-amd64:3.0 --pod-manifest-path=/etc/kubernetes/manifests --register-schedulable=true --v=2 --cni-bin-dir=/opt/cni/bin/ --cni-conf-dir=/etc/cni/net.d/
+Restart=always
+RestartSec=2s
+StartLimitInterval=0
+KillMode=process
+User=root
