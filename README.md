@@ -33,6 +33,58 @@ Here are some examples of how you could leverage `digitalocean-cloud-controller-
 * [loadbalancers](docs/examples/loadbalancers/)
 * [node labels and addresses](docs/examples/nodes/)
 
+## Development
+
+Requirements:
+
+* Go: min `v1.10.x`
+
+After making your changes, run the tests and CI checks: 
+
+```
+$ make ci
+```
+
+If you want to test your changes, create a new image with the version set to `dev`:
+
+```
+$ make publish-dev
+```
+
+This will create a binary with version `dev` and docker image pushed to
+`digitalocean/digitalocean-cloud-controller-manager:dev`
+
+To release a new version bump first the version:
+
+```
+$ make bump-version
+```
+
+Make sure everything looks good. Create a new branch with all changes:
+
+```
+$ git checkout -b new-release
+$ git add .
+$ git push origin
+```
+
+After it's merged to master, [create a new Github
+release](https://github.com/digitalocean/digitalocean-cloud-controller-manager/releases/new) from
+master with the version `v0.1.7` and then publish a new docker build:
+
+```
+$ git checkout master
+$ make publish
+```
+
+This will create a binary with version `v0.1.7` and docker image pushed to
+`digitalocean/digitalocean-cloud-controller-manager:v0.1.7`
+
+## Contributing
+
+At DigitalOcean we value and love our community! If you have any issues or
+would like to contribute, feel free to open an issue/PR
+
 ## Contributing
 At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
 

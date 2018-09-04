@@ -29,7 +29,10 @@ REGISTRY ?= digitalocean
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
 PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 
-all: clean ci compile build push
+all: test
+
+publish: clean ci compile build push
+publish-dev: clean ci compile-dev build-dev push-dev
 
 ci: check-headers gofmt govet golint test
 
@@ -52,8 +55,18 @@ compile:
 	@echo "==> Building the project"
 	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
 
+compile-dev:
+	@echo "==> Building the project"
+	$(eval VERSION = dev)
+	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
+
 build:
 	@echo "==> Building the docker image"
+	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
+
+build-dev:
+	@echo "==> Building the docker image"
+	$(eval VERSION = dev)
 	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
 push:
@@ -64,6 +77,13 @@ else
 	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 endif
+
+push-dev:
+	$(eval VERSION = dev)
+	@echo "==> Publishing $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
+	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
+	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
+
 
 
 govet:
