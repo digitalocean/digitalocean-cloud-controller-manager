@@ -31,36 +31,36 @@ all: clean ci compile build push
 ci: check-headers gofmt govet golint test
 
 clean:
-	GOOS=linux go clean -i -x ./...
+	@GOOS=linux go clean -i -x ./...
 
 compile:
 	@echo "==> Building the project"
 	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
 
 build:
-	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
+	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
 push:
 ifneq ($(BRANCH),master)
 	@echo "ERROR: Publishing image with a SEMVER version '$(VERSION)' is only allowed from master"
 else
-	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
+	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 endif
 
 
 govet:
-	go vet $(shell go list ./... | grep -v vendor)
+	@go vet $(shell go list ./... | grep -v vendor)
 
 golint:
-	golint $(shell go list ./... | grep -v vendor)
+	@golint $(shell go list ./... | grep -v vendor)
 
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
-	ci/gofmt.sh
+	@ci/gofmt.sh
 
 test:
-	go test $(shell go list ./... | grep -v vendor)
+	@go test $(shell go list ./... | grep -v vendor)
 
 check-headers:
-	./ci/headers-*.sh
+	@./ci/headers-*.sh
 
 .PHONY: all clean compile build push ci govet golint gofmt test check-headers
