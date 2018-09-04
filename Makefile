@@ -17,41 +17,34 @@ REGISTRY ?= digitalocean
 
 all: clean ci compile build push
 
-.PHONY: clean
+ci: check-headers gofmt govet golint test
+
 clean:
 	GOOS=linux go clean -i -x ./...
 
-.PHONY: compile
 compile:
 	CGO_ENABLED=0 GOOS=linux go build -ldflags '-X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION)' ./cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 
-.PHONY: build
 build:
 	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
-.PHONY: push
 push:
 	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 
-.PHONY: ci
-ci: check-headers gofmt govet golint test
 
-.PHONY: govet
 govet:
 	go vet $(shell go list ./... | grep -v vendor)
 
-.PHONY: golint
 golint:
 	golint $(shell go list ./... | grep -v vendor)
 
-.PHONY: gofmt
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	ci/gofmt.sh
 
-.PHONY: test
 test:
 	go test $(shell go list ./... | grep -v vendor)
 
-.PHONY: check-headers
 check-headers:
 	./ci/headers-*.sh
+
+.PHONY: all clean compile build push ci govet golint gofmt test check-headers
