@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION ?= v0.1.7
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
 
 all: clean ci compile build push
@@ -29,7 +30,11 @@ build:
 	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
 push:
+ifneq ($(BRANCH),master)
+	@echo "ERROR: Publishing image with a SEMVER version '$(VERSION)' is only allowed from master"
+else
 	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
+endif
 
 
 govet:
