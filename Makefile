@@ -18,6 +18,9 @@ else
   GIT_TREE_STATE=dirty
 endif
 
+## Bump the version in the version file. Set BUMP to [ patch | major | minor ]
+BUMP := patch
+
 COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
@@ -29,6 +32,17 @@ PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-contr
 all: clean ci compile build push
 
 ci: check-headers gofmt govet golint test
+
+bump-version: 
+	@go get -u github.com/jessfraz/junk/sembump # update sembump tool
+	$(eval NEW_VERSION = $(shell sembump --kind $(BUMP) $(VERSION)))
+	@echo "Bumping VERSION from $(VERSION) to $(NEW_VERSION)"
+	@echo $(NEW_VERSION) > VERSION
+	@cp releases/${VERSION}.yml releases/${NEW_VERSION}.yml
+	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' releases/${NEW_VERSION}.yml
+	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' docs/getting-started.md
+	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' README.md
+	@rm README.md-e docs/getting-started.md-e releases/${NEW_VERSION}.yml-e
 
 clean:
 	@echo "==> Cleaning releases"
