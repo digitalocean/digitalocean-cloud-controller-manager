@@ -31,6 +31,7 @@ all: clean ci compile build push
 ci: check-headers gofmt govet golint test
 
 clean:
+	@echo "==> Cleaning releases"
 	@GOOS=linux go clean -i -x ./...
 
 compile:
@@ -38,13 +39,16 @@ compile:
 	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
 
 build:
+	@echo "==> Building the docker image"
 	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
 push:
 ifneq ($(BRANCH),master)
 	@echo "ERROR: Publishing image with a SEMVER version '$(VERSION)' is only allowed from master"
 else
+	@echo "==> Publishing $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
+	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 endif
 
 
@@ -58,6 +62,7 @@ gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	@ci/gofmt.sh
 
 test:
+	@echo "==> Testing all packages"
 	@go test $(shell go list ./... | grep -v vendor)
 
 check-headers:
