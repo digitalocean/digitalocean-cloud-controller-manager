@@ -12,46 +12,78 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION ?= v0.1.7
+ifeq ($(strip $(shell git status --porcelain 2>/dev/null)),)
+  GIT_TREE_STATE=clean
+else
+  GIT_TREE_STATE=dirty
+endif
+
+## Bump the version in the version file. Set BUMP to [ patch | major | minor ]
+BUMP := patch
+
+COMMIT ?= $(shell git rev-parse HEAD)
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
 
-all: clean ci compile build push
+LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
+PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 
-.PHONY: clean
-clean:
-	GOOS=linux go clean -i -x ./...
+all: test
 
-.PHONY: compile
-compile:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags '-X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION)' ./cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
+publish: clean ci compile build push
 
-.PHONY: build
-build:
-	docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
-
-.PHONY: push
-push:
-	docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
-
-.PHONY: ci
 ci: check-headers gofmt govet golint test
 
-.PHONY: govet
+bump-version: 
+	@go get -u github.com/jessfraz/junk/sembump # update sembump tool
+	$(eval NEW_VERSION = $(shell sembump --kind $(BUMP) $(VERSION)))
+	@echo "Bumping VERSION from $(VERSION) to $(NEW_VERSION)"
+	@echo $(NEW_VERSION) > VERSION
+	@cp releases/${VERSION}.yml releases/${NEW_VERSION}.yml
+	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' releases/${NEW_VERSION}.yml
+	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' docs/getting-started.md
+	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' README.md
+	@rm README.md-e docs/getting-started.md-e releases/${NEW_VERSION}.yml-e
+
+clean:
+	@echo "==> Cleaning releases"
+	@GOOS=linux go clean -i -x ./...
+
+compile:
+	@echo "==> Building the project"
+	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
+
+build:
+	@echo "==> Building the docker image"
+	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
+
+
+push:
+
+ifeq ($(shell [[ $(BRANCH) != "master" && $(VERSION) != "dev" ]] && echo true ),true)
+	@echo "ERROR: Publishing image with a SEMVER version '$(VERSION)' is only allowed from master"
+else
+	@echo "==> Publishing $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
+	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
+	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
+endif
+
+
 govet:
-	go vet $(shell go list ./... | grep -v vendor)
+	@go vet $(shell go list ./... | grep -v vendor)
 
-.PHONY: golint
 golint:
-	golint $(shell go list ./... | grep -v vendor)
+	@golint $(shell go list ./... | grep -v vendor)
 
-.PHONY: gofmt
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
-	ci/gofmt.sh
+	@ci/gofmt.sh
 
-.PHONY: test
 test:
-	go test $(shell go list ./... | grep -v vendor)
+	@echo "==> Testing all packages"
+	@go test $(shell go list ./... | grep -v vendor)
 
-.PHONY: check-headers
 check-headers:
-	./ci/headers-*.sh
+	@./ci/headers-*.sh
+
+.PHONY: all clean compile build push ci govet golint gofmt test check-headers
