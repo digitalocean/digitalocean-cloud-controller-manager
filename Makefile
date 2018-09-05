@@ -35,6 +35,7 @@ publish: clean ci compile build push
 
 ci: check-headers gofmt govet golint test
 
+.PHONY: bump-version
 bump-version: 
 	@go get -u github.com/jessfraz/junk/sembump # update sembump tool
 	$(eval NEW_VERSION = $(shell sembump --kind $(BUMP) $(VERSION)))
@@ -46,19 +47,23 @@ bump-version:
 	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' README.md
 	@rm README.md-e docs/getting-started.md-e releases/${NEW_VERSION}.yml-e
 
+.PHONY: clean
 clean:
 	@echo "==> Cleaning releases"
 	@GOOS=linux go clean -i -x ./...
 
+.PHONY: compile
 compile:
 	@echo "==> Building the project"
 	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
 
+.PHONY: build
 build:
 	@echo "==> Building the docker image"
 	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
 
+.PHONY: push
 push:
 
 ifeq ($(shell [[ $(BRANCH) != "master" && $(VERSION) != "dev" ]] && echo true ),true)
@@ -70,20 +75,24 @@ else
 endif
 
 
+.PHONY: govet
 govet:
 	@go vet $(shell go list ./... | grep -v vendor)
 
+.PHONY: golint
 golint:
 	@golint $(shell go list ./... | grep -v vendor)
 
+.PHONY: gofmt
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	@ci/gofmt.sh
 
+.PHONY: gofmt
 test:
 	@echo "==> Testing all packages"
 	@go test $(shell go list ./... | grep -v vendor)
 
+.PHONY: check-headers
 check-headers:
 	@./ci/headers-*.sh
 
-.PHONY: all clean compile build push ci govet golint gofmt test check-headers
