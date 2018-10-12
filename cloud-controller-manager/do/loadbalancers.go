@@ -76,9 +76,9 @@ const (
 	// annDOStickySessionType is set to cookies.
 	annDOStickySessionsCookieTTL = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl"
 
-	// annDORedirectHttpToHttps is the annotation specifying whether or not Http traffic
+	// annDORedirectHTTPToHTTPS is the annotation specifying whether or not Http traffic
 	// should be redirected to Https. Defaults to false
-	annDORedirectHttpToHttps = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
+	annDORedirectHTTPToHTTPS = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
 
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
@@ -312,7 +312,7 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 
 	algorithm := getAlgorithm(service)
 
-	redirectHttpToHttps := getRedirectHttpToHttps(service)
+	redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(service)
 
 	return &godo.LoadBalancerRequest{
 		Name:                lbName,
@@ -322,7 +322,7 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		HealthCheck:         healthCheck,
 		StickySessions:      stickySessions,
 		Algorithm:           algorithm,
-		RedirectHttpToHttps: redirectHttpToHttps,
+		RedirectHttpToHttps: redirectHTTPToHTTPS,
 	}, nil
 }
 
@@ -585,18 +585,18 @@ func getStickySessionsCookieTTL(service *v1.Service) (int, error) {
 	return strconv.Atoi(ttl)
 }
 
-// getRedirectHttpToHttps returns whether or not Http traffic should be redirected
+// getRedirectHTTPToHTTPS returns whether or not Http traffic should be redirected
 // to Https traffic for the loadbalancer. false is returned if not specified.
-func getRedirectHttpToHttps(service *v1.Service) bool {
-	redirectHttpToHttps, ok := service.Annotations[annDORedirectHttpToHttps]
+func getRedirectHTTPToHTTPS(service *v1.Service) bool {
+	redirectHTTPToHTTPS, ok := service.Annotations[annDORedirectHTTPToHTTPS]
 	if !ok {
 		return false
 	}
 
-	redirectHttpToHttpsBool, err := strconv.ParseBool(redirectHttpToHttps)
+	redirectHTTPToHTTPSBool, err := strconv.ParseBool(redirectHTTPToHTTPS)
 	if err != nil {
 		return false
 	}
 
-	return redirectHttpToHttpsBool
+	return redirectHTTPToHTTPSBool
 }

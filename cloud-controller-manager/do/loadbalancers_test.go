@@ -1113,11 +1113,11 @@ func Test_buildStickySessions(t *testing.T) {
 	}
 }
 
-func Test_getRedirectHttpToHttps(t *testing.T) {
+func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 	testcases := []struct {
 		name                string
 		service             *v1.Service
-		redirectHttpToHttps bool
+		redirectHTTPToHTTPS bool
 	}{
 		{
 			"Redirect Http to Https true",
@@ -1126,7 +1126,7 @@ func Test_getRedirectHttpToHttps(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDORedirectHttpToHttps: "true",
+						annDORedirectHTTPToHTTPS: "true",
 					},
 				},
 			},
@@ -1139,7 +1139,7 @@ func Test_getRedirectHttpToHttps(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDORedirectHttpToHttps: "false",
+						annDORedirectHTTPToHTTPS: "false",
 					},
 				},
 			},
@@ -1170,11 +1170,11 @@ func Test_getRedirectHttpToHttps(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			redirectHttpToHttps := getRedirectHttpToHttps(test.service)
-			if redirectHttpToHttps != test.redirectHttpToHttps {
+			redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(test.service)
+			if redirectHTTPToHTTPS != test.redirectHTTPToHTTPS {
 				t.Error("unexpected redirect Http to Https")
-				t.Logf("expected: %t", test.redirectHttpToHttps)
-				t.Logf("actual: %t", redirectHttpToHttps)
+				t.Logf("expected: %t", test.redirectHTTPToHTTPS)
+				t.Logf("actual: %t", redirectHTTPToHTTPS)
 			}
 		})
 	}
@@ -1478,7 +1478,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:            "http",
 						annDOAlgorithm:           "round_robin",
-						annDORedirectHttpToHttps: "true",
+						annDORedirectHTTPToHTTPS: "true",
 						annDOTLSPorts:            "443",
 						annDOCertificateID:       "test-certificate",
 					},
