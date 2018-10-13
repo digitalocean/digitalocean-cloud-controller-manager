@@ -53,7 +53,7 @@ type cloud struct {
 	loadbalancers cloudprovider.LoadBalancer
 }
 
-func newCloud(config io.Reader) (cloudprovider.Interface, error) {
+func newCloud() (cloudprovider.Interface, error) {
 	token := os.Getenv(doAccessTokenEnv)
 
 	opts := []godo.ClientOpt{}
@@ -90,8 +90,8 @@ func newCloud(config io.Reader) (cloudprovider.Interface, error) {
 }
 
 func init() {
-	cloudprovider.RegisterCloudProvider(providerName, func(config io.Reader) (cloudprovider.Interface, error) {
-		return newCloud(config)
+	cloudprovider.RegisterCloudProvider(providerName, func(io.Reader) (cloudprovider.Interface, error) {
+		return newCloud()
 	})
 }
 
