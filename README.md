@@ -7,7 +7,7 @@
 ## Releases
 
 Cloud Controller Manager follows [semantic versioning](https://semver.org/).
-The current version is: **`v0.1.7`**. This means that the project is still
+The current version is: **`v0.1.8`**. This means that the project is still
 under active development and may not be production ready. The plugin will be
 bumped to **`v1.0.0`** once the [DigitalOcean Kubernetes
 product](https://www.digitalocean.com/products/kubernetes/) is released and
@@ -70,15 +70,15 @@ $ git push origin
 
 After it's merged to master, [create a new Github
 release](https://github.com/digitalocean/digitalocean-cloud-controller-manager/releases/new) from
-master with the version `v0.1.7` and then publish a new docker build:
+master with the version `v0.1.8` and then publish a new docker build:
 
 ```
 $ git checkout master
 $ make publish
 ```
 
-This will create a binary with version `v0.1.7` and docker image pushed to
-`digitalocean/digitalocean-cloud-controller-manager:v0.1.7`
+This will create a binary with version `v0.1.8` and docker image pushed to
+`digitalocean/digitalocean-cloud-controller-manager:v0.1.8`
 
 ## Contributing
 
