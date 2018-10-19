@@ -25,6 +25,7 @@ COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
+GOVERSION ?= 1.10.3
 
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
 PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
@@ -55,7 +56,10 @@ clean:
 .PHONY: compile
 compile:
 	@echo "==> Building the project"
-	@CGO_ENABLED=0 GOOS=linux go build -ldflags "$(LDFLAGS)" ${PKG}
+	@docker run -v $(PWD):/go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
+	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
+	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 golang:$(GOVERSION) \
+	  go build -ldflags "$(LDFLAGS)" ${PKG}
 
 .PHONY: build
 build:
