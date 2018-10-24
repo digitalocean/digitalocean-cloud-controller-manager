@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	"k8s.io/client-go/informers"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/controller"
 )
@@ -96,6 +97,16 @@ func init() {
 }
 
 func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
+	clientset := clientBuilder.ClientOrDie("do-shared-informers")
+	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
+
+	tags := NewTagsController(sharedInformer.Core().V1().Nodes(), clientset, c.client)
+
+	// TODO: pass in stopCh once supported upstream
+	// see https://github.com/kubernetes/kubernetes/pull/70038 for more details
+	sharedInformer.Start(nil)
+	sharedInformer.WaitForCacheSync(nil)
+	go tags.Run()
 }
 
 func (c *cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
