@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.8 (beta) - Oct 24th 2018
+* add support for loadbalancer health check paths via service annotation `service.beta.kubernetes.io/do-loadbalancer-healthcheck-path` (@andrewsykim)
+* various clean ups (golint, CI, etc) (@timoreimann)
+
 ## v0.1.7 (beta) - Aug 1st 2018
 * implement InstanceShutdownByProviderID which adds taints to droplets that are shutdown (@andrewsykim)
 
