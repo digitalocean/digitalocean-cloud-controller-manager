@@ -6,7 +6,15 @@ DigitalOcean cloud controller manager watches for Services of type `LoadBalancer
 
 The default protocol for DigitalOcean Load Balancers. Ports specified in the annotation `service.beta.kubernetes.io/do-loadbalancer-tls-ports` will be overwritten to https. Options are `tcp`, `http` and `https`. Defaults to `tcp`.
 
-### service.beta.kubernetes.io/do-loadbalancer-tls-ports 
+### service.beta.kubernetes.io/do-loadbalancer-healthcheck-path
+
+The path used to check if a backend droplet is healthy. Defaults to "/".
+
+### service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol
+
+The health check protocol to use to check if a backend droplet is healthy. Defaults to the protocol used in `service.beta.kubernetes.io/do-loadbalancer-protocol`. Options are `tcp` and `http`.
+
+### service.beta.kubernetes.io/do-loadbalancer-tls-ports
 
 Specify which ports of the loadbalancer should use the https protocol. This is a comma separated list of ports (e.g. 443,6443,7443).
 
@@ -18,7 +26,7 @@ Specify whether the DigitalOcean Load Balancer should pass encrypted data to bac
 
 Specifies the certificate ID used for https. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-tls-ports` is used. To list available certificates and their IDs, use `doctl compute certificate list` or find it in the [control panel](https://cloud.digitalocean.com/account/security).
 
-### service.beta.kubernetes.io/do-loadbalancer-algorithm 
+### service.beta.kubernetes.io/do-loadbalancer-algorithm
 
 Specifies which algorithm the Load Balancer should use. Options are `round_robin`, `least_connections`. Defaults to `round_robin`.
 
@@ -26,9 +34,9 @@ Specifies which algorithm the Load Balancer should use. Options are `round_robin
 
 Specifies which stick session type the loadbalancer should use. Options are `none` or `cookies`.
 
-### service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl 
+### service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl
 
-Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type` is set. 
+Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type` is set.
 
 ### service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https
 
