@@ -927,6 +927,38 @@ func Test_buildHealthCheck(t *testing.T) {
 			nil,
 		},
 		{
+			"http health check using protocol override",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "tcp",
+						annDOHealthCheckProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			&godo.HealthCheck{
+				Protocol:               "http",
+				Port:                   30000,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				HealthyThreshold:       5,
+				UnhealthyThreshold:     3,
+			},
+			nil,
+		},
+		{
 			"http health check with path",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -967,6 +999,30 @@ func Test_buildHealthCheck(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOProtocol: "invalid",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+		},
+		{
+			"invalid health check using protocol override",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckProtocol: "invalid",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -1256,6 +1312,94 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						EntryProtocol:  "http",
 						EntryPort:      80,
 						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "",
+						TlsPassthrough: false,
+					},
+				},
+				HealthCheck: &godo.HealthCheck{
+					Protocol:               "http",
+					Port:                   30000,
+					Path:                   "/health",
+					CheckIntervalSeconds:   3,
+					ResponseTimeoutSeconds: 5,
+					HealthyThreshold:       5,
+					UnhealthyThreshold:     3,
+				},
+				Algorithm: "round_robin",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+			},
+			nil,
+		},
+		{
+			"successful load balancer request with custom health checks",
+			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{
+					{
+						ID:   100,
+						Name: "node-1",
+					},
+					{
+						ID:   101,
+						Name: "node-2",
+					},
+					{
+						ID:   102,
+						Name: "node-3",
+					},
+				}, newFakeOKResponse(), nil
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:            "tcp",
+						annDOHealthCheckPath:     "/health",
+						annDOHealthCheckProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
+				// as loadbalancer name
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "tcp",
+						EntryPort:      80,
+						TargetProtocol: "tcp",
 						TargetPort:     30000,
 						CertificateID:  "",
 						TlsPassthrough: false,

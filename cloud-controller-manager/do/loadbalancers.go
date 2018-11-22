@@ -41,6 +41,11 @@ const (
 	// for DO load balancers. Defaults to '/'.
 	annDOHealthCheckPath = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-path"
 
+	// annDOHealthCheckProtocol is the annotation used to specify the health check protocol
+	// for DO load balancers. Defaults to the protocol used in
+	// 'service.beta.kubernetes.io/do-loadbalancer-protocol'.
+	annDOHealthCheckProtocol = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol"
+
 	// annDOTLSPorts is the annotation used to specify which ports of the loadbalancer
 	// should use the https protocol. This is a comma separated list of ports
 	// (e.g. 443,6443,7443).
@@ -358,16 +363,27 @@ func (l *loadbalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
 // Balancers can only take one node port so we choose the first node port for
 // health checking.
 func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
-	protocol, err := getProtocol(service)
+	healthCheckProtocol, err := healthCheckProtocol(service)
 	if err != nil {
 		return nil, err
+	}
+
+	// if no health check protocol is specified, use the protocol used for
+	// load balancer traffic.
+	if healthCheckProtocol == "" {
+		protocol, err := getProtocol(service)
+		if err != nil {
+			return nil, err
+		}
+
+		healthCheckProtocol = protocol
 	}
 
 	healthCheckPath := healthCheckPath(service)
 	port := service.Spec.Ports[0].NodePort
 
 	return &godo.HealthCheck{
-		Protocol:               protocol,
+		Protocol:               healthCheckProtocol,
 		Port:                   int(port),
 		Path:                   healthCheckPath,
 		CheckIntervalSeconds:   3,
@@ -476,6 +492,20 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	if protocol != "tcp" && protocol != "http" && protocol != "https" {
+		return "", fmt.Errorf("invalid protocol: %q specified in annotation: %q", protocol, annDOProtocol)
+	}
+
+	return protocol, nil
+}
+
+// healthCheckProtocol returns the health check protocol as specified in the service
+func healthCheckProtocol(service *v1.Service) (string, error) {
+	protocol, ok := service.Annotations[annDOHealthCheckProtocol]
+	if !ok {
+		return "", nil
+	}
+
+	if protocol != "tcp" && protocol != "http" {
 		return "", fmt.Errorf("invalid protocol: %q specified in annotation: %q", protocol, annDOProtocol)
 	}
 
