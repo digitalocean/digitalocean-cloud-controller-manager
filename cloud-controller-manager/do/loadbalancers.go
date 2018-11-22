@@ -498,7 +498,7 @@ func getProtocol(service *v1.Service) (string, error) {
 	return protocol, nil
 }
 
-// healthCheckProtocol returns the health check protocol as specifiec in the service
+// healthCheckProtocol returns the health check protocol as specified in the service
 func healthCheckProtocol(service *v1.Service) (string, error) {
 	protocol, ok := service.Annotations[annDOHealthCheckProtocol]
 	if !ok {
