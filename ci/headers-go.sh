@@ -36,7 +36,12 @@ FILES=$(find . -name "*.go" -not -path "./vendor/*")
 EXIT=0
 
 for FILE in $FILES; do
-        HEADERS=$(head -n 15 $FILE)
+        if head -n 1 "$FILE" | grep -q '// +build '; then
+                # Remove +build comment and subsequent blank line.
+                HEADERS=$(tail -n +3 "$FILE" | head -n 15)
+        else
+                HEADERS=$(head -n 15 "$FILE")
+        fi
         if [ "$HEADERS" != "$LICENSE" ]; then
                 echo "license headers not found in $FILE"
 		EXIT=1
