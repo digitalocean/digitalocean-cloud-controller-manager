@@ -36,6 +36,10 @@ publish: clean ci compile build push
 
 ci: check-headers gofmt govet golint test
 
+.PHONY: e2e
+e2e:
+	@./e2e/e2e.sh
+
 .PHONY: bump-version
 bump-version: 
 	@go get -u github.com/jessfraz/junk/sembump # update sembump tool
