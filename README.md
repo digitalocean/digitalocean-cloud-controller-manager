@@ -39,7 +39,7 @@ Requirements:
 
 * Go: min `v1.10.x`
 
-After making your changes, run the tests and CI checks: 
+After making your changes, run the tests and CI checks:
 
 ```
 $ make ci
@@ -91,3 +91,4 @@ At DigitalOcean we value and love our community! If you have any issues or would
 ### Maintainers
 * Andrew Sy Kim - @andrewsykim
 * Billie Cleek - @bhcleek
+* Timo Reimann - @timoreimann
