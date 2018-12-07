@@ -80,9 +80,11 @@ const (
 	// should be redirected to Https. Defaults to false
 	annDORedirectHTTPToHTTPS = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
 
-	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
-	// reach the active state.
-	defaultActiveTimeout = 90
+	// defaultActiveTimeout is the number of seconds to wait for a load balancer to reach active state.
+	// if a load balancer is not assigned an IP within this timeout, it will be deleted and recreated.
+	// A default timeout of 120s seems reasonable given load balancers are typically provisioned in less than
+	// half the amount of time.
+	defaultActiveTimeout = 120
 
 	// defaultActiveCheckTick is the number of seconds between load balancer
 	// status checks when waiting for activation.
@@ -95,6 +97,15 @@ const (
 )
 
 var errLBNotFound = errors.New("loadbalancer not found")
+
+type errLBTimeout struct {
+	msg  string
+	lbID string
+}
+
+func (e *errLBTimeout) Error() string {
+	return fmt.Sprintf("error waiting for load balancer %q to be active: %v", e.lbID, e.msg)
+}
 
 type loadbalancers struct {
 	client            *godo.Client
@@ -122,10 +133,14 @@ func (l *loadbalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 		return nil, false, err
 	}
 
+	lbID := lb.ID
 	if lb.Status != lbStatusActive {
-		lb, err = l.waitActive(lb.ID)
+		lb, err = l.waitActive(lbID)
 		if err != nil {
-			return nil, true, fmt.Errorf("error waiting for load balancer to be active %v", err)
+			return nil, true, &errLBTimeout{
+				msg:  err.Error(),
+				lbID: lbID,
+			}
 		}
 	}
 
@@ -144,8 +159,34 @@ func (l *loadbalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadbalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
 	lbStatus, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
-	if err != nil {
+	if _, ok := err.(*errLBTimeout); !ok && err != nil {
 		return nil, err
+	}
+
+	if _, ok := err.(*errLBTimeout); ok && exists {
+		// we should attempt to delete load balancers where state is not active after the provided timeout
+		// and if it has not been given an IP yet. Load balancers in an error state that already have an IP address
+		// should be manually recreated.
+
+		// we should only delete this load balancer, if a previous IP was not assigned to it.
+		// this ensures load balancers with an already assigned IP aren't accidentally deleted.
+		if len(service.Status.LoadBalancer.Ingress) > 0 {
+			return nil, fmt.Errorf("cannot reconcile load balancers in error state that have an IP address assigned, LB may require manual intervention: %v", err)
+		}
+
+		lbName := cloudprovider.GetLoadBalancerName(service)
+
+		lb, err := l.lbByName(ctx, lbName)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = l.client.LoadBalancers.Delete(ctx, lb.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		exists = false
 	}
 
 	if !exists {
@@ -344,7 +385,7 @@ func (l *loadbalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
 				return lb, nil
 			}
 			if lb.Status == lbStatusErrored {
-				return nil, fmt.Errorf("error creating DigitalOcean balancer: %q", lbID)
+				return nil, fmt.Errorf("load balancer %q is stuck in errored state", lbID)
 			}
 		case <-ctx.Done():
 			return nil, fmt.Errorf("load balancer creation for %q timed out", lbID)

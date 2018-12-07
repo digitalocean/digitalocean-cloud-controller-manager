@@ -2149,6 +2149,103 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"loadbalancer is in error state but has IP assigned already",
+			func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return &godo.LoadBalancer{
+					Name:   "afoobar123",
+					ID:     "abc-123",
+					IP:     "10.0.0.1",
+					Status: lbStatusErrored,
+				}, newFakeOKResponse(), nil
+			},
+			func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{
+					{
+						ID:   100,
+						Name: "node-1",
+					},
+					{
+						ID:   101,
+						Name: "node-2",
+					},
+					{
+						ID:   102,
+						Name: "node-3",
+					},
+				}, newFakeOKResponse(), nil
+			},
+			func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						Name:   "afoobar123",
+						ID:     "abc-123",
+						IP:     "10.0.0.1",
+						Status: lbStatusErrored,
+					},
+				}, newFakeOKResponse(), nil
+
+			},
+			func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return &godo.LoadBalancer{
+					Name:   "afoobar123",
+					ID:     "abc-123",
+					IP:     "10.0.0.1",
+					Status: lbStatusErrored,
+				}, newFakeOKResponse(), nil
+			},
+			func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				// should not be run in this test case
+				return nil, nil, nil
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+					},
+				},
+				Status: v1.ServiceStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{
+								IP: "10.0.0.1",
+							},
+						},
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("cannot reconcile load balancers in error state that have an IP address assigned, LB may require manual intervention: error waiting for load balancer %q to be active: load balancer %q is stuck in errored state", "abc-123", "abc-123"),
+		},
 	}
 
 	for _, test := range testcases {
@@ -2211,7 +2308,7 @@ func Test_waitActive(t *testing.T) {
 				}, newFakeOKResponse(), nil
 			},
 			nil,
-			errors.New("error creating DigitalOcean balancer: \"lb1\""),
+			errors.New("load balancer \"lb1\" is stuck in errored state"),
 		},
 		{
 			"balancer retrieve error",
