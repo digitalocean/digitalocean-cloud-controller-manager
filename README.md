@@ -81,11 +81,6 @@ This will create a binary with version `v0.1.8` and docker image pushed to
 `digitalocean/digitalocean-cloud-controller-manager:v0.1.8`
 
 ## Contributing
-
-At DigitalOcean we value and love our community! If you have any issues or
-would like to contribute, feel free to open an issue/PR
-
-## Contributing
 At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
 
 ### Maintainers
