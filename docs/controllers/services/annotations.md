@@ -43,4 +43,4 @@ Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotat
 Indiciates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
 
 
-See examples Kubernetes Services using LoadBalancers [here](examples/loadbalancers/).
+See example Kubernetes Services using LoadBalancers [here](examples/).
