@@ -95,7 +95,7 @@ golint:
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	@ci/gofmt.sh
 
-.PHONY: gofmt
+.PHONY: test
 test:
 	@echo "==> Testing all packages"
 	@go test $(shell go list ./... | grep -v vendor)
