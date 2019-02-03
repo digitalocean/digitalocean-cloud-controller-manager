@@ -46,7 +46,7 @@ const (
 	// 'service.beta.kubernetes.io/do-loadbalancer-protocol'.
 	annDOHealthCheckProtocol = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol"
 
-	// annDOTLSPorts is the annotation used to specify which ports of the loadbalancer
+	// annDOTLSPorts is the annotation used to specify which ports of the load balancer
 	// should use the https protocol. This is a comma separated list of ports
 	// (e.g. 443,6443,7443).
 	annDOTLSPorts = "service.beta.kubernetes.io/do-loadbalancer-tls-ports"
@@ -57,11 +57,11 @@ const (
 	annDOTLSPassThrough = "service.beta.kubernetes.io/do-loadbalancer-tls-passthrough"
 
 	// annDOCertificateID is the annotation specifying the certificate ID
-	// used for https protocol. This annoataion is required if annDOTLSPorts
+	// used for https protocol. This annotation is required if annDOTLSPorts
 	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
 
-	// annDOAlgorithm is the annotation specifying which algorithm DO loadbalancer
+	// annDOAlgorithm is the annotation specifying which algorithm DO load balancer
 	// should use. Options are round_robin and least_connections. Defaults
 	// to round_robin.
 	annDOAlgorithm = "service.beta.kubernetes.io/do-loadbalancer-algorithm"
@@ -77,7 +77,7 @@ const (
 	annDOStickySessionsCookieName = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name"
 
 	// annDOStickySessionsCookieTTL is the annotation specifying TTL of cookie used for
-	// DO loadbalancer sticky session. This annotation is required if
+	// DO load balancer sticky session. This annotation is required if
 	// annDOStickySessionType is set to cookies.
 	annDOStickySessionsCookieTTL = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl"
 
@@ -101,22 +101,22 @@ const (
 
 var errLBNotFound = errors.New("loadbalancer not found")
 
-type loadbalancers struct {
+type loadBalancers struct {
 	client            *godo.Client
 	region            string
 	lbActiveTimeout   int
 	lbActiveCheckTick int
 }
 
-// newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
-func newLoadbalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
-	return &loadbalancers{client, region, defaultActiveTimeout, defaultActiveCheckTick}
+// newLoadBalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
+func newLoadBalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
+	return &loadBalancers{client, region, defaultActiveTimeout, defaultActiveCheckTick}
 }
 
 // GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
 //
 // GetLoadBalancer will not modify service.
-func (l *loadbalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
+func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
 	lb, err := l.lbByName(ctx, lbName)
 	if err != nil {
@@ -147,7 +147,7 @@ func (l *loadbalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 // service.
 //
 // EnsureLoadBalancer will not modify service or nodes.
-func (l *loadbalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
 	lbStatus, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func (l *loadbalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 // the droplets in nodes.
 //
 // UpdateLoadBalancer will not modify service or nodes.
-func (l *loadbalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
+func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
 	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 	if err != nil {
 		return err
@@ -217,7 +217,7 @@ func (l *loadbalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 // successfully deleted.
 //
 // EnsureLoadBalancerDeleted will not modify service.
-func (l *loadbalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
 	_, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
 	if err != nil {
 		return err
@@ -240,7 +240,7 @@ func (l *loadbalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will
 // be lbNotFound if the load balancer does not exist.
-func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
 	lbs, _, err := l.client.LoadBalancers.List(ctx, &godo.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -258,7 +258,7 @@ func (l *loadbalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
 //
 // Node names are assumed to match droplet names.
-func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
+func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 	droplets, err := allDropletList(context.TODO(), l.client)
 
 	if err != nil {
@@ -292,7 +292,7 @@ func (l *loadbalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
-func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
+func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
 
 	dropletIDs, err := l.nodesToDropletIDs(nodes)
@@ -331,7 +331,7 @@ func (l *loadbalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 	}, nil
 }
 
-func (l *loadbalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
 
 	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*time.Duration(l.lbActiveTimeout))
 	defer cancel()

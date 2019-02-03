@@ -34,13 +34,17 @@ Specifies which algorithm the Load Balancer should use. Options are `round_robin
 
 Specifies which stick session type the loadbalancer should use. Options are `none` or `cookies`.
 
+### service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name
+
+Specifies what cookie name to use for the DO load balancer sticky session. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type` is set to `cookies`.
+
 ### service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl
 
-Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type` is set.
+Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type` is set to `cookies`.
 
 ### service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https
 
-Indiciates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
+Indicates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
 
 
 See example Kubernetes Services using LoadBalancers [here](examples/).

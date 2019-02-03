@@ -22,7 +22,7 @@
 [prune]
   unused-packages = true
   go-tests = true
-	non-go = true
+  non-go = true
 
 [[override]]
   # only needed until kubernetes moves to dep or github.com/docker/distribution's latest tag builds with kubernetes.
