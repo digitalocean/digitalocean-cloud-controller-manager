@@ -256,7 +256,10 @@ func (volumes *VolumesV1) deleteVolume(volumeID string) error {
 
 func (volumes *VolumesV2) deleteVolume(volumeID string) error {
 	startTime := time.Now()
-	err := volumes_v2.Delete(volumes.blockstorage, volumeID).ExtractErr()
+	deleteOpts := volumes_v2.DeleteOpts{
+		Cascade: true,
+	}
+	err := volumes_v2.Delete(volumes.blockstorage, volumeID, deleteOpts).ExtractErr()
 	timeTaken := time.Since(startTime).Seconds()
 	recordOpenstackOperationMetric("delete_v2_volume", timeTaken, err)
 	return err
@@ -264,7 +267,10 @@ func (volumes *VolumesV2) deleteVolume(volumeID string) error {
 
 func (volumes *VolumesV3) deleteVolume(volumeID string) error {
 	startTime := time.Now()
-	err := volumes_v3.Delete(volumes.blockstorage, volumeID).ExtractErr()
+	deleteOpts := volumes_v3.DeleteOpts{
+		Cascade: true,
+	}
+	err := volumes_v3.Delete(volumes.blockstorage, volumeID, deleteOpts).ExtractErr()
 	timeTaken := time.Since(startTime).Seconds()
 	recordOpenstackOperationMetric("delete_v3_volume", timeTaken, err)
 	return err
