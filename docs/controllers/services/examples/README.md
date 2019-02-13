@@ -1,8 +1,8 @@
-# Loadbalancers
+# Load Balancers
 
 DigitalOcean cloud controller manager runs service controller, which is responsible for watching services of type `LoadBalancer` and creating DO loadbalancers to satify its requirements. Here are some examples of how it's used.
 
-## TCP loadbalancer
+## TCP Load Balancer
 Not specifying any annotations to your service will create a simple TCP loadbalancer.
 Here's an example:
 ```
@@ -11,7 +11,7 @@ service "tcp-lb" created
 deployment "nginx-example" created
 ```
 
-By default, kubernetes names loadbalancers based on the UUID of the service.
+By default, kubernetes names load balancers based on the UUID of the service.
 ```
 $ doctl compute load-balancer list
 ID                                      IP    Name                                Status    Created At              Algorithm            Region    Tag    Droplet IDs                   SSL      Sticky Sessions                                Health Check                                                                                                                     Forwarding Rules
@@ -19,15 +19,15 @@ ID                                      IP    Name                              
 ```
 
 
-## HTTP loadbalancer.
-Here's an example on how to create a simple http loadbalancer backed by nginx pods
+## HTTP Load Balancer.
+Here's an example on how to create a simple http load balancer backed by nginx pods
 ```bash
 $ kubectl apply -f http-nginx.yml
 service "http-lb" created
 deployment "nginx-example" configured
 ```
 
-This creates a DO loadbalancer, using http as the default protocol and using the default loadbalancing algorithm: round robin.
+This creates a DO load balancer, using http as the default protocol and using the default load balancing algorithm: round robin.
 
 ```
 $ doctl compute load-balancer list
@@ -35,8 +35,8 @@ ID                                      IP                Name                  
 5ceb1d26-e4cf-403b-8677-0e5232eec711    159.203.48.217    aeafab819796311e7af69267d6e0a2ca    active    2017-08-04T22:26:12Z    round_robin          tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:31018,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:31018,certificate_id:,tls_passthrough:false
 ```
 
-## HTTP loadbalancer using least connections algorithm
-Similar to the previous example, you can change the loadbalancer algorithm to use least connections instead of round robin by setting the annotation `service.beta.kubernetes.io/do-loadbalancer-algorithm`
+## HTTP Load Balancer using least connections algorithm
+Similar to the previous example, you can change the load balancer algorithm to use least connections instead of round robin by setting the annotation `service.beta.kubernetes.io/do-loadbalancer-algorithm`
 ```
 $ kubectl apply -f http-with-least-connections-nginx.yml
 service "http-with-least-connections" created
@@ -49,7 +49,7 @@ ID                                      IP    Name                              
 51eec4c9-daa3-4b2b-a96a-2a3f2e18183b          a4a2888aa796411e7af69267d6e0a2ca    new       2017-08-04T22:28:51Z    least_connections    tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:31320,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:31320,certificate_id:,tls_passthrough:false
 ```
 
-## HTTPS loadbalancer using a provided certificate
+## HTTPS Load Balancer using a provided certificate
 For the sake of example, assume you have a valid key/cert pair for your HTTPS certificate at `key.pem` and `cert.pem`.
 
 Now we can create a certificate to ues for your loadbalancer:
@@ -74,7 +74,7 @@ ID                                      IP    Name                              
 20befcaf-533d-4fc9-bc4b-be31f957ad87          a83435adb796911e7af69267d6e0a2ca    new       2017-08-04T23:06:15Z    round_robin          tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:30361,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:30361,certificate_id:,tls_passthrough:false entry_protocol:https,entry_port:443,target_protocol:http,target_port:32728,certificate_id:29333fdc-733d-4523-8d79-31acc1544ee0,tls_passthrough:false
 ```
 
-## HTTPS loadbalancer with TLS pass through
+## HTTPS Load Balancer with TLS pass through
 You can create a https loadbalancer that will pass encrypted data to your backends instead of doing TLS termination.
 ```
 $ kubectl apply -f https-with-pass-through-nginx.yml

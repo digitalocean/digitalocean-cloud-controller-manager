@@ -30,7 +30,7 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
-var _ cloudprovider.LoadBalancer = new(loadbalancers)
+var _ cloudprovider.LoadBalancer = new(loadBalancers)
 
 type fakeLBService struct {
 	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
@@ -1706,7 +1706,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			fakeDroplet.listFunc = test.dropletListFn
 			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet)
 
-			lb := &loadbalancers{fakeClient, "nyc3", 2, 1}
+			lb := &loadBalancers{fakeClient, "nyc3", 2, 1}
 
 			lbr, err := lb.buildLoadBalancerRequest(test.service, test.nodes)
 
@@ -1851,7 +1851,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 			fakeDroplet.listFunc = test.dropletListFn
 			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet)
 
-			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
 			dropletIDs, err := lb.nodesToDropletIDs(test.nodes)
 			if !reflect.DeepEqual(dropletIDs, test.dropletIDs) {
 				t.Error("unexpected droplet IDs")
@@ -1923,7 +1923,7 @@ func Test_lbByName(t *testing.T) {
 			fakeLB.listFn = test.listFn
 			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{})
 
-			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
 			loadbalancer, err := lb.lbByName(context.TODO(), test.lbName)
 
 			if !reflect.DeepEqual(loadbalancer, test.loadbalancer) {
@@ -2074,7 +2074,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 			fakeLB.listFn = test.listFn
 			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{})
 
-			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
 
 			// we don't actually use clusterName param in GetLoadBalancer
 			lbStatus, exists, err := lb.GetLoadBalancer(context.TODO(), "test", test.service)
@@ -2308,7 +2308,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			}
 			fakeClient := newFakeLBClient(fakeLB, fakeDroplet)
 
-			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
 
 			// clusterName param in EnsureLoadBalancer currently not used
 			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "test", test.service, test.nodes)
@@ -2386,7 +2386,7 @@ func Test_waitActive(t *testing.T) {
 
 			fakeClient := newFakeLBClient(fakeLB, nil)
 
-			lb := &loadbalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
 
 			lbStatus, err := lb.waitActive("lb1")
 			if !reflect.DeepEqual(lbStatus, test.lbStatus) {
