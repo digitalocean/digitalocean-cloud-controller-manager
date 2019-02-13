@@ -32,6 +32,7 @@ import (
 const (
 	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
 	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
+	doClusterIDEnv      string = "DO_CLUSTER_ID"
 	providerName        string = "digitalocean"
 )
 
@@ -81,11 +82,13 @@ func newCloud() (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("failed to get region from droplet metadata: %s", err)
 	}
 
+	clusterID := os.Getenv(doClusterIDEnv)
+
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(doClient, region),
 		zones:         newZones(doClient, region),
-		loadbalancers: newLoadBalancers(doClient, region),
+		loadbalancers: newLoadBalancers(doClient, region, clusterID),
 	}, nil
 }
 
