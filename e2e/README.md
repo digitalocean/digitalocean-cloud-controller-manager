@@ -22,3 +22,9 @@ The following environment parameters are optional:
 `e2e.sh` invokes the end-to-end tests which in turn invoke `setup_cluster.sh` and `destroy_cluster.sh` to create clusters before the test executes and tears them down again on completion of a test, respectively. The scripts may also be called manually, which then needs the `KOPS_STATE_STORE` environment variable to be set explicitly and point to the Spaces bucket name as in `do://myuniquespace`.
 
 `e2e.sh` reads the `E2E_RUN_FILTER` environment variable and passes any non-empty content to `go test`'s `-run` flag to filter for specific tests.
+
+## resource cleanup
+
+The end-to-end tests clean up resources used on the DigitalOcean cloud after themselves on completion (either successful or erroneous). In the case that teardown does not complete for whatever reason (say, because of a crash of the tests or resources being in an irreparable state), the `cleanup-resources.sh` script can be used to remove the resources explicitly.
+
+See the script's header for details.
