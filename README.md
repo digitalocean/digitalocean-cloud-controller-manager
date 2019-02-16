@@ -82,8 +82,3 @@ This will create a binary with version `v0.1.8` and docker image pushed to
 
 ## Contributing
 At DigitalOcean we value and love our community! If you have any issues or would like to contribute, feel free to open an issue/PR and cc any of the maintainers below.
-
-### Maintainers
-* Andrew Sy Kim - @andrewsykim
-* Billie Cleek - @bhcleek
-* Timo Reimann - @timoreimann
