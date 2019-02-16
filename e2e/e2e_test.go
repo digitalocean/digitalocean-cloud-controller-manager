@@ -216,17 +216,41 @@ func TestE2E(t *testing.T) {
 			}
 			// External LBs don't seem to get deleted when the kops cluster is
 			// removed, at least not on DO. Hence, we'll do it explicitly.
+			var lbAddr string
 			defer func() {
 				l.Printf("Deleting service %q\n", svcName)
 				if err := cs.CoreV1().Services(corev1.NamespaceDefault).Delete(svcName, &metav1.DeleteOptions{}); err != nil {
 					t.Errorf("failed to delete service: %s", err)
 				}
+				// If this is the last test, CCM might not be able to remove
+				// the LB before the cluster gets deleted, leaving the LB
+				// dangling. Therefore, we make sure to stick around until it's
+				// gone for sure, which we presume is the case if requests
+				// cannot be delivered anymore due to a network error.
+				cl := &http.Client{
+					Timeout: 5 * time.Second,
+				}
+				u := fmt.Sprintf("http://%s:80", lbAddr)
+				var attempts, lastStatusCode int
+				if err := wait.Poll(1*time.Second, 3*time.Minute, func() (bool, error) {
+					l.Printf("Sending request through winding down LB to %s", u)
+					attempts++
+					resp, err := cl.Get(u)
+					if err == nil {
+						lastStatusCode = resp.StatusCode
+						resp.Body.Close()
+						return false, nil
+					}
+					return true, nil
+				}); err != nil {
+					t.Fatalf("continued to deliver requests over LB to example application: %s (last status code: %d / attempts: %d)", err, lastStatusCode, attempts)
+				}
+				l.Printf("Needed %d attempt(s) to stop delivering sample request\n", attempts)
 			}()
 
 			// Wait for service IP address to be assigned.
 			l.Println("Polling for service load balancer IP address assignment")
 			start = time.Now()
-			var lbAddr string
 			if err := wait.Poll(5*time.Second, 10*time.Minute, func() (bool, error) {
 				svc, err := cs.CoreV1().Services(corev1.NamespaceDefault).Get(svcName, metav1.GetOptions{})
 				if err != nil {
