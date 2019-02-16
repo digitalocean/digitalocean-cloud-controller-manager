@@ -104,13 +104,20 @@ var errLBNotFound = errors.New("loadbalancer not found")
 type loadBalancers struct {
 	client            *godo.Client
 	region            string
+	clusterID         string
 	lbActiveTimeout   int
 	lbActiveCheckTick int
 }
 
-// newLoadBalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
-func newLoadBalancers(client *godo.Client, region string) cloudprovider.LoadBalancer {
-	return &loadBalancers{client, region, defaultActiveTimeout, defaultActiveCheckTick}
+// newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
+func newLoadBalancers(client *godo.Client, region, clusterID string) cloudprovider.LoadBalancer {
+	return &loadBalancers{
+		client:            client,
+		region:            region,
+		clusterID:         clusterID,
+		lbActiveTimeout:   defaultActiveTimeout,
+		lbActiveCheckTick: defaultActiveCheckTick,
+	}
 }
 
 // GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
@@ -319,6 +326,11 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 
 	redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(service)
 
+	var tags []string
+	if l.clusterID != "" {
+		tags = []string{l.clusterID}
+	}
+
 	return &godo.LoadBalancerRequest{
 		Name:                lbName,
 		DropletIDs:          dropletIDs,
@@ -326,6 +338,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		ForwardingRules:     forwardingRules,
 		HealthCheck:         healthCheck,
 		StickySessions:      stickySessions,
+		Tags:                tags,
 		Algorithm:           algorithm,
 		RedirectHttpToHttps: redirectHTTPToHTTPS,
 	}, nil

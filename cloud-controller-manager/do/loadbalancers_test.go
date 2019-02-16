@@ -1706,7 +1706,12 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			fakeDroplet.listFunc = test.dropletListFn
 			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet)
 
-			lb := &loadBalancers{fakeClient, "nyc3", 2, 1}
+			lb := &loadBalancers{
+				client:            fakeClient,
+				region:            "nyc3",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
 
 			lbr, err := lb.buildLoadBalancerRequest(test.service, test.nodes)
 
@@ -1723,6 +1728,58 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			}
 
 		})
+	}
+}
+
+func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
+	fakeDropletSvc := &fakeDropletService{
+		listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+			return []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			}, newFakeOKResponse(), nil
+		},
+	}
+	service := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "test",
+					Protocol: "TCP",
+					Port:     int32(80),
+					NodePort: int32(30000),
+				},
+			},
+		},
+	}
+	nodes := []*v1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-1",
+			},
+		},
+	}
+	fakeClient := newFakeLBClient(&fakeLBService{}, fakeDropletSvc)
+
+	wantTags := []string{"fdda2d9d-0856-4ca4-b8ee-27ca8bfecc77"}
+	lb := &loadBalancers{
+		client:    fakeClient,
+		region:    "nyc3",
+		clusterID: wantTags[0],
+	}
+
+	lbr, err := lb.buildLoadBalancerRequest(service, nodes)
+	if err != nil {
+		t.Errorf("got error: %s", err)
+	}
+
+	if !reflect.DeepEqual(lbr.Tags, wantTags) {
+		t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
 	}
 }
 
@@ -1851,7 +1908,12 @@ func Test_nodeToDropletIDs(t *testing.T) {
 			fakeDroplet.listFunc = test.dropletListFn
 			fakeClient := newFakeLBClient(&fakeLBService{}, fakeDroplet)
 
-			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
 			dropletIDs, err := lb.nodesToDropletIDs(test.nodes)
 			if !reflect.DeepEqual(dropletIDs, test.dropletIDs) {
 				t.Error("unexpected droplet IDs")
@@ -1923,7 +1985,12 @@ func Test_lbByName(t *testing.T) {
 			fakeLB.listFn = test.listFn
 			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{})
 
-			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
 			loadbalancer, err := lb.lbByName(context.TODO(), test.lbName)
 
 			if !reflect.DeepEqual(loadbalancer, test.loadbalancer) {
@@ -2074,7 +2141,12 @@ func Test_GetLoadBalancer(t *testing.T) {
 			fakeLB.listFn = test.listFn
 			fakeClient := newFakeLBClient(fakeLB, &fakeDropletService{})
 
-			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
 
 			// we don't actually use clusterName param in GetLoadBalancer
 			lbStatus, exists, err := lb.GetLoadBalancer(context.TODO(), "test", test.service)
@@ -2308,7 +2380,12 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			}
 			fakeClient := newFakeLBClient(fakeLB, fakeDroplet)
 
-			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
 
 			// clusterName param in EnsureLoadBalancer currently not used
 			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "test", test.service, test.nodes)
@@ -2386,7 +2463,12 @@ func Test_waitActive(t *testing.T) {
 
 			fakeClient := newFakeLBClient(fakeLB, nil)
 
-			lb := &loadBalancers{fakeClient, "nyc1", 2, 1}
+			lb := &loadBalancers{
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
 
 			lbStatus, err := lb.waitActive("lb1")
 			if !reflect.DeepEqual(lbStatus, test.lbStatus) {
