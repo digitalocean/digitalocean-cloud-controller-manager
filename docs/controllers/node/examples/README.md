@@ -5,6 +5,7 @@
 DigitalOcean cloud controller manager, applies DigitalOcean specific annotations and node labels for your nodes. It also provides nodes with the correct address types.
 
 Here's a node before digitalocean cloud controller manager was running in a cluster:
+
 ```bash
 $ kubectl get no k8s-worker-01 -o yaml
 apiVersion: v1
@@ -41,6 +42,7 @@ This node is treated as if it was "bare metal", only OS level details of the nod
 It's also reporting the nodes public IP as the `InternalIP` which should not be the case.
 
 Now here's a node in a cluster where digitalocean cloud controller manager is running:
+
 ```bash
 $ kubectl get no k8s-worker-02 -o yaml
 apiVersion: v1

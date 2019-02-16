@@ -12,4 +12,3 @@ for a specific cluster.
 * [kube-controller-manager.yml](kube-controller-manager.yml) - static pod for kube-controller-manager
 * [kube-scheduler.yml](kube-scheduler.yml) - static pod for kube-scheduler
 * [cloud-controller-manager.yml](cloud-controller-manager.yml) - DaemonSet for DigitalOcean cloud-controller-manager
-

@@ -7,4 +7,3 @@ Learn more about how you can use DigitalOcean cloud controller manager with Load
 ## Node Labels & Addresses
 
 Learn more about how you can use DigitalOcean cloud controller manager for node labels and addresses [here](examples/nodes/)
-
