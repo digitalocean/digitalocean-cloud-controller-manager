@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2017 DigitalOcean
 #
@@ -15,7 +15,7 @@
 # limitations under the License.
 
 read -r -d '' LICENSE <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Copyright 2017 DigitalOcean
 #
