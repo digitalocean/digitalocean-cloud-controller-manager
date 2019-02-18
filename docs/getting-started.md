@@ -51,6 +51,12 @@ In the future, it may implement:
 * volumecontroller - responsible for creating, deleting, attaching and detaching DO block storage.
 * routecontroller - responsible for creating firewall rules
 
+### Resource Tagging
+
+When the environment variable `DO_CLOUD_ID` is given, `digitalocean-cloud-controller-manager` will use it to tag DigitalOcean resources additionally created during runtime (such us load-balancers) accordingly. The cloud ID is usually represented by a UUID and prefixed with `k8s:` when tagging, e.g., `k8s:c63024c5-adf7-4459-8547-9c0501ad5a51`.
+
+The primary purpose of the variable is to allow DigitalOcean customers to easily understand which resources belong to the same DOKS cluster. Specifically, it is not needed (nor helpful) to have in DIY cluster installations.
+
 ## Deployment
 
 ### Token

@@ -104,6 +104,10 @@ const (
 
 var errLBNotFound = errors.New("loadbalancer not found")
 
+func buildK8sTag(val string) string {
+	return fmt.Sprintf("%s:%s", tagPrefixClusterID, val)
+}
+
 type loadBalancers struct {
 	client            *godo.Client
 	region            string
@@ -331,7 +335,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 
 	var tags []string
 	if l.clusterID != "" {
-		tags = []string{fmt.Sprintf("%s:%s", tagPrefixClusterID, l.clusterID)}
+		tags = []string{buildK8sTag(l.clusterID)}
 	}
 
 	return &godo.LoadBalancerRequest{

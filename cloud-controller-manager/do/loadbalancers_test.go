@@ -1778,7 +1778,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 		t.Errorf("got error: %s", err)
 	}
 
-	wantTags := []string{fmt.Sprintf("%s:%s", tagPrefixClusterID, clusterID)}
+	wantTags := []string{buildK8sTag(clusterID)}
 	if !reflect.DeepEqual(lbr.Tags, wantTags) {
 		t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
 	}
