@@ -76,7 +76,7 @@ done
 
 num_lbs="$(doctl compute load-balancer list | tail -n +2 | wc -l)"
 readonly num_lbs
-if [[ ${num_lbs} -eq 0 ]]; then
+if [[ ${num_lbs} -gt 0 ]]; then
   echo 'load-balancers cannot be deleted automatically; please remove from the following list manually where needed:'
   doctl compute load-balancer list
 else
