@@ -21,6 +21,8 @@
 ### can be found in the name. Regardless, the script assumes the same
 ### identifier can be found across all resources, or otherwise the resource
 ### must be cleaned up manually.
+### The second parameter is the DNS domain for which all non-NS records should
+### be removed.
 
 set -o errexit
 set -o pipefail
@@ -28,6 +30,10 @@ set -o nounset
 
 s3base() {
   s3cmd --host "${SPACES_URL}" --host-bucket '%(bucket)s.'"${SPACES_URL}" --access_key "${S3_ACCESS_KEY_ID}" --secret_key "${S3_SECRET_ACCESS_KEY}" $*
+}
+
+usage() {
+  echo "usage: $(basename "$0") <identifier> <domain>" >&2
 }
 
 : "${S3_ACCESS_KEY_ID:?must be defined}"
@@ -45,12 +51,18 @@ if ! type s3cmd > /dev/null 2>&1; then
   exit 1
 fi
 
-if [[ $# -ne 1 || $1 = "-h" ]]; then
-  echo "usage: $(basename "$0") <identifier>" >&2
+if [[ $# -gt 0 && $1 = "-h" ]]; then
+  usage
+  exit
+fi
+
+if [[ $# -ne 2 ]]; then
+  usage
   exit 1
 fi
 
 readonly ID="$1"
+readonly DOMAIN="$2"
 
 echo 'deleting droplets'
 # shellcheck disable=SC2207
@@ -80,6 +92,14 @@ readonly spaces
 for space in ${spaces}; do
   s3base rb --quiet --recursive "s3://${space}"
 done
+
+echo 'deleting DNS records'
+# shellcheck disable=SC2207
+records=( $(doctl compute domain records list "${DOMAIN}" --format ID,Type,Name | grep --invert-match '  NS  ' | grep "${ID}" | awk '{print $1}'  || true) )
+readonly records
+if [[ ${#records[@]} -gt 0 ]]; then
+  doctl compute domain records delete "${DOMAIN}" --force "${records[@]}"
+fi
 
 num_lbs="$(doctl compute load-balancer list | tail -n +2 | wc -l)"
 readonly num_lbs
