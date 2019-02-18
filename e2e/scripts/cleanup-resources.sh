@@ -58,6 +58,13 @@ droplets=( $(doctl compute droplet list --format ID,Tags | grep "${ID}" | awk '{
 readonly droplets
 if [[ ${#droplets[@]} -gt 0 ]]; then
   doctl compute droplet delete --force "${droplets[@]}"
+
+  echo 'waiting for all volumes to become detached'
+  num_attached=1
+  while [[ ${num_attached} -gt 0 ]]; do
+    num_attached=$(doctl compute volume list --format Name,DropletIDs | grep "${ID}" | awk '{print $2}' | grep --count --invert-match '^$' || true)
+    sleep 2
+  done
 fi
 
 echo 'deleting volumes'
