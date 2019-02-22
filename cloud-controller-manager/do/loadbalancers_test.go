@@ -1766,11 +1766,11 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 	}
 	fakeClient := newFakeLBClient(&fakeLBService{}, fakeDropletSvc)
 
-	wantTags := []string{"fdda2d9d-0856-4ca4-b8ee-27ca8bfecc77"}
+	clusterID := "fdda2d9d-0856-4ca4-b8ee-27ca8bfecc77"
 	lb := &loadBalancers{
 		client:    fakeClient,
 		region:    "nyc3",
-		clusterID: wantTags[0],
+		clusterID: clusterID,
 	}
 
 	lbr, err := lb.buildLoadBalancerRequest(service, nodes)
@@ -1778,6 +1778,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 		t.Errorf("got error: %s", err)
 	}
 
+	wantTags := []string{fmt.Sprintf("%s:%s", tagPrefixClusterID, clusterID)}
 	if !reflect.DeepEqual(lbr.Tags, wantTags) {
 		t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
 	}

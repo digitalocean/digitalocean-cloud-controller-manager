@@ -97,6 +97,9 @@ const (
 	lbStatusNew     = "new"
 	lbStatusActive  = "active"
 	lbStatusErrored = "errored"
+
+	// This is the DO-specific tag component prepended to the cluster ID.
+	tagPrefixClusterID = "k8s"
 )
 
 var errLBNotFound = errors.New("loadbalancer not found")
@@ -328,7 +331,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 
 	var tags []string
 	if l.clusterID != "" {
-		tags = []string{l.clusterID}
+		tags = []string{fmt.Sprintf("%s:%s", tagPrefixClusterID, l.clusterID)}
 	}
 
 	return &godo.LoadBalancerRequest{
