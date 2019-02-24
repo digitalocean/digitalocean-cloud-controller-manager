@@ -102,5 +102,7 @@ test:
 
 .PHONY: check-headers
 check-headers:
-	@./ci/headers-*.sh
+	@./ci/headers-bash.sh
+	@./ci/headers-docker.sh
+	@./ci/headers-go.sh
 
