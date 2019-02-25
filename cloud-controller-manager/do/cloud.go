@@ -22,9 +22,11 @@ import (
 	"os"
 
 	"github.com/digitalocean/godo"
+	"github.com/golang/glog"
 
 	"golang.org/x/oauth2"
 
+	"k8s.io/client-go/informers"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 	"k8s.io/kubernetes/pkg/controller"
 )
@@ -48,6 +50,7 @@ func (t *tokenSource) Token() (*oauth2.Token, error) {
 }
 
 type cloud struct {
+	clusterID     string
 	client        *godo.Client
 	instances     cloudprovider.Instances
 	zones         cloudprovider.Zones
@@ -85,6 +88,7 @@ func newCloud() (cloudprovider.Interface, error) {
 	clusterID := os.Getenv(doClusterIDEnv)
 
 	return &cloud{
+		clusterID:     clusterID,
 		client:        doClient,
 		instances:     newInstances(doClient, region),
 		zones:         newZones(doClient, region),
@@ -99,6 +103,21 @@ func init() {
 }
 
 func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
+	if c.clusterID == "" {
+		glog.Info("No cluster ID configured -- skipping resource controller initialization.")
+		return
+	}
+
+	clientset := clientBuilder.ClientOrDie("do-shared-informers")
+	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
+
+	res := NewResourcesController(buildK8sTag(c.clusterID), sharedInformer.Core().V1().Services(), clientset, c.client)
+
+	sharedInformer.Start(nil)
+	sharedInformer.WaitForCacheSync(nil)
+	// TODO: pass in stopCh from Initialize once supported upstream
+	// see https://github.com/kubernetes/kubernetes/pull/70038 for more details
+	go res.Run(nil)
 }
 
 func (c *cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {

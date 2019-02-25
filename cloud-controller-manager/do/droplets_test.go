@@ -17,11 +17,8 @@ limitations under the License.
 package do
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
-	"net/http"
 	"reflect"
 	"testing"
 
@@ -146,24 +143,6 @@ func newFakeShutdownDroplet() *godo.Droplet {
 		Region: &godo.Region{
 			Name: "test-region",
 			Slug: "test1",
-		},
-	}
-}
-
-func newFakeOKResponse() *godo.Response {
-	return &godo.Response{
-		Response: &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
-		},
-	}
-}
-
-func newFakeNotOKResponse() *godo.Response {
-	return &godo.Response{
-		Response: &http.Response{
-			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
 		},
 	}
 }
