@@ -2,6 +2,8 @@
 
 ## unreleased
 
+Support specifying a fake region by environment variable (@timoreimann)
+
 ## v0.1.23 (beta) - Jan 31th 2020
 
 ### Added
