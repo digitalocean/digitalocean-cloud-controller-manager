@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## v0.1.9 (beta) - Feb 26th 2019
+
+* Reconcile cluster ID tags on DO load-balancer resources (@timoreimann)
+* Makefile: Fix check-headers target and header violations (@timoreimann)
+* prepend the DO-specific tag component to the cluster ID (@timoreimann)
+* add script to clean up used DigitalOcean resources (@timoreimann)
+* tag created load balancers with existing cluster ID (@timoreimann)
+* add some documentation and fix load balancer naming (@tariq1890)
+* bump Go version to 1.11.5 (@timoreimann)
+* fix link in docs (@eddiezane)
+* fix typo in Makefile (@rig0rmortis)
+* remove duplicate 'contributing' section (@groovemonkey)
+* add end-to-end test verifying Kubernetes compatibility (@timoreimann)
+* support overriding the load-balancer health check protocol via the `service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol` annotation (@andrewsykim)
+
 ## v0.1.8 (beta) - Oct 24th 2018
 
 * add support for loadbalancer health check paths via service annotation `service.beta.kubernetes.io/do-loadbalancer-healthcheck-path` (@andrewsykim)
