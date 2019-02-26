@@ -39,6 +39,10 @@ const (
 	resourceTypeLoadBalancer = "load_balancer"
 )
 
+type tagMissingError struct {
+	error
+}
+
 // ResourcesController ensures that DO resources are properly tagged.
 type ResourcesController struct {
 	clusterIDTag string
@@ -121,21 +125,9 @@ func (r *ResourcesController) sync() error {
 
 	// Tag collected resources with the cluster ID. If the tag does not exist
 	// (for reasons outlined below), we will create it and retry tagging again.
-	for {
-		ctx, cancel = context.WithTimeout(context.Background(), requestTimeout)
-		defer cancel()
-		resp, err := r.gclient.Tags.TagResources(ctx, r.clusterIDTag, &godo.TagResourcesRequest{
-			Resources: res,
-		})
-		if err == nil {
-			break
-		}
-
-		if resp == nil || resp.StatusCode != http.StatusNotFound {
-			return fmt.Errorf("failed to tag LB resource(s) %v with tag %q: %s", res, r.clusterIDTag, err)
-		}
-
-		// Cluster ID tag has not been created yet. This should normally happen
+	err = r.tagResources(res)
+	if _, ok := err.(tagMissingError); ok {
+		// Cluster ID tag has not been created yet. This should have happen
 		// when we set the tag on LB creation. For LBs that have been created
 		// prior to CCM using cluster IDs, however, we need to create the tag
 		// explicitly.
@@ -145,7 +137,30 @@ func (r *ResourcesController) sync() error {
 		if err != nil {
 			return fmt.Errorf("failed to create tag %q: %s", r.clusterIDTag, err)
 		}
+
+		// Try tagging again, which should not fail anymore due to a missing
+		// tag.
+		err = r.tagResources(res)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to tag LB resource(s) %v with tag %q: %s", res, r.clusterIDTag, err)
 	}
 
 	return nil
+}
+
+func (r *ResourcesController) tagResources(res []godo.Resource) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+	tag := r.clusterIDTag
+	resp, err := r.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
+		Resources: res,
+	})
+
+	if resp != nil && resp.StatusCode == http.StatusNotFound {
+		return tagMissingError{fmt.Errorf("tag %q does not exist", tag)}
+	}
+
+	return err
 }
