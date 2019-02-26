@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -216,10 +217,20 @@ func TestTagsSync(t *testing.T) {
 				t.Errorf("error message %q does not contain %q", err.Error(), test.errMsg)
 			}
 
-			if test.tagRequests != nil && !reflect.DeepEqual(test.tagRequests, fakeTagsService.tagRequests) {
-				want, _ := json.Marshal(test.tagRequests)
-				got, _ := json.Marshal(fakeTagsService.tagRequests)
-				t.Errorf("unexpected tagRequests %s != %s", want, got)
+			if test.tagRequests != nil {
+				// We need to sort request resources for reliable test
+				// assertions as informer's List() ordering is indeterministic.
+				for _, tagReq := range fakeTagsService.tagRequests {
+					sort.SliceStable(tagReq.Resources, func(i, j int) bool {
+						return tagReq.Resources[i].ID < tagReq.Resources[j].ID
+					})
+				}
+
+				if !reflect.DeepEqual(test.tagRequests, fakeTagsService.tagRequests) {
+					want, _ := json.Marshal(test.tagRequests)
+					got, _ := json.Marshal(fakeTagsService.tagRequests)
+					t.Errorf("want tagRequests %s, got %s", want, got)
+				}
 			}
 		})
 	}
