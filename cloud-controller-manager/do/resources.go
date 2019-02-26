@@ -99,9 +99,9 @@ func (r *ResourcesController) sync() error {
 		return fmt.Errorf("failed to list services: %s", err)
 	}
 
-	loadBalancers := make(map[string]*godo.LoadBalancer, len(lbs))
+	loadBalancers := make(map[string]string, len(lbs))
 	for _, lb := range lbs {
-		loadBalancers[lb.Name] = &lb
+		loadBalancers[lb.Name] = lb.ID
 	}
 
 	var res []godo.Resource
@@ -111,9 +111,9 @@ func (r *ResourcesController) sync() error {
 		}
 
 		name := cloudprovider.GetLoadBalancerName(svc)
-		if lb, ok := loadBalancers[name]; ok {
+		if id, ok := loadBalancers[name]; ok {
 			res = append(res, godo.Resource{
-				ID:   lb.ID,
+				ID:   id,
 				Type: godo.ResourceType(resourceTypeLoadBalancer),
 			})
 		}

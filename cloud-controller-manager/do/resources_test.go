@@ -18,8 +18,10 @@ package do
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -60,11 +62,12 @@ func createSvc(idx int, isTypeLoadBalancer bool) *corev1.Service {
 
 func TestTagsSync(t *testing.T) {
 	testcases := []struct {
-		name     string
-		services []*corev1.Service
-		lbListFn func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		tagSvc   *fakeTagsService
-		errMsg   string
+		name        string
+		services    []*corev1.Service
+		lbListFn    func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+		tagSvc      *fakeTagsService
+		errMsg      string
+		tagRequests []*godo.TagResourcesRequest
 	}{
 		{
 			name: "LB service fails",
@@ -126,6 +129,40 @@ func TestTagsSync(t *testing.T) {
 			tagSvc: newFakeTagsService(clusterIDTag),
 		},
 		{
+			name: "multiple tags",
+			services: []*corev1.Service{
+				createSvc(1, true),
+				createSvc(2, true),
+			},
+			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						Name: lbName(1),
+						ID:   "1",
+					},
+					{
+						Name: lbName(2),
+						ID:   "2",
+					},
+				}, newFakeOKResponse(), nil
+			},
+			tagSvc: newFakeTagsService(clusterIDTag),
+			tagRequests: []*godo.TagResourcesRequest{
+				{
+					Resources: []godo.Resource{
+						{
+							ID:   "1",
+							Type: resourceTypeLoadBalancer,
+						},
+						{
+							ID:   "2",
+							Type: resourceTypeLoadBalancer,
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "success on second resource tagging",
 			services: []*corev1.Service{
 				createSvc(1, true),
@@ -177,6 +214,12 @@ func TestTagsSync(t *testing.T) {
 
 			if wantErr && !strings.Contains(err.Error(), test.errMsg) {
 				t.Errorf("error message %q does not contain %q", err.Error(), test.errMsg)
+			}
+
+			if test.tagRequests != nil && !reflect.DeepEqual(test.tagRequests, fakeTagsService.tagRequests) {
+				want, _ := json.Marshal(test.tagRequests)
+				got, _ := json.Marshal(fakeTagsService.tagRequests)
+				t.Errorf("unexpected tagRequests %s != %s", want, got)
 			}
 		})
 	}

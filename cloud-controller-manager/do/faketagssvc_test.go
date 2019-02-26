@@ -36,6 +36,8 @@ type fakeTagsService struct {
 	// failError is the error to return when failOnRequest is >= 0. When not
 	// given, a default error is returned. Ignored when failOnRequest is < 0.
 	failError error
+
+	tagRequests []*godo.TagResourcesRequest
 }
 
 func newFakeTagsService(tags ...string) *fakeTagsService {
@@ -109,6 +111,8 @@ func (f *fakeTagsService) TagResources(ctx context.Context, name string, tagRequ
 	if !f.tags[name] {
 		return newFakeResponse(http.StatusNotFound), fmt.Errorf("tag %q does not exist", name)
 	}
+
+	f.tagRequests = append(f.tagRequests, tagRequest)
 
 	return newFakeOKResponse(), nil
 }
