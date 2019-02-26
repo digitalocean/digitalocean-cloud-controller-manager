@@ -1,6 +1,12 @@
 # CHANGELOG
 
+## v0.1.10 (beta) - Feb 26th 2019
+
+* loadbalancers: don't use pointer to loop variable in load balancers map (@bouk)
+
 ## v0.1.9 (beta) - Feb 26th 2019
+
+**IMPORTANT:** This release contains a significant bug. Use v0.1.10 instead.
 
 * Reconcile cluster ID tags on DO load-balancer resources (@timoreimann)
 * Makefile: Fix check-headers target and header violations (@timoreimann)
