@@ -148,13 +148,10 @@ func (r *ResourcesController) tagResources(res []godo.Resource) error {
 	resp, err := r.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
 		Resources: res,
 	})
-	if err == nil {
-		return nil
-	}
 
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
-		return tagMissingError{fmt.Errorf("tag %v does not exist", tag)}
+		return tagMissingError{fmt.Errorf("tag %q does not exist", tag)}
 	}
 
-	return fmt.Errorf("failed to tag LB resource(s) %v with tag %q: %s", res, tag, err)
+	return err
 }
