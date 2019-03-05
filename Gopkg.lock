@@ -87,12 +87,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:ea3b7e0433c21fd9d3db5ab2a3c55359835aecd5f83e3d514bc3f47e84933113"
+  digest = "1:a2295338b18f3898280ba8f2b5b37d4f7694612a6b730be5276a405a7e592ac1"
   name = "github.com/digitalocean/godo"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "360ee5cab86ffe07b3d5009a3bbb658862c55cf8"
-  version = "v1.7.3"
+  revision = "169afd3c4cd2071b82740787dae2d8c714db0821"
+  version = "v1.7.5"
 
 [[projects]]
   digest = "1:4189ee6a3844f555124d9d2656fe7af02fca961c2a9bad9074789df13a0c62e0"
@@ -482,14 +482,6 @@
   packages = ["."]
   pruneopts = "NUT"
   revision = "3ebe029320b2676d667ae88da602a5f854788a8a"
-
-[[projects]]
-  branch = "master"
-  digest = "1:a0aee89faaf795424d978b6b4bcee4af3dc71f5680e5e1b30bd1528639e61a9a"
-  name = "github.com/tent/http-link-go"
-  packages = ["."]
-  pruneopts = "NUT"
-  revision = "ac974c61c2f990f4115b119354b5e0b47550e888"
 
 [[projects]]
   digest = "1:919fc2a81add8ac4a7a236dceaf3e4c29ba4df96d13c3f2ce13a4d0132ebefb8"
@@ -1145,9 +1137,9 @@
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/errors",
-    "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/apiserver/pkg/server/healthz",
     "k8s.io/apiserver/pkg/util/flag",
@@ -1156,7 +1148,7 @@
     "k8s.io/client-go/informers/core/v1",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/fake",
-    "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/kubernetes/cmd/cloud-controller-manager/app",
     "k8s.io/kubernetes/cmd/cloud-controller-manager/app/options",
