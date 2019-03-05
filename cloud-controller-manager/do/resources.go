@@ -34,9 +34,8 @@ import (
 )
 
 const (
-	controllerSyncPeriod     = 1 * time.Minute
-	requestTimeout           = 10 * time.Second
-	resourceTypeLoadBalancer = "load_balancer"
+	controllerSyncPeriod = 1 * time.Minute
+	requestTimeout       = 10 * time.Second
 )
 
 type tagMissingError struct {
@@ -114,7 +113,7 @@ func (r *ResourcesController) sync() error {
 		if id, ok := loadBalancers[name]; ok {
 			res = append(res, godo.Resource{
 				ID:   id,
-				Type: godo.ResourceType(resourceTypeLoadBalancer),
+				Type: godo.ResourceType(godo.LoadBalancerResourceType),
 			})
 		}
 	}

@@ -153,11 +153,11 @@ func TestTagsSync(t *testing.T) {
 					Resources: []godo.Resource{
 						{
 							ID:   "1",
-							Type: resourceTypeLoadBalancer,
+							Type: godo.LoadBalancerResourceType,
 						},
 						{
 							ID:   "2",
-							Type: resourceTypeLoadBalancer,
+							Type: godo.LoadBalancerResourceType,
 						},
 					},
 				},
