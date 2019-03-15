@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## unreleased
+
+* loadbalancers: support numeric health check parameters (@timoreimann)
+
 ## v0.1.10 (beta) - Feb 26th 2019
 
 * loadbalancers: don't use pointer to loop variable in load balancers map (@bouk)

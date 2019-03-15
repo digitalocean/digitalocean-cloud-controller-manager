@@ -46,6 +46,29 @@ const (
 	// 'service.beta.kubernetes.io/do-loadbalancer-protocol'.
 	annDOHealthCheckProtocol = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol"
 
+	// annDOHealthCheckIntervalSeconds is the annotation used to specify the
+	// number of seconds between between two consecutive health checks. The
+	// value must be between 3 and 300. Defaults to 3.
+	annDOHealthCheckIntervalSeconds = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds"
+
+	// annDOHealthCheckResponseTimeoutSeconds is the annotation used to specify the
+	// number of seconds the Load Balancer instance will wait for a response
+	// until marking a health check as failed. The value must be between 3 and
+	// 300. Defaults to 5.
+	annDOHealthCheckResponseTimeoutSeconds = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-response-timeout-seconds"
+
+	// annDOHealthCheckUnhealthyThreshold is the annotation used to specify the
+	// number of times a health check must fail for a backend Droplet to be
+	// marked "unhealthy" and be removed from the pool for the given service.
+	// The value must be between 2 and 10. Defaults to 3.
+	annDOHealthCheckUnhealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-unhealthy-threshold"
+
+	// annDOHealthCheckHealthyThreshold is the annotation used to specify the
+	// number of times a health check must pass for a backend Droplet to be
+	// marked "healthy" for the given service and be re-added to the pool. The
+	// value must be between 2 and 10. Defaults to 5.
+	annDOHealthCheckHealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold"
+
 	// annDOTLSPorts is the annotation used to specify which ports of the load balancer
 	// should use the https protocol. This is a comma separated list of ports
 	// (e.g. 443,6443,7443).
@@ -399,6 +422,23 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		healthCheckProtocol = protocol
 	}
 
+	checkIntervalSecs, err := healthCheckIntervalSeconds(service)
+	if err != nil {
+		return nil, err
+	}
+	responseTimeoutSecs, err := healthCheckResponseTimeoutSeconds(service)
+	if err != nil {
+		return nil, err
+	}
+	unhealthyThreshold, err := healthCheckUnhealthyThreshold(service)
+	if err != nil {
+		return nil, err
+	}
+	healthyThreshold, err := healthCheckHealthyThreshold(service)
+	if err != nil {
+		return nil, err
+	}
+
 	healthCheckPath := healthCheckPath(service)
 	port := service.Spec.Ports[0].NodePort
 
@@ -406,10 +446,10 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		Protocol:               healthCheckProtocol,
 		Port:                   int(port),
 		Path:                   healthCheckPath,
-		CheckIntervalSeconds:   3,
-		ResponseTimeoutSeconds: 5,
-		HealthyThreshold:       5,
-		UnhealthyThreshold:     3,
+		CheckIntervalSeconds:   checkIntervalSecs,
+		ResponseTimeoutSeconds: responseTimeoutSecs,
+		UnhealthyThreshold:     unhealthyThreshold,
+		HealthyThreshold:       healthyThreshold,
 	}, nil
 }
 
@@ -541,6 +581,66 @@ func healthCheckPath(service *v1.Service) string {
 	}
 
 	return path
+}
+
+// healthCheckIntervalSeconds returns the health check interval in seconds
+func healthCheckIntervalSeconds(service *v1.Service) (int, error) {
+	valStr, ok := service.Annotations[annDOHealthCheckIntervalSeconds]
+	if !ok {
+		return 3, nil
+	}
+
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse health check interval annotation %q: %s", annDOHealthCheckIntervalSeconds, err)
+	}
+
+	return val, nil
+}
+
+// healthCheckIntervalSeconds returns the health response timeout in seconds
+func healthCheckResponseTimeoutSeconds(service *v1.Service) (int, error) {
+	valStr, ok := service.Annotations[annDOHealthCheckResponseTimeoutSeconds]
+	if !ok {
+		return 5, nil
+	}
+
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse health check response timeout annotation %q: %s", annDOHealthCheckResponseTimeoutSeconds, err)
+	}
+
+	return val, nil
+}
+
+// healthCheckUnhealthyThreshold returns the health check unhealthy threshold
+func healthCheckUnhealthyThreshold(service *v1.Service) (int, error) {
+	valStr, ok := service.Annotations[annDOHealthCheckUnhealthyThreshold]
+	if !ok {
+		return 3, nil
+	}
+
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse health check unhealthy threshold annotation %q: %s", annDOHealthCheckUnhealthyThreshold, err)
+	}
+
+	return val, nil
+}
+
+// healthCheckHealthyThreshold returns the health check healthy threshold
+func healthCheckHealthyThreshold(service *v1.Service) (int, error) {
+	valStr, ok := service.Annotations[annDOHealthCheckHealthyThreshold]
+	if !ok {
+		return 5, nil
+	}
+
+	val, err := strconv.Atoi(valStr)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse health check healthy threshold annotation %q: %s", annDOHealthCheckHealthyThreshold, err)
+	}
+
+	return val, nil
 }
 
 // getTLSPorts returns the ports of service that are set to use TLS.

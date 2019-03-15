@@ -14,6 +14,22 @@ The path used to check if a backend droplet is healthy. Defaults to "/".
 
 The health check protocol to use to check if a backend droplet is healthy. Defaults to the protocol used in `service.beta.kubernetes.io/do-loadbalancer-protocol`. Options are `tcp` and `http`.
 
+## service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds
+
+The number of seconds between between two consecutive health checks. The value must be between 3 and 300. If not specified, the default value is 3.
+
+## service.beta.kubernetes.io/do-loadbalancer-healthcheck-response-timeout-seconds
+
+The number of seconds the Load Balancer instance will wait for a response until marking a health check as failed. The value must be between 3 and 300. If not specified, the default value is 5.
+
+## service.beta.kubernetes.io/do-loadbalancer-healthcheck-unhealthy-threshold
+
+The number of times a health check must fail for a backend Droplet to be marked "unhealthy" and be removed from the pool for the given service. The vaule must be between 2 and 10. If not specified, the default value is 3.
+
+## service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold
+
+The number of times a health check must pass for a backend Droplet to be marked "healthy" for the given service and be re-added to the pool. The vaule must be between 2 and 10. If not specified, the default value is 5.
+
 ## service.beta.kubernetes.io/do-loadbalancer-tls-ports
 
 Specify which ports of the loadbalancer should use the https protocol. This is a comma separated list of ports (e.g. 443,6443,7443).

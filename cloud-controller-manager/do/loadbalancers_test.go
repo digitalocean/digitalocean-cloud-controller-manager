@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/digitalocean/godo"
@@ -85,6 +86,24 @@ func newFakeLBClient(fakeLB *fakeLBService, fakeDroplet *fakeDropletService) *go
 	client.LoadBalancers = fakeLB
 
 	return client
+}
+
+func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
+	svc := &v1.Service{}
+	is, _ := healthCheckIntervalSeconds(svc)
+	rts, _ := healthCheckResponseTimeoutSeconds(svc)
+	ut, _ := healthCheckUnhealthyThreshold(svc)
+	ht, _ := healthCheckHealthyThreshold(svc)
+
+	return &godo.HealthCheck{
+		Protocol:               proto,
+		Port:                   port,
+		Path:                   path,
+		CheckIntervalSeconds:   is,
+		ResponseTimeoutSeconds: rts,
+		UnhealthyThreshold:     ut,
+		HealthyThreshold:       ht,
+	}
 }
 
 func Test_getAlgorithm(t *testing.T) {
@@ -862,14 +881,14 @@ func Test_buildForwardingRules(t *testing.T) {
 
 func Test_buildHealthCheck(t *testing.T) {
 	testcases := []struct {
-		name        string
-		service     *v1.Service
-		healthcheck *godo.HealthCheck
-		err         error
+		name         string
+		service      *v1.Service
+		healthcheck  *godo.HealthCheck
+		errMsgPrefix string
 	}{
 		{
-			"tcp health check",
-			&v1.Service{
+			name: "tcp health check",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -885,19 +904,11 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			&godo.HealthCheck{
-				Protocol:               "tcp",
-				Port:                   30000,
-				CheckIntervalSeconds:   3,
-				ResponseTimeoutSeconds: 5,
-				HealthyThreshold:       5,
-				UnhealthyThreshold:     3,
-			},
-			nil,
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
 		},
 		{
-			"http health check",
-			&v1.Service{
+			name: "http health check",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -916,19 +927,11 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			&godo.HealthCheck{
-				Protocol:               "http",
-				Port:                   30000,
-				CheckIntervalSeconds:   3,
-				ResponseTimeoutSeconds: 5,
-				HealthyThreshold:       5,
-				UnhealthyThreshold:     3,
-			},
-			nil,
+			healthcheck: defaultHealthCheck("http", 30000, ""),
 		},
 		{
-			"http health check using protocol override",
-			&v1.Service{
+			name: "http health check using protocol override",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -948,19 +951,11 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			&godo.HealthCheck{
-				Protocol:               "http",
-				Port:                   30000,
-				CheckIntervalSeconds:   3,
-				ResponseTimeoutSeconds: 5,
-				HealthyThreshold:       5,
-				UnhealthyThreshold:     3,
-			},
-			nil,
+			healthcheck: defaultHealthCheck("http", 30000, ""),
 		},
 		{
-			"http health check with path",
-			&v1.Service{
+			name: "http health check with path",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -980,20 +975,11 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			&godo.HealthCheck{
-				Protocol:               "http",
-				Port:                   30000,
-				Path:                   "/health",
-				CheckIntervalSeconds:   3,
-				ResponseTimeoutSeconds: 5,
-				HealthyThreshold:       5,
-				UnhealthyThreshold:     3,
-			},
-			nil,
+			healthcheck: defaultHealthCheck("http", 30000, "/health"),
 		},
 		{
-			"invalid protocol health check",
-			&v1.Service{
+			name: "invalid protocol health check",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -1012,12 +998,11 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			nil,
-			fmt.Errorf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+			errMsgPrefix: fmt.Sprintf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
 		},
 		{
-			"invalid health check using protocol override",
-			&v1.Service{
+			name: "invalid health check using protocol override",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -1036,8 +1021,159 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			nil,
-			fmt.Errorf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+			errMsgPrefix: fmt.Sprintf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+		},
+		{
+			name: "default numeric parameters",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "tcp",
+				Port:                   30000,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				UnhealthyThreshold:     3,
+				HealthyThreshold:       5,
+			},
+		},
+		{
+			name: "custom numeric parameters",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckIntervalSeconds:        "1",
+						annDOHealthCheckResponseTimeoutSeconds: "3",
+						annDOHealthCheckUnhealthyThreshold:     "1",
+						annDOHealthCheckHealthyThreshold:       "2",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "tcp",
+				Port:                   30000,
+				CheckIntervalSeconds:   1,
+				ResponseTimeoutSeconds: 3,
+				UnhealthyThreshold:     1,
+				HealthyThreshold:       2,
+			},
+		},
+		{
+			name: "invalid check interval",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckIntervalSeconds: "invalid",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check interval annotation %q:", annDOHealthCheckIntervalSeconds),
+		},
+		{
+			name: "invalid response timeout",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckResponseTimeoutSeconds: "invalid",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check response timeout annotation %q:", annDOHealthCheckResponseTimeoutSeconds),
+		},
+		{
+			name: "invalid unhealthy threshold",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckUnhealthyThreshold: "invalid",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check unhealthy threshold annotation %q:", annDOHealthCheckUnhealthyThreshold),
+		},
+		{
+			name: "invalid healthy threshold",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckHealthyThreshold: "invalid",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check healthy threshold annotation %q:", annDOHealthCheckHealthyThreshold),
 		},
 	}
 
@@ -1045,15 +1181,12 @@ func Test_buildHealthCheck(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			healthcheck, err := buildHealthCheck(test.service)
 			if !reflect.DeepEqual(healthcheck, test.healthcheck) {
-				t.Error("unexpected health check")
-				t.Logf("expected: %v", test.healthcheck)
-				t.Logf("actual: %v", healthcheck)
+				t.Fatalf("got health check:\n\n%v\n\nwant:\n\n%s\n", healthcheck, test.healthcheck)
 			}
 
-			if !reflect.DeepEqual(err, test.err) {
-				t.Error("unexpected error")
-				t.Logf("expected: %v", test.err)
-				t.Logf("actual: %v", err)
+			wantErr := test.errMsgPrefix != ""
+			if wantErr && !strings.HasPrefix(err.Error(), test.errMsgPrefix) {
+				t.Fatalf("got error:\n\n%s\n\nwant prefix:\n\n%s\n", err, test.errMsgPrefix)
 			}
 		})
 	}
@@ -1317,16 +1450,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: &godo.HealthCheck{
-					Protocol:               "http",
-					Port:                   30000,
-					Path:                   "/health",
-					CheckIntervalSeconds:   3,
-					ResponseTimeoutSeconds: 5,
-					HealthyThreshold:       5,
-					UnhealthyThreshold:     3,
-				},
-				Algorithm: "round_robin",
+				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -1405,16 +1530,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: &godo.HealthCheck{
-					Protocol:               "http",
-					Port:                   30000,
-					Path:                   "/health",
-					CheckIntervalSeconds:   3,
-					ResponseTimeoutSeconds: 5,
-					HealthyThreshold:       5,
-					UnhealthyThreshold:     3,
-				},
-				Algorithm: "round_robin",
+				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -1492,15 +1609,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: &godo.HealthCheck{
-					Protocol:               "http",
-					Port:                   30000,
-					CheckIntervalSeconds:   3,
-					ResponseTimeoutSeconds: 5,
-					HealthyThreshold:       5,
-					UnhealthyThreshold:     3,
-				},
-				Algorithm: "least_connections",
+				HealthCheck: defaultHealthCheck("http", 30000, ""),
+				Algorithm:   "least_connections",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -1580,15 +1690,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: &godo.HealthCheck{
-					Protocol:               "http",
-					Port:                   30000,
-					CheckIntervalSeconds:   3,
-					ResponseTimeoutSeconds: 5,
-					HealthyThreshold:       5,
-					UnhealthyThreshold:     3,
-				},
-				Algorithm: "round_robin",
+				HealthCheck: defaultHealthCheck("http", 30000, ""),
+				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type:             "cookies",
 					CookieName:       "DO-CCM",
@@ -1682,14 +1785,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						CertificateID:  "test-certificate",
 					},
 				},
-				HealthCheck: &godo.HealthCheck{
-					Protocol:               "http",
-					Port:                   30000,
-					CheckIntervalSeconds:   3,
-					ResponseTimeoutSeconds: 5,
-					HealthyThreshold:       5,
-					UnhealthyThreshold:     3,
-				},
+				HealthCheck:         defaultHealthCheck("http", 30000, ""),
 				Algorithm:           "round_robin",
 				RedirectHttpToHttps: true,
 				StickySessions: &godo.StickySessions{
