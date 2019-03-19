@@ -87,12 +87,12 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:a2295338b18f3898280ba8f2b5b37d4f7694612a6b730be5276a405a7e592ac1"
+  digest = "1:a710ae2a66582fe9c9cad8f04cdae91bcd594592efc88f331c50b6cf3cafc727"
   name = "github.com/digitalocean/godo"
   packages = ["."]
   pruneopts = "NUT"
-  revision = "169afd3c4cd2071b82740787dae2d8c714db0821"
-  version = "v1.7.5"
+  revision = "cd71616aba666a6c51fd79af3ee9210960c5ccaf"
+  version = "v1.9.0"
 
 [[projects]]
   digest = "1:4189ee6a3844f555124d9d2656fe7af02fca961c2a9bad9074789df13a0c62e0"

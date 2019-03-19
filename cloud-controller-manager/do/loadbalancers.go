@@ -108,6 +108,10 @@ const (
 	// should be redirected to Https. Defaults to false
 	annDORedirectHTTPToHTTPS = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
 
+	// annDOEnableProxyProtocol is the annotation specifying whether PROXY protocol should
+	// be enabled. Defaults to false.
+	annDOEnableProxyProtocol = "service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -355,6 +359,10 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 	algorithm := getAlgorithm(service)
 
 	redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(service)
+	enableProxyProtocol, err := getEnableProxyProtocol(service)
+	if err != nil {
+		return nil, err
+	}
 
 	var tags []string
 	if l.clusterID != "" {
@@ -371,6 +379,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		Tags:                tags,
 		Algorithm:           algorithm,
 		RedirectHttpToHttps: redirectHTTPToHTTPS,
+		EnableProxyProtocol: enableProxyProtocol,
 	}, nil
 }
 
@@ -749,4 +758,20 @@ func getRedirectHTTPToHTTPS(service *v1.Service) bool {
 	}
 
 	return redirectHTTPToHTTPSBool
+}
+
+// getEnableProxyProtocol returns whether PROXY protocol should be enabled.
+// False is returned if not specified.
+func getEnableProxyProtocol(service *v1.Service) (bool, error) {
+	enableProxyProtocolStr, ok := service.Annotations[annDOEnableProxyProtocol]
+	if !ok {
+		return false, nil
+	}
+
+	enableProxyProtocol, err := strconv.ParseBool(enableProxyProtocolStr)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse proxy protocol flag %q from annotation %q: %s", enableProxyProtocolStr, annDOEnableProxyProtocol, err)
+	}
+
+	return enableProxyProtocol, nil
 }

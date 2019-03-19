@@ -1370,6 +1370,82 @@ func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 
 }
 
+func Test_getEnableProxyProtocol(t *testing.T) {
+	testcases := []struct {
+		name                    string
+		service                 *v1.Service
+		wantErr                 bool
+		wantEnableProxyProtocol bool
+	}{
+		{
+			name: "enabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableProxyProtocol: "true",
+					},
+				},
+			},
+			wantErr:                 false,
+			wantEnableProxyProtocol: true,
+		},
+		{
+			name: "disabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableProxyProtocol: "false",
+					},
+				},
+			},
+			wantErr:                 false,
+			wantEnableProxyProtocol: false,
+		},
+		{
+			name: "annotation missing",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			wantErr:                 false,
+			wantEnableProxyProtocol: false,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableProxyProtocol: "42",
+					},
+				},
+			},
+			wantErr:                 true,
+			wantEnableProxyProtocol: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			gotEnabledProxyProtocol, err := getEnableProxyProtocol(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			if gotEnabledProxyProtocol != test.wantEnableProxyProtocol {
+				t.Fatalf("got enabled proxy protocol %t, want %t", gotEnabledProxyProtocol, test.wantEnableProxyProtocol)
+			}
+		})
+	}
+}
+
 func Test_buildLoadBalancerRequest(t *testing.T) {
 	testcases := []struct {
 		name          string

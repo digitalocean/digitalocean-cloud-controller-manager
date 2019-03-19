@@ -1,6 +1,8 @@
 # Service Annotations
 
-DigitalOcean cloud controller manager watches for Services of type `LoadBalancer` and will create corresponding DigitalOcean Load Balancers matching the Kubernetes service. The Load Balancer can be configured by applying annotations to the Service resource. The following annotations can be used:
+DigitalOcean cloud controller manager watches for Services of type `LoadBalancer` and will create corresponding DigitalOcean Load Balancers matching the Kubernetes service. The Load Balancer can be configured by applying annotations to the Service resource. The annotations listed below can be used.
+
+See example Kubernetes Services using LoadBalancers [here](examples/).
 
 ## service.beta.kubernetes.io/do-loadbalancer-protocol
 
@@ -62,4 +64,6 @@ Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotat
 
 Indicates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
 
-See example Kubernetes Services using LoadBalancers [here](examples/).
+## service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol
+
+Indicates whether PROXY protocol should be enabled. Options are `true` or `false`. Defaults to `false`.
