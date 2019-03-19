@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## unreleased
+## v0.1.11 (beta) - Mar 19th 2019
 
 * loadbalancers: add support for PROXY protocol (@timoreimann)
 * loadbalancers: support numeric health check parameters (@timoreimann)
