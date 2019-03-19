@@ -1,67 +1,45 @@
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: digitalocean
-  namespace: kube-system
-stringData:
-  # insert your DO access token here
-  access-token: {{ DO_TOKEN }}
-
----
-apiVersion: apps/v1
-kind: DaemonSet
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: digitalocean-cloud-controller-manager
   namespace: kube-system
 spec:
-  selector:
-    matchLabels:
-      k8s-app: digitalocean-cloud-controller-manager
+  replicas: 1
+  revisionHistoryLimit: 2
   template:
     metadata:
       labels:
-        k8s-app: digitalocean-cloud-controller-manager
+        app: digitalocean-cloud-controller-manager
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
-      nodeSelector:
-        node-role.kubernetes.io/master: ""
-      serviceAccountName: cloud-controller-manager
       dnsPolicy: Default
       hostNetwork: true
+      serviceAccountName: cloud-controller-manager
       tolerations:
+        # this taint is set by all kubelets running `--cloud-provider=external`
+        # so we should tolerate it to schedule the digitalocean ccm
         - key: "node.cloudprovider.kubernetes.io/uninitialized"
           value: "true"
           effect: "NoSchedule"
         - key: "CriticalAddonsOnly"
           operator: "Exists"
+        # cloud controller manages should be able to run on masters
         - key: "node-role.kubernetes.io/master"
           effect: NoSchedule
-        - effect: NoExecute
-          key: node.kubernetes.io/not-ready
-          operator: Exists
-          tolerationSeconds: 300
-        - effect: NoExecute
-          key: node.kubernetes.io/unreachable
-          operator: Exists
-          tolerationSeconds: 300
       containers:
       - image: digitalocean/digitalocean-cloud-controller-manager:v0.1.11
         name: digitalocean-cloud-controller-manager
         command:
           - "/bin/digitalocean-cloud-controller-manager"
           - "--cloud-provider=digitalocean"
-          - "--leader-elect=true"
+          - "--leader-elect=false"
         resources:
           requests:
             cpu: 100m
             memory: 50Mi
         env:
-          - name: KUBERNETES_SERVICE_HOST
-            value: "127.0.0.1"
-          - name: KUBERNETES_SERVICE_PORT
-            value: "443"
           - name: DO_ACCESS_TOKEN
             valueFrom:
               secretKeyRef:
@@ -158,3 +136,4 @@ subjects:
 - kind: ServiceAccount
   name: cloud-controller-manager
   namespace: kube-system
+
