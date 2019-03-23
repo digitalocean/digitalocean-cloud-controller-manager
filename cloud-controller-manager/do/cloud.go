@@ -222,6 +222,7 @@ func (c *cachedAPI) Reload(ctx context.Context) error {
 		return nil
 	}
 
+	glog.Info("Cloud resources are stale, reloading")
 	newDropletIDMap := make(map[int]*godo.Droplet)
 	newDropletNameMap := make(map[string]*godo.Droplet)
 
@@ -239,6 +240,8 @@ func (c *cachedAPI) Reload(ctx context.Context) error {
 	c.dropletIDMap = newDropletIDMap
 	c.dropletNameMap = newDropletNameMap
 	c.expiration = c.now().Add(c.ttl)
+
+	glog.Infof("Cloud resources reloaded. %d droplets found. Expires at %s", len(droplets), c.expiration.String())
 	return nil
 }
 
