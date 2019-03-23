@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/digitalocean/godo"
 )
 
-const apiPerPage = 100
+const apiPerPage = 200
 
 func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
 	list := []godo.Droplet{}

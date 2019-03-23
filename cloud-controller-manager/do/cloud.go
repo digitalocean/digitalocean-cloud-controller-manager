@@ -17,9 +17,12 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/digitalocean/godo"
 	"github.com/golang/glog"
@@ -36,6 +39,8 @@ const (
 	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
 	providerName        string = "digitalocean"
+
+	cacheDuration = 1 * time.Minute
 )
 
 type tokenSource struct {
@@ -87,11 +92,13 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	clusterID := os.Getenv(doClusterIDEnv)
 
+	cloudResources := newCachedAPI(cacheDuration, doClient)
+
 	return &cloud{
 		clusterID:     clusterID,
 		client:        doClient,
-		instances:     newInstances(doClient, region),
-		zones:         newZones(doClient, region),
+		instances:     newInstances(cloudResources, region),
+		zones:         newZones(cloudResources, region),
 		loadbalancers: newLoadBalancers(doClient, region, clusterID),
 	}, nil
 }
@@ -150,4 +157,97 @@ func (c *cloud) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []strin
 
 func (c *cloud) HasClusterID() bool {
 	return false
+}
+
+type cloudResources interface {
+	DropletByID(ctx context.Context, id int) (*godo.Droplet, bool, error)
+	DropletByName(ctx context.Context, name string) (*godo.Droplet, bool, error)
+
+	Reload(ctx context.Context) error
+}
+
+type memResources struct {
+	dropletIDMap   map[int]*godo.Droplet
+	dropletNameMap map[string]*godo.Droplet
+	mutex          sync.RWMutex
+}
+
+func (c *memResources) Reload(ctx context.Context) error {
+	// Noop
+	return nil
+}
+
+func (c *memResources) DropletByID(ctx context.Context, id int) (droplet *godo.Droplet, found bool, err error) {
+	err = c.Reload(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	droplet, found = c.dropletIDMap[id]
+	return droplet, found, nil
+}
+
+func (c *memResources) DropletByName(ctx context.Context, name string) (droplet *godo.Droplet, found bool, err error) {
+	err = c.Reload(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	droplet, found = c.dropletNameMap[name]
+	return droplet, found, nil
+}
+
+type cachedAPI struct {
+	*memResources
+
+	client *godo.Client
+
+	ttl        time.Duration
+	expiration time.Time
+
+	now func() time.Time
+}
+
+func newCachedAPI(ttl time.Duration, client *godo.Client) *cachedAPI {
+	return &cachedAPI{
+		memResources: &memResources{},
+
+		client: client,
+		ttl:    ttl,
+		now:    time.Now,
+	}
+}
+
+func (c *cachedAPI) Reload(ctx context.Context) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if c.now().Before(c.expiration) {
+		return nil
+	}
+
+	newDropletIDMap := make(map[int]*godo.Droplet)
+	newDropletNameMap := make(map[string]*godo.Droplet)
+
+	droplets, err := allDropletList(ctx, c.client)
+	if err != nil {
+		return err
+	}
+
+	for _, droplet := range droplets {
+		droplet := droplet
+		newDropletIDMap[droplet.ID] = &droplet
+		newDropletNameMap[droplet.Name] = &droplet
+	}
+
+	c.dropletIDMap = newDropletIDMap
+	c.dropletNameMap = newDropletNameMap
+	c.expiration = c.now().Add(c.ttl)
+	return nil
 }

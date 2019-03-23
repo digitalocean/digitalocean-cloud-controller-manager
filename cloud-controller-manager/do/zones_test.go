@@ -18,6 +18,7 @@ package do
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -28,17 +29,13 @@ import (
 var _ cloudprovider.Zones = new(zones)
 
 func TestZones_GetZoneByNodeName(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
+	droplet := newFakeDroplet()
+	fakeResources := &memResources{
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
 	}
-
-	client := newFakeClient(fake)
-	zones := newZones(client, "nyc1")
+	zones := newZones(fakeResources, "nyc1")
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
@@ -54,19 +51,17 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 }
 
 func TestZones_GetZoneByProviderID(t *testing.T) {
-	fake := &fakeDropletService{}
-
-	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		resp := newFakeOKResponse()
-		return droplet, resp, nil
+	droplet := newFakeDroplet()
+	fakeResources := &memResources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
 	}
-	client := newFakeClient(fake)
-	zones := newZones(client, "nyc1")
+	zones := newZones(fakeResources, "nyc1")
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
-	actual, err := zones.GetZoneByProviderID(context.TODO(), "digitalocean://123")
+	actual, err := zones.GetZoneByProviderID(context.TODO(), fmt.Sprintf("digitalocean://%d", droplet.ID))
 
 	if !reflect.DeepEqual(actual, expected) {
 		t.Errorf("unexpected region. got: %+v want: %+v", actual, expected)
