@@ -161,7 +161,9 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 		return false, err
 	}
 	if !found {
-		return false, cloudprovider.InstanceNotFound
+		// this is the case where we know the droplet is gone so we return false
+		// with no err to delete it
+		return false, nil
 	}
 
 	return true, nil
