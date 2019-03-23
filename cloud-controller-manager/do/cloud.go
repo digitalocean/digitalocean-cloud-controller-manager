@@ -178,11 +178,6 @@ func (c *memResources) Reload(ctx context.Context) error {
 }
 
 func (c *memResources) DropletByID(ctx context.Context, id int) (droplet *godo.Droplet, found bool, err error) {
-	err = c.Reload(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -191,11 +186,6 @@ func (c *memResources) DropletByID(ctx context.Context, id int) (droplet *godo.D
 }
 
 func (c *memResources) DropletByName(ctx context.Context, name string) (droplet *godo.Droplet, found bool, err error) {
-	err = c.Reload(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -250,4 +240,20 @@ func (c *cachedAPI) Reload(ctx context.Context) error {
 	c.dropletNameMap = newDropletNameMap
 	c.expiration = c.now().Add(c.ttl)
 	return nil
+}
+
+func (c *cachedAPI) DropletByID(ctx context.Context, id int) (droplet *godo.Droplet, found bool, err error) {
+	err = c.Reload(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	return c.memResources.DropletByID(ctx, id)
+}
+
+func (c *cachedAPI) DropletByName(ctx context.Context, name string) (droplet *godo.Droplet, found bool, err error) {
+	err = c.Reload(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	return c.memResources.DropletByName(ctx, name)
 }
