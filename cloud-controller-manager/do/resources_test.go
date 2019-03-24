@@ -37,7 +37,225 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
-var clusterIDTag = buildK8sTag("0caf4c4e-e835-4a05-9ee8-5726bb66ab07")
+func TestResources_DropletByID(t *testing.T) {
+	droplet := newFakeDroplet()
+	resources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+	}
+
+	foundDroplet, found, err := resources.DropletByID(droplet.ID)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if want, got := true, found; want != got {
+		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+	}
+	if want, got := droplet, foundDroplet; !reflect.DeepEqual(want, got) {
+		t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
+	}
+
+	_, found, err = resources.DropletByID(1000)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if want, got := false, found; want != got {
+		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestResources_DropletByName(t *testing.T) {
+	droplet := newFakeDroplet()
+	resources := &resources{
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
+	}
+
+	foundDroplet, found, err := resources.DropletByName(droplet.Name)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if want, got := true, found; want != got {
+		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+	}
+	if want, got := droplet, foundDroplet; !reflect.DeepEqual(want, got) {
+		t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
+	}
+
+	_, found, err = resources.DropletByName("missing")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if want, got := false, found; want != got {
+		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestResources_Droplets(t *testing.T) {
+	droplet := &godo.Droplet{ID: 1}
+	resources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+	}
+
+	foundDroplets := resources.Droplets()
+	if want, got := []*godo.Droplet{droplet}, foundDroplets; !reflect.DeepEqual(want, got) {
+		t.Errorf("incorrect droplets\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestResources_LoadBalancerByID(t *testing.T) {
+	lb := &godo.LoadBalancer{ID: "uuid"}
+	resources := &resources{
+		loadBalancerIDMap: map[string]*godo.LoadBalancer{
+			lb.ID: lb,
+		},
+	}
+
+	foundLB, found, err := resources.LoadBalancerByID(lb.ID)
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if want, got := true, found; want != got {
+		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+	}
+	if want, got := lb, foundLB; !reflect.DeepEqual(want, got) {
+		t.Errorf("incorrect lb\nwant: %#v\n got: %#v", want, got)
+	}
+
+	_, found, err = resources.LoadBalancerByID("missing")
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if want, got := false, found; want != got {
+		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestResources_LoadBalancers(t *testing.T) {
+	lb := &godo.LoadBalancer{ID: "uuid"}
+	resources := &resources{
+		loadBalancerIDMap: map[string]*godo.LoadBalancer{
+			lb.ID: lb,
+		},
+	}
+
+	foundLBs := resources.LoadBalancers()
+	if want, got := []*godo.LoadBalancer{lb}, foundLBs; !reflect.DeepEqual(want, got) {
+		t.Errorf("incorrect lbs\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+var (
+	clusterID    = "0caf4c4e-e835-4a05-9ee8-5726bb66ab07"
+	clusterIDTag = buildK8sTag(clusterID)
+)
+
+func TestResourcesController_SyncResources(t *testing.T) {
+	tests := []struct {
+		name              string
+		dropletsSvc       godo.DropletsService
+		lbsSvc            godo.LoadBalancersService
+		err               error
+		expectedResources *resources
+	}{
+		{
+			name: "happy path",
+			dropletsSvc: &fakeDropletService{
+				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
+				},
+			},
+			lbsSvc: &fakeLBService{
+				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{{ID: "2"}}, newFakeOKResponse(), nil
+				},
+			},
+			// both droplet and lb resources updated
+			expectedResources: &resources{
+				dropletIDMap:      map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
+				dropletNameMap:    map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
+				loadBalancerIDMap: map[string]*godo.LoadBalancer{"two:": {ID: "two"}},
+			},
+		},
+		{
+			name: "droplets svc failure",
+			dropletsSvc: &fakeDropletService{
+				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("droplets svc fail")
+				},
+			},
+			lbsSvc: &fakeLBService{
+				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{{ID: "2"}}, newFakeOKResponse(), nil
+				},
+			},
+			err: errors.New("droplets svc fail"),
+			// only lb resources updated
+			expectedResources: &resources{
+				dropletIDMap:      map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap:    map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+				loadBalancerIDMap: map[string]*godo.LoadBalancer{"two:": {ID: "two"}},
+			},
+		},
+		{
+			name: "lbs svc failure",
+			dropletsSvc: &fakeDropletService{
+				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
+				},
+			},
+			lbsSvc: &fakeLBService{
+				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("lbs svc fail")
+				},
+			},
+			err: errors.New("lbs svc fail"),
+			// only droplet resources updated
+			expectedResources: &resources{
+				dropletIDMap:      map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
+				dropletNameMap:    map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
+				loadBalancerIDMap: map[string]*godo.LoadBalancer{"one": {ID: "one"}},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeResources := newResources()
+			fakeResources.UpdateDroplets([]godo.Droplet{
+				{ID: 1, Name: "one"},
+			})
+			fakeResources.UpdateLoadBalancers([]godo.LoadBalancer{
+				{ID: "one"},
+			})
+			kclient := fake.NewSimpleClientset()
+			inf := informers.NewSharedInformerFactory(kclient, 0)
+			gclient := &godo.Client{
+				Droplets:      test.dropletsSvc,
+				LoadBalancers: test.lbsSvc,
+			}
+			res := NewResourcesController(clusterID, fakeResources, inf.Core().V1().Services(), kclient, gclient)
+
+			err := res.syncResources()
+			if test.err != nil && err == nil {
+				t.Error("expected error but got none")
+			}
+			if test.err == nil && err != nil {
+				t.Errorf("unexpected error: %s", err)
+			}
+
+			if want, got := test.expectedResources, res.resources; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect resources\nwant: %#v\n got: %#v", want, got)
+			}
+		})
+	}
+}
 
 func lbName(idx int) string {
 	svc := createSvc(idx, false)
@@ -61,47 +279,34 @@ func createSvc(idx int, isTypeLoadBalancer bool) *corev1.Service {
 	return svc
 }
 
-func TestTagsSync(t *testing.T) {
+func TestResourcesController_SyncTags(t *testing.T) {
 	testcases := []struct {
 		name        string
 		services    []*corev1.Service
-		lbListFn    func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+		lbs         []*godo.LoadBalancer
 		tagSvc      *fakeTagsService
 		errMsg      string
 		tagRequests []*godo.TagResourcesRequest
 	}{
 		{
-			name: "LB service fails",
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, nil, errors.New("no LBs for you")
-			},
-			errMsg: "no LBs for you",
-		},
-		{
 			name:     "no matching services",
 			services: []*corev1.Service{createSvc(1, true)},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(2)},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{ID: "1", Name: lbName(2)},
 			},
 		},
 		{
 			name:     "service without LoadBalancer type",
 			services: []*corev1.Service{createSvc(1, false)},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(1)},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{ID: "1", Name: lbName(1)},
 			},
 		},
 		{
 			name:     "unrecoverable resource tagging error",
 			services: []*corev1.Service{createSvc(1, true)},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(1)},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{ID: "1", Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsServiceWithFailure(0, errors.New("no tagging for you")),
 			errMsg: "no tagging for you",
@@ -109,10 +314,8 @@ func TestTagsSync(t *testing.T) {
 		{
 			name:     "unrecoverable resource creation error",
 			services: []*corev1.Service{createSvc(1, true)},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(1)},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{ID: "1", Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsServiceWithFailure(1, errors.New("no tag creating for you")),
 			errMsg: "no tag creating for you",
@@ -122,10 +325,8 @@ func TestTagsSync(t *testing.T) {
 			services: []*corev1.Service{
 				createSvc(1, true),
 			},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(1)},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsService(clusterIDTag),
 		},
@@ -135,17 +336,9 @@ func TestTagsSync(t *testing.T) {
 				createSvc(1, true),
 				createSvc(2, true),
 			},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{
-						Name: lbName(1),
-						ID:   "1",
-					},
-					{
-						Name: lbName(2),
-						ID:   "2",
-					},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{ID: "1", Name: lbName(1)},
+				{ID: "2", Name: lbName(2)},
 			},
 			tagSvc: newFakeTagsService(clusterIDTag),
 			tagRequests: []*godo.TagResourcesRequest{
@@ -168,10 +361,8 @@ func TestTagsSync(t *testing.T) {
 			services: []*corev1.Service{
 				createSvc(1, true),
 			},
-			lbListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(1)},
-				}, newFakeOKResponse(), nil
+			lbs: []*godo.LoadBalancer{
+				{ID: "1", Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsService(),
 		},
@@ -182,8 +373,10 @@ func TestTagsSync(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeLBService := &fakeLBService{
-				listFn: test.lbListFn,
+			fakeResources := newResources()
+			for _, lb := range test.lbs {
+				lb := lb
+				fakeResources.loadBalancerIDMap[lb.ID] = lb
 			}
 			fakeTagsService := test.tagSvc
 			if fakeTagsService == nil {
@@ -191,7 +384,6 @@ func TestTagsSync(t *testing.T) {
 			}
 
 			gclient := godo.NewClient(nil)
-			gclient.LoadBalancers = fakeLBService
 			gclient.Tags = fakeTagsService
 			kclient := fake.NewSimpleClientset()
 
@@ -203,12 +395,12 @@ func TestTagsSync(t *testing.T) {
 			}
 
 			sharedInformer := informers.NewSharedInformerFactory(kclient, 0)
-			res := NewResourcesController(clusterIDTag, sharedInformer.Core().V1().Services(), kclient, gclient)
+			res := NewResourcesController(clusterID, fakeResources, sharedInformer.Core().V1().Services(), kclient, gclient)
 			sharedInformer.Start(nil)
 			sharedInformer.WaitForCacheSync(nil)
 
 			wantErr := test.errMsg != ""
-			err := res.sync()
+			err := res.syncTags()
 			if wantErr != (err != nil) {
 				t.Fatalf("got error %q, want error: %t", err, wantErr)
 			}

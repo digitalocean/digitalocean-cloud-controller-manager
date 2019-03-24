@@ -24,11 +24,11 @@ import (
 )
 
 type zones struct {
-	resources cloudResources
+	resources *resources
 	region    string
 }
 
-func newZones(resources cloudResources, region string) cloudprovider.Zones {
+func newZones(resources *resources, region string) cloudprovider.Zones {
 	return zones{
 		resources: resources,
 		region:    region,
@@ -52,7 +52,7 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 		return cloudprovider.Zone{}, err
 	}
 
-	d, found, err := z.resources.DropletByID(ctx, id)
+	d, found, err := z.resources.DropletByID(id)
 	if err != nil || !found {
 		return cloudprovider.Zone{}, err
 	}
@@ -64,7 +64,7 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 // by nodeName. GetZoneByNodeName only sets the Region field of the returned
 // cloudprovider.Zone.
 func (z zones) GetZoneByNodeName(ctx context.Context, nodeName types.NodeName) (cloudprovider.Zone, error) {
-	d, found, err := z.resources.DropletByName(ctx, string(nodeName))
+	d, found, err := z.resources.DropletByName(string(nodeName))
 	if err != nil || !found {
 		return cloudprovider.Zone{}, err
 	}

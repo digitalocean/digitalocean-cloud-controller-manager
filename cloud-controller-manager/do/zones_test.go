@@ -30,7 +30,7 @@ var _ cloudprovider.Zones = new(zones)
 
 func TestZones_GetZoneByNodeName(t *testing.T) {
 	droplet := newFakeDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletNameMap: map[string]*godo.Droplet{
 			droplet.Name: droplet,
 		},
@@ -52,7 +52,7 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 
 func TestZones_GetZoneByProviderID(t *testing.T) {
 	droplet := newFakeDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
 			droplet.ID: droplet,
 		},

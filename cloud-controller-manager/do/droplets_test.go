@@ -28,11 +28,130 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+type fakeDropletService struct {
+	listFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listByTagFunc      func(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	getFunc            func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
+	createFunc         func(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
+	createMultipleFunc func(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
+	deleteFunc         func(ctx context.Context, dropletID int) (*godo.Response, error)
+	deleteByTagFunc    func(ctx context.Context, tag string) (*godo.Response, error)
+	kernelsFunc        func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Kernel, *godo.Response, error)
+	snapshotsFunc      func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error)
+	backupsFunc        func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error)
+	actionsFunc        func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error)
+	neighborsFunc      func(cxt context.Context, dropletID int) ([]godo.Droplet, *godo.Response, error)
+}
+
+func (f *fakeDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	return f.listFunc(ctx, opt)
+}
+
+func (f *fakeDropletService) ListByTag(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	return f.listByTagFunc(ctx, tag, opt)
+}
+
+func (f *fakeDropletService) Get(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+	return f.getFunc(ctx, dropletID)
+}
+
+func (f *fakeDropletService) Create(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error) {
+	return f.createFunc(ctx, createRequest)
+}
+
+func (f *fakeDropletService) CreateMultiple(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error) {
+	return f.createMultipleFunc(ctx, createRequest)
+}
+
+func (f *fakeDropletService) Delete(ctx context.Context, dropletID int) (*godo.Response, error) {
+	return f.deleteFunc(ctx, dropletID)
+}
+
+func (f *fakeDropletService) DeleteByTag(ctx context.Context, tag string) (*godo.Response, error) {
+	return f.deleteByTagFunc(ctx, tag)
+}
+
+func (f *fakeDropletService) Kernels(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Kernel, *godo.Response, error) {
+	return f.kernelsFunc(ctx, dropletID, opt)
+}
+
+func (f *fakeDropletService) Snapshots(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error) {
+	return f.snapshotsFunc(ctx, dropletID, opt)
+}
+
+func (f *fakeDropletService) Backups(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error) {
+	return f.backupsFunc(ctx, dropletID, opt)
+}
+
+func (f *fakeDropletService) Actions(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error) {
+	return f.actionsFunc(ctx, dropletID, opt)
+}
+
+func (f *fakeDropletService) Neighbors(ctx context.Context, dropletID int) ([]godo.Droplet, *godo.Response, error) {
+	return f.neighborsFunc(ctx, dropletID)
+}
+
+func newFakeClient(fake *fakeDropletService) *godo.Client {
+	client := godo.NewClient(nil)
+	client.Droplets = fake
+
+	return client
+}
+
+func newFakeDroplet() *godo.Droplet {
+	return &godo.Droplet{
+		ID:       123,
+		Name:     "test-droplet",
+		SizeSlug: "2gb",
+		Networks: &godo.Networks{
+			V4: []godo.NetworkV4{
+				{
+					IPAddress: "10.0.0.0",
+					Type:      "private",
+				},
+				{
+					IPAddress: "99.99.99.99",
+					Type:      "public",
+				},
+			},
+		},
+		Region: &godo.Region{
+			Name: "test-region",
+			Slug: "test1",
+		},
+	}
+}
+
+func newFakeShutdownDroplet() *godo.Droplet {
+	return &godo.Droplet{
+		ID:       123,
+		Name:     "test-droplet",
+		SizeSlug: "2gb",
+		Status:   "off",
+		Networks: &godo.Networks{
+			V4: []godo.NetworkV4{
+				{
+					IPAddress: "10.0.0.0",
+					Type:      "private",
+				},
+				{
+					IPAddress: "99.99.99.99",
+					Type:      "public",
+				},
+			},
+		},
+		Region: &godo.Region{
+			Name: "test-region",
+			Slug: "test1",
+		},
+	}
+}
+
 var _ cloudprovider.Instances = new(instances)
 
 func TestNodeAddresses(t *testing.T) {
 	droplet := newFakeDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
 			droplet.ID: droplet,
 		},
@@ -70,7 +189,7 @@ func TestNodeAddresses(t *testing.T) {
 
 func TestNodeAddressesByProviderID(t *testing.T) {
 	droplet := newFakeDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
 			droplet.ID: droplet,
 		},
@@ -108,7 +227,7 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 
 func TestInstanceID(t *testing.T) {
 	droplet := newFakeDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
 			droplet.ID: droplet,
 		},
@@ -130,7 +249,7 @@ func TestInstanceID(t *testing.T) {
 
 func TestInstanceType(t *testing.T) {
 	droplet := newFakeDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
 			droplet.ID: droplet,
 		},
@@ -152,7 +271,7 @@ func TestInstanceType(t *testing.T) {
 
 func Test_InstanceShutdownByProviderID(t *testing.T) {
 	droplet := newFakeShutdownDroplet()
-	fakeResources := &memResources{
+	fakeResources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
 			droplet.ID: droplet,
 		},
@@ -216,5 +335,4 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 			}
 		})
 	}
-
 }
