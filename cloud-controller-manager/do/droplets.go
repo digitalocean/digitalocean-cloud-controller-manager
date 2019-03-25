@@ -49,7 +49,7 @@ func newInstances(resources *resources, region string) cloudprovider.Instances {
 //
 // When nodeName identifies more than one droplet, only the first will be
 // considered.
-func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
+func (i *instances) NodeAddresses(_ context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
 	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
 		return nil, cloudprovider.InstanceNotFound
@@ -61,7 +61,7 @@ func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) 
 // NodeAddressesByProviderID returns all the valid addresses of the droplet
 // identified by providerID. Only the public/private IPv4 addresses will be
 // considered for now.
-func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID string) ([]v1.NodeAddress, error) {
+func (i *instances) NodeAddressesByProviderID(_ context.Context, providerID string) ([]v1.NodeAddress, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 }
 
 // InstanceID returns the cloud provider ID of the droplet identified by nodeName.
-func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
+func (i *instances) InstanceID(_ context.Context, nodeName types.NodeName) (string, error) {
 	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
 		return "", cloudprovider.InstanceNotFound
@@ -96,7 +96,7 @@ func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (st
 }
 
 // InstanceType returns the type of the droplet identified by name.
-func (i *instances) InstanceType(ctx context.Context, nodeName types.NodeName) (string, error) {
+func (i *instances) InstanceType(_ context.Context, nodeName types.NodeName) (string, error) {
 	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
 		return "", cloudprovider.InstanceNotFound
@@ -106,7 +106,7 @@ func (i *instances) InstanceType(ctx context.Context, nodeName types.NodeName) (
 }
 
 // InstanceTypeByProviderID returns the type of the droplet identified by providerID.
-func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID string) (string, error) {
+func (i *instances) InstanceTypeByProviderID(_ context.Context, providerID string) (string, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return "", err
@@ -121,18 +121,18 @@ func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID str
 }
 
 // AddSSHKeyToAllInstances is not implemented; it always returns an error.
-func (i *instances) AddSSHKeyToAllInstances(ctx context.Context, user string, keyData []byte) error {
+func (i *instances) AddSSHKeyToAllInstances(_ context.Context, _ string, _ []byte) error {
 	return errors.New("not implemented")
 }
 
 // CurrentNodeName returns hostname as a NodeName value.
-func (i *instances) CurrentNodeName(ctx context.Context, hostname string) (types.NodeName, error) {
+func (i *instances) CurrentNodeName(_ context.Context, hostname string) (types.NodeName, error) {
 	return types.NodeName(hostname), nil
 }
 
 // InstanceExistsByProviderID returns true if the droplet identified by
 // providerID is running.
-func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID string) (bool, error) {
+func (i *instances) InstanceExistsByProviderID(_ context.Context, providerID string) (bool, error) {
 	// NOTE: when false is returned with no error, the instance will be
 	// immediately deleted by the cloud controller manager.
 
@@ -152,7 +152,7 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 }
 
 // InstanceShutdownByProviderID returns true if the droplet is turned off
-func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (bool, error) {
+func (i *instances) InstanceShutdownByProviderID(_ context.Context, providerID string) (bool, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return false, fmt.Errorf("error getting droplet ID from provider ID %s, err: %v", providerID, err)
