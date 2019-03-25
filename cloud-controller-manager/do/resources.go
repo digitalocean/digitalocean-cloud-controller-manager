@@ -61,20 +61,20 @@ func newResources() *resources {
 	}
 }
 
-func (c *resources) DropletByID(id int) (droplet *godo.Droplet, found bool, err error) {
+func (c *resources) DropletByID(id int) (droplet *godo.Droplet, found bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	droplet, found = c.dropletIDMap[id]
-	return droplet, found, nil
+	return droplet, found
 }
 
-func (c *resources) DropletByName(name string) (droplet *godo.Droplet, found bool, err error) {
+func (c *resources) DropletByName(name string) (droplet *godo.Droplet, found bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	droplet, found = c.dropletNameMap[name]
-	return droplet, found, nil
+	return droplet, found
 }
 
 func (c *resources) Droplets() []*godo.Droplet {
@@ -90,12 +90,12 @@ func (c *resources) Droplets() []*godo.Droplet {
 	return droplets
 }
 
-func (c *resources) LoadBalancerByID(id string) (droplet *godo.LoadBalancer, found bool, err error) {
+func (c *resources) LoadBalancerByID(id string) (droplet *godo.LoadBalancer, found bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	lb, found := c.loadBalancerIDMap[id]
-	return lb, found, nil
+	return lb, found
 }
 
 func (c *resources) LoadBalancers() []*godo.LoadBalancer {

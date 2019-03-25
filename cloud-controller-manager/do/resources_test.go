@@ -45,10 +45,7 @@ func TestResources_DropletByID(t *testing.T) {
 		},
 	}
 
-	foundDroplet, found, err := resources.DropletByID(droplet.ID)
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	foundDroplet, found := resources.DropletByID(droplet.ID)
 	if want, got := true, found; want != got {
 		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
 	}
@@ -56,10 +53,7 @@ func TestResources_DropletByID(t *testing.T) {
 		t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
 	}
 
-	_, found, err = resources.DropletByID(1000)
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	_, found = resources.DropletByID(1000)
 	if want, got := false, found; want != got {
 		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
 	}
@@ -73,10 +67,7 @@ func TestResources_DropletByName(t *testing.T) {
 		},
 	}
 
-	foundDroplet, found, err := resources.DropletByName(droplet.Name)
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	foundDroplet, found := resources.DropletByName(droplet.Name)
 	if want, got := true, found; want != got {
 		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
 	}
@@ -84,10 +75,7 @@ func TestResources_DropletByName(t *testing.T) {
 		t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
 	}
 
-	_, found, err = resources.DropletByName("missing")
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	_, found = resources.DropletByName("missing")
 	if want, got := false, found; want != got {
 		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
 	}
@@ -115,10 +103,7 @@ func TestResources_LoadBalancerByID(t *testing.T) {
 		},
 	}
 
-	foundLB, found, err := resources.LoadBalancerByID(lb.ID)
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	foundLB, found := resources.LoadBalancerByID(lb.ID)
 	if want, got := true, found; want != got {
 		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
 	}
@@ -126,10 +111,7 @@ func TestResources_LoadBalancerByID(t *testing.T) {
 		t.Errorf("incorrect lb\nwant: %#v\n got: %#v", want, got)
 	}
 
-	_, found, err = resources.LoadBalancerByID("missing")
-	if err != nil {
-		t.Fatalf("unexpected err: %v", err)
-	}
+	_, found = resources.LoadBalancerByID("missing")
 	if want, got := false, found; want != got {
 		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
 	}

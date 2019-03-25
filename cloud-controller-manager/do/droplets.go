@@ -50,10 +50,7 @@ func newInstances(resources *resources, region string) cloudprovider.Instances {
 // When nodeName identifies more than one droplet, only the first will be
 // considered.
 func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
-	droplet, found, err := i.resources.DropletByName(string(nodeName))
-	if err != nil {
-		return nil, err
-	}
+	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
 		return nil, cloudprovider.InstanceNotFound
 	}
@@ -70,10 +67,7 @@ func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID st
 		return nil, err
 	}
 
-	droplet, found, err := i.resources.DropletByID(id)
-	if err != nil {
-		return nil, err
-	}
+	droplet, found := i.resources.DropletByID(id)
 	if !found {
 		return nil, cloudprovider.InstanceNotFound
 	}
@@ -93,10 +87,7 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceID returns the cloud provider ID of the droplet identified by nodeName.
 func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
-	droplet, found, err := i.resources.DropletByName(string(nodeName))
-	if err != nil {
-		return "", err
-	}
+	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
 		return "", cloudprovider.InstanceNotFound
 	}
@@ -106,10 +97,7 @@ func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceType returns the type of the droplet identified by name.
 func (i *instances) InstanceType(ctx context.Context, nodeName types.NodeName) (string, error) {
-	droplet, found, err := i.resources.DropletByName(string(nodeName))
-	if err != nil {
-		return "", err
-	}
+	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
 		return "", cloudprovider.InstanceNotFound
 	}
@@ -124,10 +112,7 @@ func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID str
 		return "", err
 	}
 
-	droplet, found, err := i.resources.DropletByName(string(id))
-	if err != nil {
-		return "", err
-	}
+	droplet, found := i.resources.DropletByID(id)
 	if !found {
 		return "", cloudprovider.InstanceNotFound
 	}
@@ -156,10 +141,7 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 		return false, err
 	}
 
-	_, found, err := i.resources.DropletByID(id)
-	if err != nil {
-		return false, err
-	}
+	_, found := i.resources.DropletByID(id)
 	if !found {
 		// this is the case where we know the droplet is gone so we return false
 		// with no err to delete it
@@ -176,10 +158,7 @@ func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID
 		return false, fmt.Errorf("error getting droplet ID from provider ID %s, err: %v", providerID, err)
 	}
 
-	droplet, found, err := i.resources.DropletByID(id)
-	if err != nil {
-		return false, err
-	}
+	droplet, found := i.resources.DropletByID(id)
 	if !found {
 		return false, cloudprovider.InstanceNotFound
 	}
