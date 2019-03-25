@@ -241,12 +241,9 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return errLBNotFound
 	}
 
-	lb, resp, err := l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	lb, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	if err != nil {
 		return err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("failed to update load-balancer, status: %d %s", resp.StatusCode, resp.Status)
 	}
 	l.resources.AddLoadBalancer(*lb)
 	return nil
@@ -276,10 +273,10 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 	resp, err := l.client.LoadBalancers.Delete(ctx, lb.ID)
 	if err != nil {
-		return fmt.Errorf("failed to delete load-balancer: %s", err)
-	}
-	if resp.StatusCode == http.StatusNotFound || (resp.StatusCode >= 200 || resp.StatusCode < 300) {
-		return nil
+		if resp.StatusCode == http.StatusNotFound {
+			return nil
+		}
+		return err
 	}
 	return fmt.Errorf("failed to delete load-balancer, status: %d %s", resp.StatusCode, resp.Status)
 }

@@ -200,10 +200,10 @@ func TestResources_AddLoadBalancer(t *testing.T) {
 			lbs:   []godo.LoadBalancer{{ID: "1", Name: "one"}},
 			newLB: godo.LoadBalancer{ID: "1", Name: "new"},
 			expectedIDMap: map[string]*godo.LoadBalancer{
-				"1": &godo.LoadBalancer{ID: "1", Name: "new"},
+				"1": {ID: "1", Name: "new"},
 			},
 			expectedNameMap: map[string]*godo.LoadBalancer{
-				"new": &godo.LoadBalancer{ID: "1", Name: "new"},
+				"new": {ID: "1", Name: "new"},
 			},
 		},
 		{
@@ -211,12 +211,12 @@ func TestResources_AddLoadBalancer(t *testing.T) {
 			lbs:   []godo.LoadBalancer{{ID: "1", Name: "one"}},
 			newLB: godo.LoadBalancer{ID: "2", Name: "two"},
 			expectedIDMap: map[string]*godo.LoadBalancer{
-				"1": &godo.LoadBalancer{ID: "1", Name: "one"},
-				"2": &godo.LoadBalancer{ID: "2", Name: "two"},
+				"1": {ID: "1", Name: "one"},
+				"2": {ID: "2", Name: "two"},
 			},
 			expectedNameMap: map[string]*godo.LoadBalancer{
-				"one": &godo.LoadBalancer{ID: "1", Name: "one"},
-				"two": &godo.LoadBalancer{ID: "2", Name: "two"},
+				"one": {ID: "1", Name: "one"},
+				"two": {ID: "2", Name: "two"},
 			},
 		},
 	}
@@ -315,33 +315,18 @@ func TestResourcesController_Run(t *testing.T) {
 	stop := make(chan struct{})
 	res.Run(stop)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+	time.AfterFunc(3*time.Second, func() {
+		stop <- struct{}{}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				stop <- struct{}{}
-			default:
-				syncer.mutex.Lock()
-				if syncer.synced["resources syncer"] > 0 && syncer.synced["tags syncer"] > 0 {
-					stop <- struct{}{}
-				}
-				syncer.mutex.Unlock()
-			}
-
+		syncer.mutex.Lock()
+		defer syncer.mutex.Unlock()
+		if syncer.synced["resources syncer"] < 0 {
+			t.Error("resource syncer not called")
 		}
-	}()
-
-	syncer.mutex.Lock()
-	defer syncer.mutex.Unlock()
-	if syncer.synced["resources syncer"] < 0 {
-		t.Error("resource syncer not called")
-	}
-	if syncer.synced["tags syncer"] < 0 {
-		t.Error("tags syncer not called")
-	}
+		if syncer.synced["tags syncer"] < 0 {
+			t.Error("tags syncer not called")
+		}
+	})
 }
 
 func TestResourcesController_SyncResources(t *testing.T) {
