@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
@@ -150,17 +150,16 @@ func newFakeShutdownDroplet() *godo.Droplet {
 var _ cloudprovider.Instances = new(instances)
 
 func TestNodeAddresses(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
+	droplet := newFakeDroplet()
+	fakeResources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
 	}
-
-	client := newFakeClient(fake)
-	instances := newInstances(client, "nyc1")
+	instances := newInstances(fakeResources, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
 		{
@@ -189,14 +188,16 @@ func TestNodeAddresses(t *testing.T) {
 }
 
 func TestNodeAddressesByProviderID(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		resp := newFakeOKResponse()
-		return droplet, resp, nil
+	droplet := newFakeDroplet()
+	fakeResources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
 	}
-	client := newFakeClient(fake)
-	instances := newInstances(client, "nyc1")
+	instances := newInstances(fakeResources, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
 		{
@@ -225,17 +226,16 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 }
 
 func TestInstanceID(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
+	droplet := newFakeDroplet()
+	fakeResources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
 	}
-
-	client := newFakeClient(fake)
-	instances := newInstances(client, "nyc1")
+	instances := newInstances(fakeResources, "nyc1")
 
 	id, err := instances.InstanceID(context.TODO(), "test-droplet")
 	if err != nil {
@@ -248,17 +248,16 @@ func TestInstanceID(t *testing.T) {
 }
 
 func TestInstanceType(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
+	droplet := newFakeDroplet()
+	fakeResources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
 	}
-
-	client := newFakeClient(fake)
-	instances := newInstances(client, "nyc1")
+	instances := newInstances(fakeResources, "nyc1")
 
 	instanceType, err := instances.InstanceType(context.TODO(), "test-droplet")
 	if err != nil {
@@ -271,15 +270,16 @@ func TestInstanceType(t *testing.T) {
 }
 
 func Test_InstanceShutdownByProviderID(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
-		droplet := newFakeShutdownDroplet()
-		resp := newFakeOKResponse()
-		return droplet, resp, nil
+	droplet := newFakeShutdownDroplet()
+	fakeResources := &resources{
+		dropletIDMap: map[int]*godo.Droplet{
+			droplet.ID: droplet,
+		},
+		dropletNameMap: map[string]*godo.Droplet{
+			droplet.Name: droplet,
+		},
 	}
-
-	client := newFakeClient(fake)
-	instances := newInstances(client, "nyc1")
+	instances := newInstances(fakeResources, "nyc1")
 
 	shutdown, err := instances.InstanceShutdownByProviderID(context.TODO(), "digitalocean://123")
 	if err != nil {
@@ -295,32 +295,32 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 	testcases := []struct {
 		name       string
 		providerID string
-		dropletID  string
+		dropletID  int
 		err        error
 	}{
 		{
-			"valid providerID",
-			"digitalocean://12345",
-			"12345",
-			nil,
+			name:       "valid providerID",
+			providerID: "digitalocean://12345",
+			dropletID:  12345,
+			err:        nil,
 		},
 		{
-			"invalid providerID - empty string",
-			"",
-			"",
-			errors.New("providerID cannot be empty string"),
+			name:       "invalid providerID - empty string",
+			providerID: "",
+			dropletID:  0,
+			err:        errors.New("providerID cannot be empty string"),
 		},
 		{
-			"invalid providerID - wrong format",
-			"digitalocean:/12345",
-			"",
-			errors.New("unexpected providerID format: digitalocean:/12345, format should be: digitalocean://12345"),
+			name:       "invalid providerID - wrong format",
+			providerID: "digitalocean:/12345",
+			dropletID:  0,
+			err:        errors.New("unexpected providerID format: digitalocean:/12345, format should be: digitalocean://12345"),
 		},
 		{
-			"invalid providerID - wrong provider name",
-			"do://12345",
-			"",
-			errors.New("provider name from providerID should be digitalocean: do://12345"),
+			name:       "invalid providerID - wrong provider name",
+			providerID: "do://12345",
+			dropletID:  0,
+			err:        errors.New("provider name from providerID should be digitalocean: do://12345"),
 		},
 	}
 
@@ -328,8 +328,8 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			dropletID, err := dropletIDFromProviderID(testcase.providerID)
 			if dropletID != testcase.dropletID {
-				t.Errorf("actual droplet ID: %s", dropletID)
-				t.Errorf("expected droplet ID: %s", testcase.dropletID)
+				t.Errorf("actual droplet ID: %d", dropletID)
+				t.Errorf("expected droplet ID: %d", testcase.dropletID)
 				t.Error("unexpected droplet ID")
 			}
 
@@ -340,5 +340,4 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 			}
 		})
 	}
-
 }

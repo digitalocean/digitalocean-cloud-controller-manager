@@ -19,18 +19,20 @@ package do
 import (
 	"context"
 
-	"github.com/digitalocean/godo"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
 type zones struct {
-	client *godo.Client
-	region string
+	resources *resources
+	region    string
 }
 
-func newZones(client *godo.Client, region string) cloudprovider.Zones {
-	return zones{client, region}
+func newZones(resources *resources, region string) cloudprovider.Zones {
+	return zones{
+		resources: resources,
+		region:    region,
+	}
 }
 
 // GetZone returns a cloudprovider.Zone from the region of z. GetZone only sets
@@ -50,9 +52,9 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 		return cloudprovider.Zone{}, err
 	}
 
-	d, err := dropletByID(ctx, z.client, id)
-	if err != nil {
-		return cloudprovider.Zone{}, err
+	d, found := z.resources.DropletByID(id)
+	if !found {
+		return cloudprovider.Zone{}, cloudprovider.InstanceNotFound
 	}
 
 	return cloudprovider.Zone{Region: d.Region.Slug}, nil
@@ -62,9 +64,9 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 // by nodeName. GetZoneByNodeName only sets the Region field of the returned
 // cloudprovider.Zone.
 func (z zones) GetZoneByNodeName(ctx context.Context, nodeName types.NodeName) (cloudprovider.Zone, error) {
-	d, err := dropletByName(ctx, z.client, nodeName)
-	if err != nil {
-		return cloudprovider.Zone{}, err
+	d, found := z.resources.DropletByName(string(nodeName))
+	if !found {
+		return cloudprovider.Zone{}, cloudprovider.InstanceNotFound
 	}
 
 	return cloudprovider.Zone{Region: d.Region.Slug}, nil

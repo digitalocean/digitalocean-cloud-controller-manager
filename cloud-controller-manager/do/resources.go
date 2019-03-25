@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -34,62 +35,242 @@ import (
 )
 
 const (
-	controllerSyncPeriod = 1 * time.Minute
-	requestTimeout       = 10 * time.Second
+	controllerSyncTagsPeriod      = 1 * time.Minute
+	controllerSyncResourcesPeriod = 1 * time.Minute
+	syncTagsTimeout               = 1 * time.Minute
+	syncResourcesTimeout          = 3 * time.Minute
 )
 
 type tagMissingError struct {
 	error
 }
 
-// ResourcesController ensures that DO resources are properly tagged.
-type ResourcesController struct {
-	clusterIDTag string
-	kclient      kubernetes.Interface
-	gclient      *godo.Client
-	svcLister    v1lister.ServiceLister
+type resources struct {
+	dropletIDMap        map[int]*godo.Droplet
+	dropletNameMap      map[string]*godo.Droplet
+	loadBalancerIDMap   map[string]*godo.LoadBalancer
+	loadBalancerNameMap map[string]*godo.LoadBalancer
+
+	mutex sync.RWMutex
 }
 
-// NewResourcesController returns a new services controller responsible for
-// re-applying cluster IDs on DO load-balancers.
-func NewResourcesController(clusterIDTag string, inf v1informers.ServiceInformer,
-	k kubernetes.Interface, g *godo.Client) *ResourcesController {
-	return &ResourcesController{
-		clusterIDTag: clusterIDTag,
-		kclient:      k,
-		gclient:      g,
-		svcLister:    inf.Lister(),
+func newResources() *resources {
+	return &resources{
+		dropletIDMap:        make(map[int]*godo.Droplet),
+		dropletNameMap:      make(map[string]*godo.Droplet),
+		loadBalancerIDMap:   make(map[string]*godo.LoadBalancer),
+		loadBalancerNameMap: make(map[string]*godo.LoadBalancer),
 	}
 }
 
-// Run starts the resources controller. It watches over DigitalOcean resources
-// making sure the right tags are set.
-func (r *ResourcesController) Run(stopCh <-chan struct{}) {
-	ticker := time.NewTicker(controllerSyncPeriod)
+func (c *resources) DropletByID(id int) (droplet *godo.Droplet, found bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	droplet, found = c.dropletIDMap[id]
+	return droplet, found
+}
+
+func (c *resources) DropletByName(name string) (droplet *godo.Droplet, found bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	droplet, found = c.dropletNameMap[name]
+	return droplet, found
+}
+
+func (c *resources) Droplets() []*godo.Droplet {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	var droplets []*godo.Droplet
+	for _, droplet := range c.dropletIDMap {
+		droplet := droplet
+		droplets = append(droplets, droplet)
+	}
+
+	return droplets
+}
+
+func (c *resources) LoadBalancerByID(id string) (droplet *godo.LoadBalancer, found bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	lb, found := c.loadBalancerIDMap[id]
+	return lb, found
+}
+
+func (c *resources) LoadBalancerByName(name string) (droplet *godo.LoadBalancer, found bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	lb, found := c.loadBalancerNameMap[name]
+	return lb, found
+}
+
+func (c *resources) LoadBalancers() []*godo.LoadBalancer {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	var lbs []*godo.LoadBalancer
+	for _, lb := range c.loadBalancerIDMap {
+		lb := lb
+		lbs = append(lbs, lb)
+	}
+
+	return lbs
+}
+
+func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
+	newIDMap := make(map[int]*godo.Droplet)
+	newNameMap := make(map[string]*godo.Droplet)
+
+	for _, droplet := range droplets {
+		droplet := droplet
+		newIDMap[droplet.ID] = &droplet
+		newNameMap[droplet.Name] = &droplet
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.dropletIDMap = newIDMap
+	c.dropletNameMap = newNameMap
+}
+
+func (c *resources) AddLoadBalancer(lb godo.LoadBalancer) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	existingLB, found := c.loadBalancerIDMap[lb.ID]
+	if found {
+		delete(c.loadBalancerIDMap, existingLB.ID)
+		delete(c.loadBalancerNameMap, existingLB.Name)
+	}
+	c.loadBalancerIDMap[lb.ID] = &lb
+	c.loadBalancerNameMap[lb.Name] = &lb
+}
+
+func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
+	newIDMap := make(map[string]*godo.LoadBalancer)
+	newNameMap := make(map[string]*godo.LoadBalancer)
+
+	for _, lb := range lbs {
+		lb := lb
+		newIDMap[lb.ID] = &lb
+		newNameMap[lb.Name] = &lb
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.loadBalancerIDMap = newIDMap
+	c.loadBalancerNameMap = newNameMap
+}
+
+type syncer interface {
+	Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error)
+}
+
+type tickerSyncer struct{}
+
+func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error) {
+	ticker := time.NewTicker(period)
 	defer ticker.Stop()
-	// Do not wait for initial tick to pass; run immediately for reduced sync
-	// latency.
-	for tickerC := ticker.C; ; {
-		if err := r.sync(); err != nil {
-			glog.Errorf("failed to sync load-balancer tags: %s", err)
-		}
+
+	// manually call to avoid initial tick delay
+	if err := fn(); err != nil {
+		glog.Errorf("%s failed: %s", name, err)
+	}
+
+	for {
 		select {
-		case <-tickerC:
-			continue
+		case <-ticker.C:
+			if err := fn(); err != nil {
+				glog.Errorf("%s failed: %s", name, err)
+			}
 		case <-stopCh:
 			return
 		}
 	}
 }
 
-func (r *ResourcesController) sync() error {
-	// Fetch all load-balancers.
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-	lbs, _, err := r.gclient.LoadBalancers.List(ctx, &godo.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list load-balancers: %s", err)
+// ResourcesController is responsible for managing DigitalOcean cloud
+// resources. It maintains a local state of the resources and
+// synchronizes when needed.
+type ResourcesController struct {
+	clusterID string
+	kclient   kubernetes.Interface
+	gclient   *godo.Client
+	svcLister v1lister.ServiceLister
+
+	resources *resources
+	syncer    syncer
+}
+
+// NewResourcesController returns a new resource controller.
+func NewResourcesController(
+	clusterID string,
+	r *resources,
+	inf v1informers.ServiceInformer,
+	k kubernetes.Interface,
+	g *godo.Client,
+) *ResourcesController {
+	return &ResourcesController{
+		clusterID: clusterID,
+		resources: r,
+		kclient:   k,
+		gclient:   g,
+		svcLister: inf.Lister(),
+		syncer:    &tickerSyncer{},
 	}
+}
+
+// Run starts the resources controller loop.
+func (r *ResourcesController) Run(stopCh <-chan struct{}) {
+	go r.syncer.Sync("resources syncer", controllerSyncResourcesPeriod, stopCh, r.syncResources)
+
+	if r.clusterID == "" {
+		glog.Info("No cluster ID configured -- skipping tags syncing.")
+		return
+	}
+	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
+}
+
+// syncResources updates the local resources representation from the
+// DigitalOcean API.
+func (r *ResourcesController) syncResources() error {
+	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
+	defer cancel()
+
+	glog.V(2).Info("syncing droplet resources.")
+	droplets, err := allDropletList(ctx, r.gclient)
+	if err != nil {
+		glog.Errorf("failed to sync droplet resources: %s.", err)
+	} else {
+		r.resources.UpdateDroplets(droplets)
+		glog.V(2).Info("synced droplet resources.")
+	}
+
+	glog.V(2).Info("syncing load-balancer resources.")
+	lbs, err := allLoadBalancerList(ctx, r.gclient)
+	if err != nil {
+		glog.Errorf("failed to sync load-balancer resources: %s.", err)
+	} else {
+		r.resources.UpdateLoadBalancers(lbs)
+		glog.V(2).Info("synced load-balancer resources.")
+	}
+
+	return nil
+}
+
+// syncTags synchronizes tags. Currently, this is only needed to associate
+// cluster ID tags with LoadBalancer resources.
+func (r *ResourcesController) syncTags() error {
+	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
+	defer cancel()
+
+	lbs := r.resources.LoadBalancers()
 
 	// Collect tag resources for known load balancer names (i.e., services
 	// with type=LoadBalancer.)
@@ -122,6 +303,7 @@ func (r *ResourcesController) sync() error {
 		return nil
 	}
 
+	tag := buildK8sTag(r.clusterID)
 	// Tag collected resources with the cluster ID. If the tag does not exist
 	// (for reasons outlined below), we will create it and retry tagging again.
 	err = r.tagResources(res)
@@ -131,10 +313,10 @@ func (r *ResourcesController) sync() error {
 		// prior to CCM using cluster IDs, however, we need to create the tag
 		// explicitly.
 		_, _, err = r.gclient.Tags.Create(ctx, &godo.TagCreateRequest{
-			Name: r.clusterIDTag,
+			Name: tag,
 		})
 		if err != nil {
-			return fmt.Errorf("failed to create tag %q: %s", r.clusterIDTag, err)
+			return fmt.Errorf("failed to create tag %q: %s", tag, err)
 		}
 
 		// Try tagging again, which should not fail anymore due to a missing
@@ -143,16 +325,16 @@ func (r *ResourcesController) sync() error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("failed to tag LB resource(s) %v with tag %q: %s", res, r.clusterIDTag, err)
+		return fmt.Errorf("failed to tag LB resource(s) %v with tag %q: %s", res, tag, err)
 	}
 
 	return nil
 }
 
 func (r *ResourcesController) tagResources(res []godo.Resource) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
-	tag := r.clusterIDTag
+	tag := buildK8sTag(r.clusterID)
 	resp, err := r.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
 		Resources: res,
 	})

@@ -20,17 +20,18 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/digitalocean/godo"
 )
 
-const apiPerPage = 100
+// apiResultsPerPage is the maximum page size that DigitalOcean's api supports.
+const apiResultsPerPage = 200
 
 func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
 	list := []godo.Droplet{}
 
-	opt := &godo.ListOptions{PerPage: apiPerPage}
+	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
 	for {
 		droplets, resp, err := client.Droplets.List(ctx, opt)
 		if err != nil {
@@ -42,6 +43,38 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 		}
 
 		list = append(list, droplets...)
+
+		// if we are at the last page, break out the for loop
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		opt.Page = page + 1
+	}
+
+	return list, nil
+}
+
+func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadBalancer, error) {
+	list := []godo.LoadBalancer{}
+
+	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
+	for {
+		lbs, resp, err := client.LoadBalancers.List(ctx, opt)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, fmt.Errorf("load balancers list request returned no response")
+		}
+
+		list = append(list, lbs...)
 
 		// if we are at the last page, break out the for loop
 		if resp.Links == nil || resp.Links.IsLastPage() {

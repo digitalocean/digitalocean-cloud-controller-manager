@@ -22,7 +22,6 @@ import (
 	"os"
 
 	"github.com/digitalocean/godo"
-	"github.com/golang/glog"
 
 	"golang.org/x/oauth2"
 
@@ -55,6 +54,8 @@ type cloud struct {
 	instances     cloudprovider.Instances
 	zones         cloudprovider.Zones
 	loadbalancers cloudprovider.LoadBalancer
+
+	resources *resources
 }
 
 func newCloud() (cloudprovider.Interface, error) {
@@ -86,13 +87,16 @@ func newCloud() (cloudprovider.Interface, error) {
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
+	resources := newResources()
 
 	return &cloud{
 		clusterID:     clusterID,
 		client:        doClient,
-		instances:     newInstances(doClient, region),
-		zones:         newZones(doClient, region),
-		loadbalancers: newLoadBalancers(doClient, region, clusterID),
+		instances:     newInstances(resources, region),
+		zones:         newZones(resources, region),
+		loadbalancers: newLoadBalancers(resources, doClient, region, clusterID),
+
+		resources: resources,
 	}, nil
 }
 
@@ -103,15 +107,10 @@ func init() {
 }
 
 func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
-	if c.clusterID == "" {
-		glog.Info("No cluster ID configured -- skipping resource controller initialization.")
-		return
-	}
-
 	clientset := clientBuilder.ClientOrDie("do-shared-informers")
 	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
 
-	res := NewResourcesController(buildK8sTag(c.clusterID), sharedInformer.Core().V1().Services(), clientset, c.client)
+	res := NewResourcesController(c.clusterID, c.resources, sharedInformer.Core().V1().Services(), clientset, c.client)
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)

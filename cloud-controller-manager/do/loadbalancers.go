@@ -20,11 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/kubernetes/pkg/cloudprovider"
 
 	"github.com/digitalocean/godo"
@@ -136,6 +136,7 @@ func buildK8sTag(val string) string {
 }
 
 type loadBalancers struct {
+	resources         *resources
 	client            *godo.Client
 	region            string
 	clusterID         string
@@ -144,8 +145,9 @@ type loadBalancers struct {
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
-func newLoadBalancers(client *godo.Client, region, clusterID string) cloudprovider.LoadBalancer {
+func newLoadBalancers(resources *resources, client *godo.Client, region, clusterID string) cloudprovider.LoadBalancer {
 	return &loadBalancers{
+		resources:         resources,
 		client:            client,
 		region:            region,
 		clusterID:         clusterID,
@@ -159,20 +161,13 @@ func newLoadBalancers(client *godo.Client, region, clusterID string) cloudprovid
 // GetLoadBalancer will not modify service.
 func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
 	lbName := cloudprovider.GetLoadBalancerName(service)
-	lb, err := l.lbByName(ctx, lbName)
-	if err != nil {
-		if err == errLBNotFound {
-			return nil, false, nil
-		}
-
-		return nil, false, err
+	lb, found := l.resources.LoadBalancerByName(lbName)
+	if !found {
+		return nil, false, nil
 	}
 
 	if lb.Status != lbStatusActive {
-		lb, err = l.waitActive(lb.ID)
-		if err != nil {
-			return nil, true, fmt.Errorf("error waiting for load balancer to be active %v", err)
-		}
+		return nil, true, fmt.Errorf("load-balancer not active, currently %s", lb.Status)
 	}
 
 	return &v1.LoadBalancerStatus{
@@ -193,7 +188,6 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	if err != nil {
 		return nil, err
 	}
-
 	if !exists {
 		lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 		if err != nil {
@@ -204,10 +198,9 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		if err != nil {
 			return nil, err
 		}
-
-		lb, err = l.waitActive(lb.ID)
-		if err != nil {
-			return nil, err
+		l.resources.AddLoadBalancer(*lb)
+		if lb.Status != lbStatusActive {
+			return nil, fmt.Errorf("load-balancer not active, currently %s", lb.Status)
 		}
 
 		return &v1.LoadBalancerStatus{
@@ -230,7 +223,6 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	return lbStatus, nil
-
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -244,13 +236,17 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	lbName := cloudprovider.GetLoadBalancerName(service)
-	lb, err := l.lbByName(ctx, lbName)
+	lb, found := l.resources.LoadBalancerByName(lbName)
+	if !found {
+		return errLBNotFound
+	}
+
+	lb, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	if err != nil {
 		return err
 	}
-
-	_, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
-	return err
+	l.resources.AddLoadBalancer(*lb)
+	return nil
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
@@ -270,42 +266,26 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 	lbName := cloudprovider.GetLoadBalancerName(service)
 
-	lb, err := l.lbByName(ctx, lbName)
+	lb, found := l.resources.LoadBalancerByName(lbName)
+	if !found {
+		return nil
+	}
+
+	resp, err := l.client.LoadBalancers.Delete(ctx, lb.ID)
 	if err != nil {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil
+		}
 		return err
 	}
-
-	_, err = l.client.LoadBalancers.Delete(ctx, lb.ID)
-	return err
-}
-
-// lbByName gets a DigitalOcean Load Balancer by name. The returned error will
-// be lbNotFound if the load balancer does not exist.
-func (l *loadBalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
-	lbs, _, err := l.client.LoadBalancers.List(ctx, &godo.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, lb := range lbs {
-		if lb.Name == name {
-			return &lb, nil
-		}
-	}
-
-	return nil, errLBNotFound
+	return fmt.Errorf("failed to delete load-balancer, status: %d %s", resp.StatusCode, resp.Status)
 }
 
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
 //
 // Node names are assumed to match droplet names.
 func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
-	droplets, err := allDropletList(context.TODO(), l.client)
-
-	if err != nil {
-		return nil, err
-	}
-
+	droplets := l.resources.Droplets()
 	var dropletIDs []int
 	for _, node := range nodes {
 	Loop:
@@ -314,7 +294,7 @@ func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 				dropletIDs = append(dropletIDs, droplet.ID)
 				break
 			}
-			addresses, err := nodeAddresses(&droplet)
+			addresses, err := nodeAddresses(droplet)
 			if err != nil {
 				glog.Errorf("error getting node addresses for %s: %v", droplet.Name, err)
 				continue
@@ -381,32 +361,6 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		RedirectHttpToHttps: redirectHTTPToHTTPS,
 		EnableProxyProtocol: enableProxyProtocol,
 	}, nil
-}
-
-func (l *loadBalancers) waitActive(lbID string) (*godo.LoadBalancer, error) {
-
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second*time.Duration(l.lbActiveTimeout))
-	defer cancel()
-	ticker := time.NewTicker(time.Second * time.Duration(l.lbActiveCheckTick))
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			lb, _, err := l.client.LoadBalancers.Get(ctx, lbID)
-			if err != nil {
-				return nil, err
-			}
-
-			if lb.Status == lbStatusActive {
-				return lb, nil
-			}
-			if lb.Status == lbStatusErrored {
-				return nil, fmt.Errorf("error creating DigitalOcean balancer: %q", lbID)
-			}
-		case <-ctx.Done():
-			return nil, fmt.Errorf("load balancer creation for %q timed out", lbID)
-		}
-	}
 }
 
 // buildHealthChecks returns a godo.HealthCheck for service.
