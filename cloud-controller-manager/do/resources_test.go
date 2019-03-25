@@ -263,12 +263,16 @@ type recordingSyncer struct {
 
 	synced map[string]int
 	mutex  sync.Mutex
+	stopOn int
+	stopCh chan struct{}
 }
 
-func newRecordingSyncer() *recordingSyncer {
+func newRecordingSyncer(stopOn int, stopCh chan struct{}) *recordingSyncer {
 	return &recordingSyncer{
 		tickerSyncer: &tickerSyncer{},
 		synced:       make(map[string]int),
+		stopOn:       stopOn,
+		stopCh:       stopCh,
 	}
 }
 
@@ -279,6 +283,10 @@ func (s *recordingSyncer) Sync(name string, period time.Duration, stopCh <-chan 
 
 		count, _ := s.synced[name]
 		s.synced[name] = count + 1
+
+		if len(s.synced) == s.stopOn {
+			close(s.stopCh)
+		}
 
 		return fn()
 	}
@@ -309,24 +317,20 @@ func TestResourcesController_Run(t *testing.T) {
 	}
 
 	res := NewResourcesController(clusterID, fakeResources, inf.Core().V1().Services(), kclient, gclient)
-	syncer := newRecordingSyncer()
+	stop := make(chan struct{})
+	syncer := newRecordingSyncer(2, stop)
 	res.syncer = syncer
 
-	stop := make(chan struct{})
 	res.Run(stop)
 
-	time.AfterFunc(3*time.Second, func() {
-		stop <- struct{}{}
-
-		syncer.mutex.Lock()
-		defer syncer.mutex.Unlock()
-		if syncer.synced["resources syncer"] < 0 {
-			t.Error("resource syncer not called")
-		}
-		if syncer.synced["tags syncer"] < 0 {
-			t.Error("tags syncer not called")
-		}
-	})
+	select {
+	case <-stop:
+		// No-op: test succeeded
+	case <-time.After(3 * time.Second):
+		// Terminate goroutines just in case.
+		close(stop)
+		t.Errorf("resourcer calls: %d tags calls: %d", syncer.synced["resources syncer"], syncer.synced["tags syncer"])
+	}
 }
 
 func TestResourcesController_SyncResources(t *testing.T) {
