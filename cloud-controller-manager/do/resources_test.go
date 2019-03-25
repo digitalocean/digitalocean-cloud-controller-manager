@@ -38,95 +38,166 @@ import (
 )
 
 func TestResources_DropletByID(t *testing.T) {
-	droplet := newFakeDroplet()
-	resources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
+	tests := []struct {
+		name         string
+		droplets     []godo.Droplet
+		findID       int
+		foundDroplet *godo.Droplet
+		found        bool
+	}{
+		{
+			name:         "existing droplet",
+			droplets:     []godo.Droplet{{ID: 1, Name: "one"}},
+			findID:       1,
+			foundDroplet: &godo.Droplet{ID: 1, Name: "one"},
+			found:        true,
+		},
+		{
+			name:         "missing droplet",
+			droplets:     []godo.Droplet{{ID: 1, Name: "one"}},
+			findID:       2,
+			foundDroplet: nil,
+			found:        false,
 		},
 	}
 
-	foundDroplet, found := resources.DropletByID(droplet.ID)
-	if want, got := true, found; want != got {
-		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
-	}
-	if want, got := droplet, foundDroplet; !reflect.DeepEqual(want, got) {
-		t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
-	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	_, found = resources.DropletByID(1000)
-	if want, got := false, found; want != got {
-		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+			resources := newResources()
+			resources.UpdateDroplets(test.droplets)
+
+			droplet, found := resources.DropletByID(test.findID)
+			if want, got := test.found, found; want != got {
+				t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.foundDroplet, droplet; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
 func TestResources_DropletByName(t *testing.T) {
-	droplet := newFakeDroplet()
-	resources := &resources{
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
+	tests := []struct {
+		name         string
+		droplets     []godo.Droplet
+		findName     string
+		foundDroplet *godo.Droplet
+		found        bool
+	}{
+		{
+			name:         "existing droplet",
+			droplets:     []godo.Droplet{{ID: 1, Name: "one"}},
+			findName:     "one",
+			foundDroplet: &godo.Droplet{ID: 1, Name: "one"},
+			found:        true,
+		},
+		{
+			name:         "missing droplet",
+			droplets:     []godo.Droplet{{ID: 1, Name: "one"}},
+			findName:     "two",
+			foundDroplet: nil,
+			found:        false,
 		},
 	}
 
-	foundDroplet, found := resources.DropletByName(droplet.Name)
-	if want, got := true, found; want != got {
-		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
-	}
-	if want, got := droplet, foundDroplet; !reflect.DeepEqual(want, got) {
-		t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
-	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	_, found = resources.DropletByName("missing")
-	if want, got := false, found; want != got {
-		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+			resources := newResources()
+			resources.UpdateDroplets(test.droplets)
+
+			droplet, found := resources.DropletByName(test.findName)
+			if want, got := test.found, found; want != got {
+				t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.foundDroplet, droplet; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
 func TestResources_Droplets(t *testing.T) {
-	droplet := &godo.Droplet{ID: 1}
+	droplets := []*godo.Droplet{
+		{ID: 1}, {ID: 2},
+	}
 	resources := &resources{
 		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
+			droplets[0].ID: droplets[0],
+			droplets[1].ID: droplets[1],
 		},
 	}
 
 	foundDroplets := resources.Droplets()
-	if want, got := []*godo.Droplet{droplet}, foundDroplets; !reflect.DeepEqual(want, got) {
+	// order found droplets by id so we can compare
+	sort.Slice(foundDroplets, func(a, b int) bool { return foundDroplets[a].ID < foundDroplets[b].ID })
+	if want, got := droplets, foundDroplets; !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect droplets\nwant: %#v\n got: %#v", want, got)
 	}
 }
 
 func TestResources_LoadBalancerByID(t *testing.T) {
-	lb := &godo.LoadBalancer{ID: "uuid"}
-	resources := &resources{
-		loadBalancerIDMap: map[string]*godo.LoadBalancer{
-			lb.ID: lb,
+	tests := []struct {
+		name    string
+		lbs     []godo.LoadBalancer
+		findID  string
+		foundLB *godo.LoadBalancer
+		found   bool
+	}{
+		{
+			name:    "existing lb",
+			lbs:     []godo.LoadBalancer{{ID: "1", Name: "one"}},
+			findID:  "1",
+			foundLB: &godo.LoadBalancer{ID: "1", Name: "one"},
+			found:   true,
+		},
+		{
+			name:    "missing lb",
+			lbs:     []godo.LoadBalancer{{ID: "1", Name: "one"}},
+			findID:  "two",
+			foundLB: nil,
+			found:   false,
 		},
 	}
 
-	foundLB, found := resources.LoadBalancerByID(lb.ID)
-	if want, got := true, found; want != got {
-		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
-	}
-	if want, got := lb, foundLB; !reflect.DeepEqual(want, got) {
-		t.Errorf("incorrect lb\nwant: %#v\n got: %#v", want, got)
-	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	_, found = resources.LoadBalancerByID("missing")
-	if want, got := false, found; want != got {
-		t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+			resources := newResources()
+			resources.UpdateLoadBalancers(test.lbs)
+
+			lb, found := resources.LoadBalancerByID(test.findID)
+			if want, got := test.found, found; want != got {
+				t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.foundLB, lb; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect lb\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
 func TestResources_LoadBalancers(t *testing.T) {
-	lb := &godo.LoadBalancer{ID: "uuid"}
+	lbs := []*godo.LoadBalancer{{ID: "1"}, {ID: "2"}}
 	resources := &resources{
 		loadBalancerIDMap: map[string]*godo.LoadBalancer{
-			lb.ID: lb,
+			lbs[0].ID: lbs[0],
+			lbs[1].ID: lbs[1],
 		},
 	}
 
 	foundLBs := resources.LoadBalancers()
-	if want, got := []*godo.LoadBalancer{lb}, foundLBs; !reflect.DeepEqual(want, got) {
+	// order found lbs by id so we can compare
+	sort.Slice(foundLBs, func(a, b int) bool { return foundLBs[a].ID < foundLBs[b].ID })
+	if want, got := lbs, foundLBs; !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect lbs\nwant: %#v\n got: %#v", want, got)
 	}
 }
@@ -206,7 +277,10 @@ func TestResourcesController_SyncResources(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			fakeResources := newResources()
 			fakeResources.UpdateDroplets([]godo.Droplet{
 				{ID: 1, Name: "one"},
