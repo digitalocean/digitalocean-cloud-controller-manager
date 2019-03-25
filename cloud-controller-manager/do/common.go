@@ -25,12 +25,13 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-const apiPerPage = 200
+// apiResultsPerPage is the maximum page size that DigitalOcean's api supports.
+const apiResultsPerPage = 200
 
 func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
 	list := []godo.Droplet{}
 
-	opt := &godo.ListOptions{Page: 1, PerPage: apiPerPage}
+	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
 	for {
 		droplets, resp, err := client.Droplets.List(ctx, opt)
 		if err != nil {
@@ -62,7 +63,7 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadBalancer, error) {
 	list := []godo.LoadBalancer{}
 
-	opt := &godo.ListOptions{Page: 1, PerPage: apiPerPage}
+	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
 	for {
 		lbs, resp, err := client.LoadBalancers.List(ctx, opt)
 		if err != nil {
