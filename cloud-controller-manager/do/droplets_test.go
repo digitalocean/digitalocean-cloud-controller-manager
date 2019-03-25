@@ -292,35 +292,40 @@ func Test_InstanceShutdownByProviderID(t *testing.T) {
 }
 
 func Test_dropletIDFromProviderID(t *testing.T) {
-	testcases := map[string]struct {
+	testcases := []struct {
+		name       string
 		providerID string
 		dropletID  int
 		err        error
 	}{
-		"valid providerID": {
+		{
+			name:       "valid providerID",
 			providerID: "digitalocean://12345",
 			dropletID:  12345,
 			err:        nil,
 		},
-		"invalid providerID - empty string": {
+		{
+			name:       "invalid providerID - empty string",
 			providerID: "",
 			dropletID:  0,
 			err:        errors.New("providerID cannot be empty string"),
 		},
-		"invalid providerID - wrong format": {
+		{
+			name:       "invalid providerID - wrong format",
 			providerID: "digitalocean:/12345",
 			dropletID:  0,
 			err:        errors.New("unexpected providerID format: digitalocean:/12345, format should be: digitalocean://12345"),
 		},
-		"invalid providerID - wrong provider name": {
+		{
+			name:       "invalid providerID - wrong provider name",
 			providerID: "do://12345",
 			dropletID:  0,
 			err:        errors.New("provider name from providerID should be digitalocean: do://12345"),
 		},
 	}
 
-	for name, testcase := range testcases {
-		t.Run(name, func(t *testing.T) {
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
 			dropletID, err := dropletIDFromProviderID(testcase.providerID)
 			if dropletID != testcase.dropletID {
 				t.Errorf("actual droplet ID: %d", dropletID)
