@@ -155,6 +155,33 @@ func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	c.loadBalancerNameMap = newNameMap
 }
 
+type syncer interface {
+	Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error)
+}
+
+type tickerSyncer struct{}
+
+func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error) {
+	ticker := time.NewTicker(period)
+	defer ticker.Stop()
+
+	// manually call to avoid initial tick delay
+	if err := fn(); err != nil {
+		glog.Errorf("%s failed: %s", name, err)
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := fn(); err != nil {
+				glog.Errorf("%s failed: %s", name, err)
+			}
+		case <-stopCh:
+			return
+		}
+	}
+}
+
 // ResourcesController is responsible for managing DigitalOcean cloud
 // resources. It maintains a local state of the resources and
 // synchronizes when needed.
@@ -165,6 +192,7 @@ type ResourcesController struct {
 	svcLister v1lister.ServiceLister
 
 	resources *resources
+	syncer    syncer
 }
 
 // NewResourcesController returns a new resource controller.
@@ -181,63 +209,31 @@ func NewResourcesController(
 		kclient:   k,
 		gclient:   g,
 		svcLister: inf.Lister(),
+		syncer:    &tickerSyncer{},
 	}
 }
 
 // Run starts the resources controller loop.
 func (r *ResourcesController) Run(stopCh <-chan struct{}) {
-	syncResourcesTicker := time.NewTicker(controllerSyncResourcesPeriod)
-	defer syncResourcesTicker.Stop()
-
-	go func() {
-		// Do not wait for initial tick to pass; run immediately for reduced sync
-		// latency.
-		for tickerC := syncResourcesTicker.C; ; {
-			r.syncResources()
-			select {
-			case <-tickerC:
-				continue
-			case <-stopCh:
-				return
-			}
-		}
-	}()
+	go r.syncer.Sync("resources syncer", controllerSyncResourcesPeriod, stopCh, r.syncResources)
 
 	if r.clusterID == "" {
 		glog.Info("No cluster ID configured -- skipping tags syncing.")
 		return
 	}
-
-	syncTagsTicker := time.NewTicker(controllerSyncTagsPeriod)
-	defer syncTagsTicker.Stop()
-
-	go func() {
-		// Do not wait for initial tick to pass; run immediately for reduced sync
-		// latency.
-		for tickerC := syncTagsTicker.C; ; {
-			if err := r.syncTags(); err != nil {
-				glog.Errorf("failed to sync load-balancer tags: %s", err)
-			}
-			select {
-			case <-tickerC:
-				continue
-			case <-stopCh:
-				return
-			}
-		}
-	}()
+	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
 }
 
 // syncResources updates the local resources representation from the
 // DigitalOcean API.
-func (r *ResourcesController) syncResources() {
+func (r *ResourcesController) syncResources() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
 	defer cancel()
 
 	glog.V(2).Info("syncing droplet resources.")
 	droplets, err := allDropletList(ctx, r.gclient)
 	if err != nil {
-		glog.Errorf("failed to sync droplet resources: %s", err)
+		glog.Errorf("failed to sync droplet resources: %s.", err)
 	} else {
 		r.resources.UpdateDroplets(droplets)
 		glog.V(2).Info("synced droplet resources.")
@@ -246,11 +242,13 @@ func (r *ResourcesController) syncResources() {
 	glog.V(2).Info("syncing load-balancer resources.")
 	lbs, err := allLoadBalancerList(ctx, r.gclient)
 	if err != nil {
-		glog.Errorf("failed to sync load-balancer resources: %s", err)
+		glog.Errorf("failed to sync load-balancer resources: %s.", err)
 	} else {
 		r.resources.UpdateLoadBalancers(lbs)
 		glog.V(2).Info("synced load-balancer resources.")
 	}
+
+	return nil
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate

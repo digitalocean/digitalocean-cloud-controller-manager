@@ -25,7 +25,9 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/digitalocean/godo"
 
@@ -202,10 +204,91 @@ func TestResources_LoadBalancers(t *testing.T) {
 	}
 }
 
+type recordingSyncer struct {
+	*tickerSyncer
+
+	synced map[string]int
+	mutex  sync.Mutex
+}
+
+func newRecordingSyncer() *recordingSyncer {
+	return &recordingSyncer{
+		tickerSyncer: &tickerSyncer{},
+		synced:       make(map[string]int),
+	}
+}
+
+func (s *recordingSyncer) Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error) {
+	recordingFn := func() error {
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
+
+		count, _ := s.synced[name]
+		s.synced[name] = count + 1
+
+		return fn()
+	}
+
+	s.tickerSyncer.Sync(name, period, stopCh, recordingFn)
+}
+
 var (
 	clusterID    = "0caf4c4e-e835-4a05-9ee8-5726bb66ab07"
 	clusterIDTag = buildK8sTag(clusterID)
 )
+
+func TestResourcesController_Run(t *testing.T) {
+	fakeResources := newResources()
+	kclient := fake.NewSimpleClientset()
+	inf := informers.NewSharedInformerFactory(kclient, 0)
+	gclient := &godo.Client{
+		Droplets: &fakeDropletService{
+			listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
+			},
+		},
+		LoadBalancers: &fakeLBService{
+			listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
+			},
+		},
+	}
+
+	res := NewResourcesController(clusterID, fakeResources, inf.Core().V1().Services(), kclient, gclient)
+	syncer := newRecordingSyncer()
+	res.syncer = syncer
+
+	stop := make(chan struct{})
+	res.Run(stop)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				stop <- struct{}{}
+			default:
+				syncer.mutex.Lock()
+				if syncer.synced["resources syncer"] > 0 && syncer.synced["tags syncer"] > 0 {
+					stop <- struct{}{}
+				}
+				syncer.mutex.Unlock()
+			}
+
+		}
+	}()
+
+	syncer.mutex.Lock()
+	defer syncer.mutex.Unlock()
+	if syncer.synced["resources syncer"] < 0 {
+		t.Error("resource syncer not called")
+	}
+	if syncer.synced["tags syncer"] < 0 {
+		t.Error("tags syncer not called")
+	}
+}
 
 func TestResourcesController_SyncResources(t *testing.T) {
 	tests := []struct {
