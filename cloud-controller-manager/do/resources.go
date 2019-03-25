@@ -180,9 +180,7 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		// Do not wait for initial tick to pass; run immediately for reduced sync
 		// latency.
 		for tickerC := syncResourcesTicker.C; ; {
-			if err := r.syncResources(); err != nil {
-				glog.Errorf("failed to sync cloud resources: %s", err)
-			}
+			r.syncResources()
 			select {
 			case <-tickerC:
 				continue
@@ -217,27 +215,25 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 	}()
 }
 
-func (r *ResourcesController) syncResources() error {
+func (r *ResourcesController) syncResources() {
 	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
 	defer cancel()
 
 	glog.V(2).Info("syncing droplet resources.")
 	droplets, err := allDropletList(ctx, r.gclient)
 	if err != nil {
-		return err
+		glog.Errorf("failed to sync droplet resources: %s", err)
 	}
 	r.resources.UpdateDroplets(droplets)
 	glog.V(2).Info("synced droplet resources.")
 
-	glog.V(2).Info("syncing lb resources.")
+	glog.V(2).Info("syncing load-balancer resources.")
 	lbs, err := allLoadBalancerList(ctx, r.gclient)
 	if err != nil {
-		return err
+		glog.Errorf("failed to sync load-balancer resources: %s", err)
 	}
 	r.resources.UpdateLoadBalancers(lbs)
-	glog.V(2).Info("synced lb resources.")
-
-	return nil
+	glog.V(2).Info("synced load-balancer resources.")
 }
 
 func (r *ResourcesController) syncTags() error {
