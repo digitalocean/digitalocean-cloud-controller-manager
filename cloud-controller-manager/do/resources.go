@@ -46,18 +46,20 @@ type tagMissingError struct {
 }
 
 type resources struct {
-	dropletIDMap      map[int]*godo.Droplet
-	dropletNameMap    map[string]*godo.Droplet
-	loadBalancerIDMap map[string]*godo.LoadBalancer
+	dropletIDMap        map[int]*godo.Droplet
+	dropletNameMap      map[string]*godo.Droplet
+	loadBalancerIDMap   map[string]*godo.LoadBalancer
+	loadBalancerNameMap map[string]*godo.LoadBalancer
 
 	mutex sync.RWMutex
 }
 
 func newResources() *resources {
 	return &resources{
-		dropletIDMap:      make(map[int]*godo.Droplet),
-		dropletNameMap:    make(map[string]*godo.Droplet),
-		loadBalancerIDMap: make(map[string]*godo.LoadBalancer),
+		dropletIDMap:        make(map[int]*godo.Droplet),
+		dropletNameMap:      make(map[string]*godo.Droplet),
+		loadBalancerIDMap:   make(map[string]*godo.LoadBalancer),
+		loadBalancerNameMap: make(map[string]*godo.LoadBalancer),
 	}
 }
 
@@ -98,6 +100,14 @@ func (c *resources) LoadBalancerByID(id string) (droplet *godo.LoadBalancer, fou
 	return lb, found
 }
 
+func (c *resources) LoadBalancerByName(name string) (droplet *godo.LoadBalancer, found bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	lb, found := c.loadBalancerNameMap[name]
+	return lb, found
+}
+
 func (c *resources) LoadBalancers() []*godo.LoadBalancer {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -130,16 +140,19 @@ func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
 
 func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	newIDMap := make(map[string]*godo.LoadBalancer)
+	newNameMap := make(map[string]*godo.LoadBalancer)
 
 	for _, lb := range lbs {
 		lb := lb
 		newIDMap[lb.ID] = &lb
+		newNameMap[lb.Name] = &lb
 	}
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.loadBalancerIDMap = newIDMap
+	c.loadBalancerNameMap = newNameMap
 }
 
 // ResourcesController ensures that DO resources are properly tagged.
@@ -223,17 +236,19 @@ func (r *ResourcesController) syncResources() {
 	droplets, err := allDropletList(ctx, r.gclient)
 	if err != nil {
 		glog.Errorf("failed to sync droplet resources: %s", err)
+	} else {
+		r.resources.UpdateDroplets(droplets)
+		glog.V(2).Info("synced droplet resources.")
 	}
-	r.resources.UpdateDroplets(droplets)
-	glog.V(2).Info("synced droplet resources.")
 
 	glog.V(2).Info("syncing load-balancer resources.")
 	lbs, err := allLoadBalancerList(ctx, r.gclient)
 	if err != nil {
 		glog.Errorf("failed to sync load-balancer resources: %s", err)
+	} else {
+		r.resources.UpdateLoadBalancers(lbs)
+		glog.V(2).Info("synced load-balancer resources.")
 	}
-	r.resources.UpdateLoadBalancers(lbs)
-	glog.V(2).Info("synced load-balancer resources.")
 }
 
 func (r *ResourcesController) syncTags() error {

@@ -141,7 +141,6 @@ func TestResourcesController_SyncResources(t *testing.T) {
 		name              string
 		dropletsSvc       godo.DropletsService
 		lbsSvc            godo.LoadBalancersService
-		err               error
 		expectedResources *resources
 	}{
 		{
@@ -153,14 +152,15 @@ func TestResourcesController_SyncResources(t *testing.T) {
 			},
 			lbsSvc: &fakeLBService{
 				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{{ID: "2"}}, newFakeOKResponse(), nil
+					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
 				},
 			},
 			// both droplet and lb resources updated
 			expectedResources: &resources{
-				dropletIDMap:      map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
-				dropletNameMap:    map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
-				loadBalancerIDMap: map[string]*godo.LoadBalancer{"two:": {ID: "two"}},
+				dropletIDMap:        map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
+				dropletNameMap:      map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
+				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"2": {ID: "2", Name: "two"}},
+				loadBalancerNameMap: map[string]*godo.LoadBalancer{"two": {ID: "2", Name: "two"}},
 			},
 		},
 		{
@@ -172,15 +172,15 @@ func TestResourcesController_SyncResources(t *testing.T) {
 			},
 			lbsSvc: &fakeLBService{
 				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{{ID: "2"}}, newFakeOKResponse(), nil
+					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
 				},
 			},
-			err: errors.New("droplets svc fail"),
 			// only lb resources updated
 			expectedResources: &resources{
-				dropletIDMap:      map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
-				dropletNameMap:    map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
-				loadBalancerIDMap: map[string]*godo.LoadBalancer{"two:": {ID: "two"}},
+				dropletIDMap:        map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap:      map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"2": {ID: "2", Name: "two"}},
+				loadBalancerNameMap: map[string]*godo.LoadBalancer{"two": {ID: "2", Name: "two"}},
 			},
 		},
 		{
@@ -195,26 +195,24 @@ func TestResourcesController_SyncResources(t *testing.T) {
 					return nil, newFakeNotOKResponse(), errors.New("lbs svc fail")
 				},
 			},
-			err: errors.New("lbs svc fail"),
 			// only droplet resources updated
 			expectedResources: &resources{
-				dropletIDMap:      map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
-				dropletNameMap:    map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
-				loadBalancerIDMap: map[string]*godo.LoadBalancer{"one": {ID: "one"}},
+				dropletIDMap:        map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
+				dropletNameMap:      map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
+				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"1": {ID: "1", Name: "one"}},
+				loadBalancerNameMap: map[string]*godo.LoadBalancer{"one": {ID: "1", Name: "one"}},
 			},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
 			fakeResources := newResources()
 			fakeResources.UpdateDroplets([]godo.Droplet{
 				{ID: 1, Name: "one"},
 			})
 			fakeResources.UpdateLoadBalancers([]godo.LoadBalancer{
-				{ID: "one"},
+				{ID: "1", Name: "one"},
 			})
 			kclient := fake.NewSimpleClientset()
 			inf := informers.NewSharedInformerFactory(kclient, 0)
@@ -223,15 +221,7 @@ func TestResourcesController_SyncResources(t *testing.T) {
 				LoadBalancers: test.lbsSvc,
 			}
 			res := NewResourcesController(clusterID, fakeResources, inf.Core().V1().Services(), kclient, gclient)
-
-			err := res.syncResources()
-			if test.err != nil && err == nil {
-				t.Error("expected error but got none")
-			}
-			if test.err == nil && err != nil {
-				t.Errorf("unexpected error: %s", err)
-			}
-
+			res.syncResources()
 			if want, got := test.expectedResources, res.resources; !reflect.DeepEqual(want, got) {
 				t.Errorf("incorrect resources\nwant: %#v\n got: %#v", want, got)
 			}
