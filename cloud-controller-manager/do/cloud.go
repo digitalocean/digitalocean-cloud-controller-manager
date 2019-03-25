@@ -22,7 +22,6 @@ import (
 	"os"
 
 	"github.com/digitalocean/godo"
-	"github.com/golang/glog"
 
 	"golang.org/x/oauth2"
 
@@ -108,11 +107,6 @@ func init() {
 }
 
 func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
-	if c.clusterID == "" {
-		glog.Info("No cluster ID configured -- skipping resource controller initialization.")
-		return
-	}
-
 	clientset := clientBuilder.ClientOrDie("do-shared-informers")
 	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
 

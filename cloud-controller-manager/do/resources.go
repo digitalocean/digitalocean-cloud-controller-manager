@@ -37,7 +37,7 @@ import (
 const (
 	controllerSyncTagsPeriod      = 1 * time.Minute
 	controllerSyncResourcesPeriod = 1 * time.Minute
-	requestTimeout                = 1 * time.Minute
+	syncTagsTimeout               = 1 * time.Minute
 	syncResourcesTimeout          = 3 * time.Minute
 )
 
@@ -176,9 +176,6 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 	syncResourcesTicker := time.NewTicker(controllerSyncResourcesPeriod)
 	defer syncResourcesTicker.Stop()
 
-	syncTagsTicker := time.NewTicker(controllerSyncTagsPeriod)
-	defer syncTagsTicker.Stop()
-
 	go func() {
 		// Do not wait for initial tick to pass; run immediately for reduced sync
 		// latency.
@@ -194,6 +191,14 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 			}
 		}
 	}()
+
+	if r.clusterID == "" {
+		glog.Info("No cluster ID configured -- skipping tags syncing.")
+		return
+	}
+
+	syncTagsTicker := time.NewTicker(controllerSyncTagsPeriod)
+	defer syncTagsTicker.Stop()
 
 	go func() {
 		// Do not wait for initial tick to pass; run immediately for reduced sync
@@ -236,7 +241,7 @@ func (r *ResourcesController) syncResources() error {
 }
 
 func (r *ResourcesController) syncTags() error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
 
 	lbs := r.resources.LoadBalancers()
@@ -301,7 +306,7 @@ func (r *ResourcesController) syncTags() error {
 }
 
 func (r *ResourcesController) tagResources(res []godo.Resource) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
 	tag := buildK8sTag(r.clusterID)
 	resp, err := r.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
