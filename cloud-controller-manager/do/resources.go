@@ -138,6 +138,19 @@ func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
 	c.dropletNameMap = newNameMap
 }
 
+func (c *resources) AddLoadBalancer(lb godo.LoadBalancer) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	existingLB, found := c.loadBalancerIDMap[lb.ID]
+	if found {
+		delete(c.loadBalancerIDMap, existingLB.ID)
+		delete(c.loadBalancerNameMap, existingLB.Name)
+	}
+	c.loadBalancerIDMap[lb.ID] = &lb
+	c.loadBalancerNameMap[lb.Name] = &lb
+}
+
 func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	newIDMap := make(map[string]*godo.LoadBalancer)
 	newNameMap := make(map[string]*godo.LoadBalancer)

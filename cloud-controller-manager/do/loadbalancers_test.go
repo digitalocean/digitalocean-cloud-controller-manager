@@ -2177,6 +2177,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 }
 
 func Test_EnsureLoadBalancer(t *testing.T) {
+	lbName := "afoobar123"
 	testcases := []struct {
 		name     string
 		droplets []godo.Droplet
@@ -2208,20 +2209,16 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				{
 					// loadbalancer names are a + service.UID
 					// see cloudprovider.GetLoadBalancerName
-					Name:   "afoobar123",
+					Name:   lbName,
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
 				},
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				// shouldn't be run in this test case
-				return nil, nil, nil
 			},
 			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				return &godo.LoadBalancer{
 					// loadbalancer names are a + service.UID
 					// see cloudprovider.GetLoadBalancerName
-					Name:   "afoobar123",
+					Name:   lbName,
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
 				}, newFakeOKResponse(), nil
@@ -2290,14 +2287,10 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			lbs: []godo.LoadBalancer{},
 			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				return &godo.LoadBalancer{
-					Name:   "afoobar123",
+					Name:   lbName,
 					IP:     "10.0.0.1",
 					Status: lbStatusActive,
 				}, newFakeOKResponse(), nil
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				// should not be run in this test case
-				return nil, nil, nil
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2377,6 +2370,12 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				t.Error("unexpected error")
 				t.Logf("expected: %v", test.err)
 				t.Logf("actual: %v", err)
+			}
+
+			// check that lbName exists in resources (either already exists, or was added by create)
+			_, found := fakeResources.LoadBalancerByName(lbName)
+			if !found {
+				t.Error("could not find expected LB")
 			}
 		})
 	}

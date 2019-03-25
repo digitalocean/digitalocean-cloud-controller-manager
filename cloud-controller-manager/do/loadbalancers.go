@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -187,7 +188,6 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	if err != nil {
 		return nil, err
 	}
-
 	if !exists {
 		lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 		if err != nil {
@@ -197,6 +197,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		lb, _, err := l.client.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			return nil, err
+		}
+		l.resources.AddLoadBalancer(*lb)
+		if lb.Status != lbStatusActive {
+			return nil, fmt.Errorf("load-balancer not active, currently %s", lb.Status)
 		}
 
 		return &v1.LoadBalancerStatus{
@@ -219,7 +223,6 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	return lbStatus, nil
-
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -238,8 +241,15 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return errLBNotFound
 	}
 
-	_, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
-	return err
+	lb, resp, err := l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("failed to update load-balancer, status: %d %s", resp.StatusCode, resp.Status)
+	}
+	l.resources.AddLoadBalancer(*lb)
+	return nil
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
@@ -261,11 +271,17 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 	lb, found := l.resources.LoadBalancerByName(lbName)
 	if !found {
-		return errLBNotFound
+		return nil
 	}
 
-	_, err = l.client.LoadBalancers.Delete(ctx, lb.ID)
-	return err
+	resp, err := l.client.LoadBalancers.Delete(ctx, lb.ID)
+	if err != nil {
+		return fmt.Errorf("failed to delete load-balancer: %s", err)
+	}
+	if resp.StatusCode == http.StatusNotFound || (resp.StatusCode >= 200 || resp.StatusCode < 300) {
+		return nil
+	}
+	return fmt.Errorf("failed to delete load-balancer, status: %d %s", resp.StatusCode, resp.Status)
 }
 
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
