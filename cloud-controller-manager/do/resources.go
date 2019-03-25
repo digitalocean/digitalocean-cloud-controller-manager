@@ -155,7 +155,9 @@ func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	c.loadBalancerNameMap = newNameMap
 }
 
-// ResourcesController ensures that DO resources are properly tagged.
+// ResourcesController is responsible for managing DigitalOcean cloud
+// resources. It maintains a local state of the resources and
+// synchronizes when needed.
 type ResourcesController struct {
 	clusterID string
 	kclient   kubernetes.Interface
@@ -165,8 +167,7 @@ type ResourcesController struct {
 	resources *resources
 }
 
-// NewResourcesController returns a new controller responsible for managing
-// DigitalOcean cloud resources.
+// NewResourcesController returns a new resource controller.
 func NewResourcesController(
 	clusterID string,
 	r *resources,
@@ -183,8 +184,7 @@ func NewResourcesController(
 	}
 }
 
-// Run starts the resources controller. It watches over DigitalOcean resources
-// making sure the right tags are set.
+// Run starts the resources controller loop.
 func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 	syncResourcesTicker := time.NewTicker(controllerSyncResourcesPeriod)
 	defer syncResourcesTicker.Stop()
@@ -228,6 +228,8 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 	}()
 }
 
+// syncResources updates the local resources representation from the
+// DigitalOcean API.
 func (r *ResourcesController) syncResources() {
 	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
 	defer cancel()
@@ -251,6 +253,8 @@ func (r *ResourcesController) syncResources() {
 	}
 }
 
+// syncTags synchronizes tags. Currently, this is only needed to associate
+// cluster ID tags with LoadBalancer resources.
 func (r *ResourcesController) syncTags() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
