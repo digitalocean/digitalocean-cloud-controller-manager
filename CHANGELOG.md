@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.12 (beta) - Mar 26th 2019
+
+* Cache API results for DigitalOcean resources and manage them in ResourcesController (@nanzhong)
+
 ## v0.1.11 (beta) - Mar 19th 2019
 
 * loadbalancers: add support for PROXY protocol (@timoreimann)
