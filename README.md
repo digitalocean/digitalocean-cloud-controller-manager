@@ -54,7 +54,9 @@ VERSION=dev make publish
 This will create a binary with version `dev` and docker image pushed to
 `digitalocean/digitalocean-cloud-controller-manager:dev`
 
-To release a new version bump first the version:
+### Release a new version
+
+To release a new version first bump the version:
 
 ```bash
 make bump-version
@@ -63,22 +65,30 @@ make bump-version
 Make sure everything looks good. Create a new branch with all changes:
 
 ```bash
-git checkout -b new-release
-git add .
-git push origin
+git checkout -b release-<new version> origin/master
+git commit -a -v
+git push origin release-<new version>
 ```
 
-After it's merged to master, [create a new Github
-release](https://github.com/digitalocean/digitalocean-cloud-controller-manager/releases/new) from
-master with the version `v0.1.12` and then publish a new docker build:
+After it's merged to master, tag the commit and push it:
 
 ```bash
 git checkout master
+git pull
+git tag <new version>
+git push --tags
+```
+
+Finally, [create a Github
+release](https://github.com/digitalocean/digitalocean-cloud-controller-manager/releases/new) from
+master with the new version and publish it:
+
+```bash
 make publish
 ```
 
-This will create a binary with version `v0.1.12` and docker image pushed to
-`digitalocean/digitalocean-cloud-controller-manager:v0.1.12`
+This will compile a binary containing the new version bundled in a docker image pushed to
+`digitalocean/digitalocean-cloud-controller-manager:<new version>`
 
 ## Contributing
 
