@@ -76,8 +76,8 @@ build:
 .PHONY: push
 push:
 
-ifeq ($(shell [[ $(BRANCH) != "master" && $(VERSION) != "dev" ]] && echo true ),true)
-	@echo "ERROR: Publishing image with a SEMVER version '$(VERSION)' is only allowed from master"
+ifeq ($(shell [[ $(REGISTRY) = "digitalocean" && $(BRANCH) != "master" && $(VERSION) != "dev" ]] && echo true ),true)
+	@echo "ERROR: Publishing image to the DO organization with a SEMVER version '$(VERSION)' is only allowed from master"
 else
 	@echo "==> Publishing $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
