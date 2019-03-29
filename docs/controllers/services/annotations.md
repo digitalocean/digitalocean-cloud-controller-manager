@@ -44,7 +44,7 @@ If enabled, ports specified in `service.beta.kubernetes.io/do-loadbalancer-tls-p
 
 ## service.beta.kubernetes.io/do-loadbalancer-certificate-id
 
-Specifies the certificate ID used for https. To list available certificates and their IDs, use `doctl compute certificate list` or find it in the [control panel](https://cloud.digitalocean.com/account/security).
+Specifies the certificate ID used for https. To list available certificates and their IDs, install [doctl](https://github.com/digitalocean/doctl) and run `doctl compute certificate list`.
 If enabled, ports specified in `service.beta.kubernetes.io/do-loadbalancer-tls-ports` will use https, or 443 if none are given.
 
 ## service.beta.kubernetes.io/do-loadbalancer-algorithm
