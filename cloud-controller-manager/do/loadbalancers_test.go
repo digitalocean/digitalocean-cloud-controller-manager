@@ -769,6 +769,100 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
+			"tls forwarding rules with certificate and derived tls port",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      80,
+					TargetProtocol: "tcp",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "https",
+					EntryPort:      443,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"tls forwarding rules with tls path through and derived tls port",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      80,
+					TargetProtocol: "tcp",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "https",
+					EntryPort:      443,
+					TargetProtocol: "https",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+			},
+			nil,
+		},
+		{
 			"invalid service protocol",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{

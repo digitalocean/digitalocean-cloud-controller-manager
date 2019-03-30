@@ -432,6 +432,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	certificateID := getCertificateID(service)
 	tlsPassThrough := getTLSPassThrough(service)
 
+	if (certificateID != "" || tlsPassThrough) && len(tlsPorts) == 0 {
+		tlsPorts = append(tlsPorts, 443)
+	}
+
 	if len(tlsPorts) > 0 {
 		if certificateID == "" && !tlsPassThrough {
 			return nil, errors.New("must set certificate id or enable tls pass through")
@@ -455,21 +459,17 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		forwardingRule.EntryPort = int(port.Port)
 		forwardingRule.TargetPort = int(port.NodePort)
 
-		if forwardingRule.EntryProtocol == "tcp" {
-			forwardingRules = append(forwardingRules, forwardingRule)
-			continue
-		}
-
 		// TLS rules should only apply when default protocol is http or https
 		for _, tlsPort := range tlsPorts {
 			if port.Port == int32(tlsPort) {
 				forwardingRule.EntryProtocol = "https"
-				forwardingRule.TlsPassthrough = tlsPassThrough
 
 				if tlsPassThrough {
+					forwardingRule.TlsPassthrough = tlsPassThrough
 					forwardingRule.TargetProtocol = "https"
 				} else {
 					forwardingRule.CertificateID = certificateID
+					forwardingRule.TargetProtocol = "http"
 				}
 				break
 			}
