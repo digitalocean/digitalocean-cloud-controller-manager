@@ -313,6 +313,12 @@ func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
+	// when a cluster has a cluster id it is a DOKS managed cluster, these cluster
+	// must specify a vpc id
+	if l.resources.clusterID != "" && l.resources.clusterVPCID == "" {
+		return nil, errors.New("missing cluster vpc id")
+	}
+
 	lbName := cloudprovider.GetLoadBalancerName(service)
 
 	dropletIDs, err := l.nodesToDropletIDs(nodes)

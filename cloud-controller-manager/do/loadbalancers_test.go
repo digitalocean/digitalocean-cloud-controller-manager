@@ -1988,57 +1988,101 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 }
 
 func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
-	service := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
+	tests := []struct {
+		name      string
+		clusterID string
+		vpcID     string
+		err       error
+	}{
+		{
+			name:      "happy path",
+			clusterID: clusterID,
+			vpcID:     "vpc_uuid",
 		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:     "test",
-					Protocol: "TCP",
-					Port:     int32(80),
-					NodePort: int32(30000),
+		{
+			name:      "missing cluster id",
+			clusterID: "",
+			vpcID:     "vpc_uuid",
+		},
+		{
+			name:      "missing vpc id",
+			clusterID: clusterID,
+			vpcID:     "",
+			err:       errors.New("missing cluster vpc id"),
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
 				},
-			},
-		},
-	}
-	nodes := []*v1.Node{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node-1",
-			},
-		},
-	}
-	fakeClient := newFakeLBClient(&fakeLBService{})
-	fakeResources := newResources(clusterID)
-	fakeResources.clusterVPCID = "vpc_uuid"
-	fakeResources.UpdateDroplets([]godo.Droplet{
-		{
-			ID:   100,
-			Name: "node-1",
-		},
-	})
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			}
+			nodes := []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+			}
+			fakeClient := newFakeLBClient(&fakeLBService{})
+			fakeResources := newResources(test.clusterID)
+			fakeResources.clusterVPCID = test.vpcID
+			fakeResources.UpdateDroplets([]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			})
 
-	lb := &loadBalancers{
-		resources: fakeResources,
-		client:    fakeClient,
-		region:    "nyc3",
-		clusterID: clusterID,
-	}
+			lb := &loadBalancers{
+				resources: fakeResources,
+				client:    fakeClient,
+				region:    "nyc3",
+				clusterID: clusterID,
+			}
 
-	lbr, err := lb.buildLoadBalancerRequest(service, nodes)
-	if err != nil {
-		t.Errorf("got error: %s", err)
-	}
+			lbr, err := lb.buildLoadBalancerRequest(service, nodes)
+			if test.err != nil {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
 
-	wantTags := []string{buildK8sTag(clusterID)}
-	if !reflect.DeepEqual(lbr.Tags, wantTags) {
-		t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
-	}
+				if want, got := test.err, err; !reflect.DeepEqual(want, got) {
+					t.Errorf("incorrect err\nwant: %#v\n got: %#v", want, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("got error: %s", err)
+			}
 
-	if want, got := "vpc_uuid", lbr.VPCUUID; want != got {
-		t.Errorf("incorrect vpc uuid\nwant: %#v\n got: %#v", want, got)
+			var wantTags []string
+			if test.clusterID != "" {
+				wantTags = []string{buildK8sTag(clusterID)}
+			}
+			if !reflect.DeepEqual(lbr.Tags, wantTags) {
+				t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
+			}
+
+			if want, got := "vpc_uuid", lbr.VPCUUID; want != got {
+				t.Errorf("incorrect vpc uuid\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
