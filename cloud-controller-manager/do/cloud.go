@@ -92,7 +92,7 @@ func newCloud() (cloudprovider.Interface, error) {
 		client:        doClient,
 		instances:     newInstances(resources, region),
 		zones:         newZones(resources, region),
-		loadbalancers: newLoadBalancers(resources, doClient, region, clusterID),
+		loadbalancers: newLoadBalancers(resources, doClient, region),
 
 		resources: resources,
 	}, nil

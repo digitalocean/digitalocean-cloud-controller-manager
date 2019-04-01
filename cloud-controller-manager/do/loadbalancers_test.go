@@ -1958,7 +1958,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources(clusterID)
+			fakeResources := newResources("")
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
@@ -2012,6 +2012,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 	}
 	fakeClient := newFakeLBClient(&fakeLBService{})
 	fakeResources := newResources(clusterID)
+	fakeResources.clusterVPCID = "vpc_uuid"
 	fakeResources.UpdateDroplets([]godo.Droplet{
 		{
 			ID:   100,
@@ -2019,7 +2020,6 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 		},
 	})
 
-	clusterID := "fdda2d9d-0856-4ca4-b8ee-27ca8bfecc77"
 	lb := &loadBalancers{
 		resources: fakeResources,
 		client:    fakeClient,
@@ -2035,6 +2035,10 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 	wantTags := []string{buildK8sTag(clusterID)}
 	if !reflect.DeepEqual(lbr.Tags, wantTags) {
 		t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
+	}
+
+	if want, got := "vpc_uuid", lbr.VPCUUID; want != got {
+		t.Errorf("incorrect vpc uuid\nwant: %#v\n got: %#v", want, got)
 	}
 }
 
@@ -2131,7 +2135,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources(clusterID)
+			fakeResources := newResources("")
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
@@ -2236,7 +2240,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeResources := newResources(clusterID)
+			fakeResources := newResources("")
 			fakeResources.UpdateLoadBalancers(test.lbs)
 
 			lb := &loadBalancers{
@@ -2440,7 +2444,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				updateFn: test.updateFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources(clusterID)
+			fakeResources := newResources("")
 			fakeResources.UpdateDroplets(test.droplets)
 			fakeResources.UpdateLoadBalancers(test.lbs)
 
