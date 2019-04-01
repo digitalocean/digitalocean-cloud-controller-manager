@@ -78,7 +78,7 @@ func TestResources_DropletByID(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources(clusterID)
+			resources := newResources("", "")
 			resources.UpdateDroplets(test.droplets)
 
 			droplet, found := resources.DropletByID(test.findID)
@@ -121,7 +121,7 @@ func TestResources_DropletByName(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources(clusterID)
+			resources := newResources("", "")
 			resources.UpdateDroplets(test.droplets)
 
 			droplet, found := resources.DropletByName(test.findName)
@@ -183,7 +183,7 @@ func TestResources_LoadBalancerByID(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources(clusterID)
+			resources := newResources("", "")
 			resources.UpdateLoadBalancers(test.lbs)
 
 			lb, found := resources.LoadBalancerByID(test.findID)
@@ -236,7 +236,7 @@ func TestResources_AddLoadBalancer(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources(clusterID)
+			resources := newResources("", "")
 			resources.UpdateLoadBalancers(test.lbs)
 
 			resources.AddLoadBalancer(test.newLB)
@@ -310,7 +310,7 @@ var (
 )
 
 func TestResourcesController_Run(t *testing.T) {
-	fakeResources := newResources(clusterID)
+	fakeResources := newResources(clusterID, "")
 	kclient := fake.NewSimpleClientset()
 	inf := informers.NewSharedInformerFactory(kclient, 0)
 	gclient := &godo.Client{
@@ -425,7 +425,7 @@ func TestResourcesController_SyncResources(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeResources := newResources("")
+			fakeResources := newResources("", "")
 			fakeResources.UpdateDroplets([]godo.Droplet{
 				{ID: 1, Name: "one"},
 			})
@@ -497,8 +497,7 @@ func TestResourcesController_SyncCluster(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeResources := newResources(clusterID)
-			fakeResources.clusterVPCID = test.initalVPCID
+			fakeResources := newResources(clusterID, test.initalVPCID)
 			kclient := fake.NewSimpleClientset()
 			inf := informers.NewSharedInformerFactory(kclient, 0)
 			gclient := &godo.Client{
@@ -642,7 +641,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeResources := newResources(clusterID)
+			fakeResources := newResources("", "")
 			for _, lb := range test.lbs {
 				lb := lb
 				fakeResources.loadBalancerIDMap[lb.ID] = lb

@@ -34,6 +34,7 @@ const (
 	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
 	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
+	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
 	providerName        string = "digitalocean"
 )
 
@@ -86,7 +87,8 @@ func newCloud() (cloudprovider.Interface, error) {
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
-	resources := newResources(clusterID)
+	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
+	resources := newResources(clusterID, clusterVPCID)
 
 	return &cloud{
 		client:        doClient,

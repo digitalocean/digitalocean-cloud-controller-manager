@@ -59,9 +59,10 @@ type resources struct {
 	mutex sync.RWMutex
 }
 
-func newResources(clusterID string) *resources {
+func newResources(clusterID, clusterVPCID string) *resources {
 	return &resources{
-		clusterID: clusterID,
+		clusterID:    clusterID,
+		clusterVPCID: clusterVPCID,
 
 		dropletIDMap:        make(map[int]*godo.Droplet),
 		dropletNameMap:      make(map[string]*godo.Droplet),
