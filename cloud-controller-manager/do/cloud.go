@@ -49,7 +49,6 @@ func (t *tokenSource) Token() (*oauth2.Token, error) {
 }
 
 type cloud struct {
-	clusterID     string
 	client        *godo.Client
 	instances     cloudprovider.Instances
 	zones         cloudprovider.Zones
@@ -87,10 +86,9 @@ func newCloud() (cloudprovider.Interface, error) {
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
-	resources := newResources()
+	resources := newResources(clusterID)
 
 	return &cloud{
-		clusterID:     clusterID,
 		client:        doClient,
 		instances:     newInstances(resources, region),
 		zones:         newZones(resources, region),
@@ -110,7 +108,7 @@ func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
 	clientset := clientBuilder.ClientOrDie("do-shared-informers")
 	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
 
-	res := NewResourcesController(c.clusterID, c.resources, sharedInformer.Core().V1().Services(), clientset, c.client)
+	res := NewResourcesController(c.resources, sharedInformer.Core().V1().Services(), clientset, c.client)
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)
