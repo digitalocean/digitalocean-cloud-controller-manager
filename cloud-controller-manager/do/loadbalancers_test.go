@@ -2004,12 +2004,6 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 			clusterID: "",
 			vpcID:     "vpc_uuid",
 		},
-		{
-			name:      "missing vpc id",
-			clusterID: clusterID,
-			vpcID:     "",
-			err:       errors.New("missing cluster vpc id"),
-		},
 	}
 
 	for _, test := range tests {

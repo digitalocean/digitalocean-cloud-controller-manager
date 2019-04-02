@@ -347,7 +347,7 @@ func TestResourcesController_Run(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		// Terminate goroutines just in case.
 		close(stop)
-		t.Errorf("resources calls: %d cluster calls: %d tags calls: %d", syncer.synced["resources syncer"], syncer.synced["cluster syncer"], syncer.synced["tags syncer"])
+		t.Errorf("resources calls: %d tags calls: %d", syncer.synced["resources syncer"], syncer.synced["tags syncer"])
 	}
 }
 
@@ -442,84 +442,6 @@ func TestResourcesController_SyncResources(t *testing.T) {
 			res.syncResources()
 			if want, got := test.expectedResources, res.resources; !reflect.DeepEqual(want, got) {
 				t.Errorf("incorrect resources\nwant: %#v\n got: %#v", want, got)
-			}
-		})
-	}
-}
-
-func TestResourcesController_SyncCluster(t *testing.T) {
-	tests := []struct {
-		name          string
-		kubernetesSvc godo.KubernetesService
-		initalVPCID   string
-		expectedVPCID string
-		err           error
-	}{
-		{
-			name: "happy path",
-			kubernetesSvc: &fakeKubernetesService{
-				getFunc: func(context.Context, string) (*godo.KubernetesCluster, *godo.Response, error) {
-					return &godo.KubernetesCluster{
-						ID:      clusterID,
-						VPCUUID: "vpc_uuid",
-					}, newFakeOKResponse(), nil
-				},
-			},
-			initalVPCID:   "",
-			expectedVPCID: "vpc_uuid",
-		},
-		{
-			name: "vpc id already present",
-			kubernetesSvc: &fakeKubernetesService{
-				getFunc: func(context.Context, string) (*godo.KubernetesCluster, *godo.Response, error) {
-					return &godo.KubernetesCluster{
-						ID:      clusterID,
-						VPCUUID: "vpc_uuid",
-					}, newFakeOKResponse(), nil
-				},
-			},
-			initalVPCID:   "vpc_uuid",
-			expectedVPCID: "vpc_uuid",
-		},
-		{
-			name: "kubernetes svc failure",
-			kubernetesSvc: &fakeKubernetesService{
-				getFunc: func(context.Context, string) (*godo.KubernetesCluster, *godo.Response, error) {
-					return nil, newFakeNotOKResponse(), errors.New("fail")
-				},
-			},
-			err: errors.New("fail"),
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			fakeResources := newResources(clusterID, test.initalVPCID)
-			kclient := fake.NewSimpleClientset()
-			inf := informers.NewSharedInformerFactory(kclient, 0)
-			gclient := &godo.Client{
-				Kubernetes: test.kubernetesSvc,
-			}
-			res := NewResourcesController(fakeResources, inf.Core().V1().Services(), kclient, gclient)
-
-			err := res.syncCluster()
-			if test.err != nil {
-				if err == nil {
-					t.Fatal("expected error but got none")
-				}
-				if want, got := test.err, err; !reflect.DeepEqual(want, got) {
-					t.Errorf("incorrect err\nwant: %#v\n got: %#v", want, got)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("unexpected err: %s", err)
-			}
-			if want, got := test.expectedVPCID, fakeResources.clusterVPCID; want != got {
-				t.Errorf("incorrect vpc id\nwant: %#v\n got: %#v", want, got)
 			}
 		})
 	}

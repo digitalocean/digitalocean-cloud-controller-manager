@@ -35,10 +35,8 @@ import (
 )
 
 const (
-	controllerSyncClusterPeriod   = 1 * time.Minute
 	controllerSyncTagsPeriod      = 1 * time.Minute
 	controllerSyncResourcesPeriod = 1 * time.Minute
-	syncClusterTimeout            = 1 * time.Minute
 	syncTagsTimeout               = 1 * time.Minute
 	syncResourcesTimeout          = 3 * time.Minute
 )
@@ -239,7 +237,6 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		glog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
-	go r.syncer.Sync("cluster syncer", controllerSyncClusterPeriod, stopCh, r.syncCluster)
 	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
 }
 
@@ -266,28 +263,6 @@ func (r *ResourcesController) syncResources() error {
 		r.resources.UpdateLoadBalancers(lbs)
 		glog.V(2).Info("synced load-balancer resources.")
 	}
-
-	return nil
-}
-
-// syncCluster updates the local cluster state to match what is reported by the
-// DigitalOcean API.
-func (r *ResourcesController) syncCluster() error {
-	ctx, cancel := context.WithTimeout(context.Background(), syncClusterTimeout)
-	defer cancel()
-
-	if r.resources.clusterVPCID != "" {
-		glog.V(2).Info("cluster VPC ID present, skipping sync.")
-		return nil
-	}
-
-	glog.V(2).Info("cluster VPC ID missing, syncing cluster.")
-	cluster, _, err := r.gclient.Kubernetes.Get(ctx, r.resources.clusterID)
-	if err != nil {
-		return err
-	}
-	r.resources.clusterVPCID = cluster.VPCUUID
-	glog.V(2).Info("synced cluster.")
 
 	return nil
 }
