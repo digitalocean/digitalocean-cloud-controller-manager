@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.13 (beta) - Apr 3rd 2019
+
+* Add support for configuring a specific vpc id (@nanzhong)
+
 ## v0.1.12 (beta) - Mar 26th 2019
 
 * Cache API results for DigitalOcean resources and manage them in ResourcesController (@nanzhong)
