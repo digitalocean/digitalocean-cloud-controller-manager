@@ -7,7 +7,7 @@
 ## Releases
 
 Cloud Controller Manager follows [semantic versioning](https://semver.org/).
-The current version is: **`v0.1.12`**. This means that the project is still
+The current version is: **`v0.1.13`**. This means that the project is still
 under active development and may not be production ready. The plugin will be
 bumped to **`v1.0.0`** once the [DigitalOcean Kubernetes
 product](https://www.digitalocean.com/products/kubernetes/) is released and
