@@ -168,14 +168,7 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 	if lb.Status != lbStatusActive {
 		return nil, true, fmt.Errorf("load-balancer not active, currently %s", lb.Status)
 	}
-
-	return &v1.LoadBalancerStatus{
-		Ingress: []v1.LoadBalancerIngress{
-			{
-				IP: lb.IP,
-			},
-		},
-	}, true, nil
+	return buildLBStatus(service, lb), true, nil
 }
 
 // EnsureLoadBalancer ensures that the cluster is running a load balancer for
@@ -202,13 +195,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 			return nil, fmt.Errorf("load-balancer not active, currently %s", lb.Status)
 		}
 
-		return &v1.LoadBalancerStatus{
-			Ingress: []v1.LoadBalancerIngress{
-				{
-					IP: lb.IP,
-				},
-			},
-		}, nil
+		return buildLBStatus(service, lb), nil
 	}
 
 	err = l.UpdateLoadBalancer(ctx, clusterName, service, nodes)
@@ -728,4 +715,53 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 	}
 
 	return enableProxyProtocol, nil
+}
+
+// buildLBStatus returns the Kubernetes LoadBalancerStatus object used to report the IP
+// back to the user.
+func buildLBStatus(service *v1.Service, lb *godo.LoadBalancer) *v1.LoadBalancerStatus {
+	if isLayer7(service) {
+		// Work-around for https://github.com/kubernetes/kubernetes/issues/66607
+		// If an IP is provided, kube-proxy will intercept traffic destined for the LB
+		// and redirect to the backing services within the cluster, skipping the LB entirely.
+		// This breaks TLS and ProxyProtocol termination at the router.  This codepath is avoided
+		// if we return a Hostname.  It's ugly to put an IP in a Hostname field, but it appears to
+		// be treated as opaque.  This is the best solution until #66607 is resolved.
+		return &v1.LoadBalancerStatus{
+			Ingress: []v1.LoadBalancerIngress{
+				{
+					Hostname: lb.IP,
+				},
+			},
+		}
+	}
+	return &v1.LoadBalancerStatus{
+		Ingress: []v1.LoadBalancerIngress{
+			{
+				IP: lb.IP,
+			},
+		},
+	}
+}
+
+// isLayer7 will return true if we manipulate load-balancer traffic based upon layer7.
+func isLayer7(service *v1.Service) bool {
+	if _, ok := service.Annotations[annDOEnableProxyProtocol]; ok {
+		return true
+	}
+	if _, ok := service.Annotations[annDOCertificateID]; ok {
+		return true
+	}
+	if _, ok := service.Annotations[annDORedirectHTTPToHTTPS]; ok {
+		return true
+	}
+	// Stick sessions don't manipulate the data stream, but do make routing decisions based upon
+	// L7 data. Make sure this hits the LB to have consistent behavior inside and out.
+	if _, ok := service.Annotations[annDOStickySessionsType]; ok {
+		return true
+	}
+	if _, ok := service.Annotations[annDOStickySessionsCookieName]; ok {
+		return true
+	}
+	return false
 }
