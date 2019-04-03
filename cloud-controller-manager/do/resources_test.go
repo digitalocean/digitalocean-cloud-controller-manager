@@ -39,16 +39,6 @@ import (
 	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
-type fakeKubernetesService struct {
-	godo.KubernetesService
-
-	getFunc func(context.Context, string) (*godo.KubernetesCluster, *godo.Response, error)
-}
-
-func (s *fakeKubernetesService) Get(ctx context.Context, id string) (*godo.KubernetesCluster, *godo.Response, error) {
-	return s.getFunc(ctx, id)
-}
-
 func TestResources_DropletByID(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -322,14 +312,6 @@ func TestResourcesController_Run(t *testing.T) {
 		LoadBalancers: &fakeLBService{
 			listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
-			},
-		},
-		Kubernetes: &fakeKubernetesService{
-			getFunc: func(context.Context, string) (*godo.KubernetesCluster, *godo.Response, error) {
-				return &godo.KubernetesCluster{
-					ID:      "uuid",
-					VPCUUID: "vpc_uuid",
-				}, newFakeOKResponse(), nil
 			},
 		},
 	}
