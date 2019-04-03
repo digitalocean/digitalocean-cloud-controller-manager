@@ -34,6 +34,7 @@ const (
 	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
 	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
+	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
 	providerName        string = "digitalocean"
 )
 
@@ -49,7 +50,6 @@ func (t *tokenSource) Token() (*oauth2.Token, error) {
 }
 
 type cloud struct {
-	clusterID     string
 	client        *godo.Client
 	instances     cloudprovider.Instances
 	zones         cloudprovider.Zones
@@ -87,14 +87,14 @@ func newCloud() (cloudprovider.Interface, error) {
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
-	resources := newResources()
+	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
+	resources := newResources(clusterID, clusterVPCID)
 
 	return &cloud{
-		clusterID:     clusterID,
 		client:        doClient,
 		instances:     newInstances(resources, region),
 		zones:         newZones(resources, region),
-		loadbalancers: newLoadBalancers(resources, doClient, region, clusterID),
+		loadbalancers: newLoadBalancers(resources, doClient, region),
 
 		resources: resources,
 	}, nil
@@ -110,7 +110,7 @@ func (c *cloud) Initialize(clientBuilder controller.ControllerClientBuilder) {
 	clientset := clientBuilder.ClientOrDie("do-shared-informers")
 	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
 
-	res := NewResourcesController(c.clusterID, c.resources, sharedInformer.Core().V1().Services(), clientset, c.client)
+	res := NewResourcesController(c.resources, sharedInformer.Core().V1().Services(), clientset, c.client)
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)

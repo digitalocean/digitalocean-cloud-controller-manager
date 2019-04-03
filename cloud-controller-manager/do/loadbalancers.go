@@ -145,12 +145,11 @@ type loadBalancers struct {
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
-func newLoadBalancers(resources *resources, client *godo.Client, region, clusterID string) cloudprovider.LoadBalancer {
+func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
 	return &loadBalancers{
 		resources:         resources,
 		client:            client,
 		region:            region,
-		clusterID:         clusterID,
 		lbActiveTimeout:   defaultActiveTimeout,
 		lbActiveCheckTick: defaultActiveCheckTick,
 	}
@@ -345,8 +344,8 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 	}
 
 	var tags []string
-	if l.clusterID != "" {
-		tags = []string{buildK8sTag(l.clusterID)}
+	if l.resources.clusterID != "" {
+		tags = []string{buildK8sTag(l.resources.clusterID)}
 	}
 
 	return &godo.LoadBalancerRequest{
@@ -360,6 +359,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v
 		Algorithm:           algorithm,
 		RedirectHttpToHttps: redirectHTTPToHTTPS,
 		EnableProxyProtocol: enableProxyProtocol,
+		VPCUUID:             l.resources.clusterVPCID,
 	}, nil
 }
 

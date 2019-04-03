@@ -46,6 +46,9 @@ type tagMissingError struct {
 }
 
 type resources struct {
+	clusterID    string
+	clusterVPCID string
+
 	dropletIDMap        map[int]*godo.Droplet
 	dropletNameMap      map[string]*godo.Droplet
 	loadBalancerIDMap   map[string]*godo.LoadBalancer
@@ -54,8 +57,11 @@ type resources struct {
 	mutex sync.RWMutex
 }
 
-func newResources() *resources {
+func newResources(clusterID, clusterVPCID string) *resources {
 	return &resources{
+		clusterID:    clusterID,
+		clusterVPCID: clusterVPCID,
+
 		dropletIDMap:        make(map[int]*godo.Droplet),
 		dropletNameMap:      make(map[string]*godo.Droplet),
 		loadBalancerIDMap:   make(map[string]*godo.LoadBalancer),
@@ -199,7 +205,6 @@ func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan str
 // resources. It maintains a local state of the resources and
 // synchronizes when needed.
 type ResourcesController struct {
-	clusterID string
 	kclient   kubernetes.Interface
 	gclient   *godo.Client
 	svcLister v1lister.ServiceLister
@@ -210,14 +215,12 @@ type ResourcesController struct {
 
 // NewResourcesController returns a new resource controller.
 func NewResourcesController(
-	clusterID string,
 	r *resources,
 	inf v1informers.ServiceInformer,
 	k kubernetes.Interface,
 	g *godo.Client,
 ) *ResourcesController {
 	return &ResourcesController{
-		clusterID: clusterID,
 		resources: r,
 		kclient:   k,
 		gclient:   g,
@@ -230,8 +233,8 @@ func NewResourcesController(
 func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 	go r.syncer.Sync("resources syncer", controllerSyncResourcesPeriod, stopCh, r.syncResources)
 
-	if r.clusterID == "" {
-		glog.Info("No cluster ID configured -- skipping tags syncing.")
+	if r.resources.clusterID == "" {
+		glog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
 	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
@@ -303,7 +306,7 @@ func (r *ResourcesController) syncTags() error {
 		return nil
 	}
 
-	tag := buildK8sTag(r.clusterID)
+	tag := buildK8sTag(r.resources.clusterID)
 	// Tag collected resources with the cluster ID. If the tag does not exist
 	// (for reasons outlined below), we will create it and retry tagging again.
 	err = r.tagResources(res)
@@ -334,7 +337,7 @@ func (r *ResourcesController) syncTags() error {
 func (r *ResourcesController) tagResources(res []godo.Resource) error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
-	tag := buildK8sTag(r.clusterID)
+	tag := buildK8sTag(r.resources.clusterID)
 	resp, err := r.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
 		Resources: res,
 	})

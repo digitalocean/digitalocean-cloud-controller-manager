@@ -1958,7 +1958,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources()
+			fakeResources := newResources("", "")
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
@@ -1988,53 +1988,95 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 }
 
 func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
-	service := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test",
+	tests := []struct {
+		name      string
+		clusterID string
+		vpcID     string
+		err       error
+	}{
+		{
+			name:      "happy path",
+			clusterID: clusterID,
+			vpcID:     "vpc_uuid",
 		},
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Name:     "test",
-					Protocol: "TCP",
-					Port:     int32(80),
-					NodePort: int32(30000),
+		{
+			name:      "missing cluster id",
+			clusterID: "",
+			vpcID:     "vpc_uuid",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			service := &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
 				},
-			},
-		},
-	}
-	nodes := []*v1.Node{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node-1",
-			},
-		},
-	}
-	fakeClient := newFakeLBClient(&fakeLBService{})
-	fakeResources := newResources()
-	fakeResources.UpdateDroplets([]godo.Droplet{
-		{
-			ID:   100,
-			Name: "node-1",
-		},
-	})
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			}
+			nodes := []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+			}
+			fakeClient := newFakeLBClient(&fakeLBService{})
+			fakeResources := newResources(test.clusterID, test.vpcID)
+			fakeResources.clusterVPCID = test.vpcID
+			fakeResources.UpdateDroplets([]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			})
 
-	clusterID := "fdda2d9d-0856-4ca4-b8ee-27ca8bfecc77"
-	lb := &loadBalancers{
-		resources: fakeResources,
-		client:    fakeClient,
-		region:    "nyc3",
-		clusterID: clusterID,
-	}
+			lb := &loadBalancers{
+				resources: fakeResources,
+				client:    fakeClient,
+				region:    "nyc3",
+				clusterID: clusterID,
+			}
 
-	lbr, err := lb.buildLoadBalancerRequest(service, nodes)
-	if err != nil {
-		t.Errorf("got error: %s", err)
-	}
+			lbr, err := lb.buildLoadBalancerRequest(service, nodes)
+			if test.err != nil {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
 
-	wantTags := []string{buildK8sTag(clusterID)}
-	if !reflect.DeepEqual(lbr.Tags, wantTags) {
-		t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
+				if want, got := test.err, err; !reflect.DeepEqual(want, got) {
+					t.Errorf("incorrect err\nwant: %#v\n got: %#v", want, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("got error: %s", err)
+			}
+
+			var wantTags []string
+			if test.clusterID != "" {
+				wantTags = []string{buildK8sTag(clusterID)}
+			}
+			if !reflect.DeepEqual(lbr.Tags, wantTags) {
+				t.Errorf("got tags %q, want %q", lbr.Tags, wantTags)
+			}
+
+			if want, got := "vpc_uuid", lbr.VPCUUID; want != got {
+				t.Errorf("incorrect vpc uuid\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
@@ -2131,7 +2173,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources()
+			fakeResources := newResources("", "")
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
@@ -2236,7 +2278,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeResources := newResources()
+			fakeResources := newResources("", "")
 			fakeResources.UpdateLoadBalancers(test.lbs)
 
 			lb := &loadBalancers{
@@ -2440,7 +2482,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				updateFn: test.updateFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources()
+			fakeResources := newResources("", "")
 			fakeResources.UpdateDroplets(test.droplets)
 			fakeResources.UpdateLoadBalancers(test.lbs)
 
