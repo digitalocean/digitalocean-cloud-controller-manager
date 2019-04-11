@@ -25,7 +25,9 @@ COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
-GOVERSION ?= 1.11.5
+GOVERSION ?= 1.12.3
+
+export GO111MODULE := off
 
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
 PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
@@ -64,7 +66,7 @@ compile:
 	@echo "==> Building the project"
 	@docker run -v $(PWD):/go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
-	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 golang:$(GOVERSION) \
+	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GOFLAGS=-mod=vendor golang:$(GOVERSION) \
 	  go build -ldflags "$(LDFLAGS)" ${PKG}
 
 .PHONY: build
@@ -108,3 +110,7 @@ check-headers:
 	@./ci/headers-docker.sh
 	@./ci/headers-go.sh
 
+.PHONY: vendor
+vendor:
+	@GO111MODULE=on go mod tidy
+	@GO111MODULE=on go mod vendor

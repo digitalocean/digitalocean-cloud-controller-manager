@@ -1,15 +1,13 @@
 language: go
 
 go:
-  - 1.9.x
-  - "1.10.x"
   - "1.11.x"
   - "1.12.x"
 
 dist: trusty
 
 script:
-  - go get golang.org/x/lint/golint
+  - GO111MODULE=on go install -mod=vendor golang.org/x/lint/golint
   - make ci
 
 branches:
