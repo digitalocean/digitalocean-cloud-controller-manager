@@ -53,6 +53,7 @@ spec:
           - "/bin/digitalocean-cloud-controller-manager"
           - "--cloud-provider=digitalocean"
           - "--leader-elect=true"
+          - "--allow-untagged-cloud=true"
         resources:
           requests:
             cpu: 100m

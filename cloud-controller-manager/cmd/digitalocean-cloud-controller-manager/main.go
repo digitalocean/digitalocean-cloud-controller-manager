@@ -17,21 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"k8s.io/apiserver/pkg/server/healthz"
-	"k8s.io/apiserver/pkg/util/flag"
-	"k8s.io/apiserver/pkg/util/logs"
+	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/cloud-controller-manager/app"
-	"k8s.io/kubernetes/cmd/cloud-controller-manager/app/options"
 	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
 	_ "k8s.io/kubernetes/pkg/version/prometheus"        // for version metric registration
-	"k8s.io/kubernetes/pkg/version/verflag"
 
 	_ "github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
-	"github.com/golang/glog"
-	"github.com/spf13/pflag"
 )
 
 func init() {
@@ -39,29 +35,22 @@ func init() {
 }
 
 func main() {
-	s, err := options.NewCloudControllerManagerOptions()
-	if err != nil {
-		glog.Fatalf("failed to create config options: %s", err)
-	}
+	// Bogus parameter needed until https://github.com/kubernetes/kubernetes/issues/76205
+	// gets resolved.
+	flag.CommandLine.String("cloud-provider-gce-lb-src-cidrs", "", "NOT USED (workaround for https://github.com/kubernetes/kubernetes/issues/76205)")
 
-	s.AddFlags(pflag.CommandLine)
+	command := app.NewCloudControllerManagerCommand()
 
-	flag.InitFlags()
+	// (The following comment is copied from upstream:)
+	// TODO: once we switch everything over to Cobra commands, we can go back to calling
+	// utilflag.InitFlags() (by removing its pflag.Parse() call). For now, we have to set the
+	// normalize func and add the go flag set by hand.
+	// utilflag.InitFlags()
 	logs.InitLogs()
 	defer logs.FlushLogs()
 
-	verflag.PrintAndExitIfRequested()
-
-	// digitalocean overrides
-	s.KubeCloudShared.AllowUntaggedCloud = true
-
-	config, err := s.Config()
-	if err != nil {
-		glog.Fatalf("failed to create component config: %s", err)
-	}
-
-	if err := app.Run(config.Complete()); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
+	if err := command.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }
