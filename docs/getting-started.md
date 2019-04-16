@@ -14,13 +14,25 @@ These are the recommended versions to run the cloud controller manager based on 
 * Use CCM versions >= v0.1.5 if you're running Kubernetes version >= v1.10
 * Use CCM versions >= v0.1.8 if you're running Kubernetes version >= v1.11
 
-### --cloud-provider=external
+### Command-line parameters
+
+This section outlines parameters that can be passed to the cloud controller manager binary.
+
+#### --cloud-provider=external
 
 All `kubelet`s in your cluster **MUST** set the flag `--cloud-provider=external`. `kube-apiserver` and `kube-controller-manager` must **NOT** set the flag `--cloud-provider` which will default them to use no cloud provider natively.
 
 **WARNING**: setting `--cloud-provider=external` will taint all nodes in a cluster with `node.cloudprovider.kubernetes.io/uninitialized`, it is the responsibility of cloud controller managers to untaint those nodes once it has finished initializing them. This means that most pods will be left unscheduable until the cloud controller manager is running.
 
 In the future, `--cloud-provider=external` will be the default. Learn more about the future of cloud providers in Kubernetes [here](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/cloud-provider/cloud-provider-refactoring.md).
+
+#### --allow-untagged-cloud=true
+
+SIG Cloud Provider requires all cloud providers to specify a cluster ID in order to allow for a clear separation of multiple cloud controller managers managing several clusters in the same account. For the time being, this is not needed on DigitalOcean and thus **MUST** be disabled explicitly via the `--allow-untagged-cloud=true` flag. Otherwise, cloud controller manager will fail to start.
+
+(Note that earlier versions of the cloud controller manager set this option in-code; however, it had to be moved to a CLI argument to account for upstream bootstrapping changes that made it challenging to continue the programmatic approach.)
+
+As of this writing, there is [an ongoing debate](https://github.com/kubernetes/cloud-provider/issues/12) on whether the requirement to provide a cluster ID should be dropped again.
 
 ### Kubernetes node names must match the droplet name, private ipv4 ip or public ipv4 ip
 
