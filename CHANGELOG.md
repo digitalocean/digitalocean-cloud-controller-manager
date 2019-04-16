@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## unreleased
+
+* Update Kubernetes dependencies to 1.14.1 (@timoreimann)
+
 ## v0.1.13 (beta) - Apr 3rd 2019
 
 * Add support for configuring a specific vpc id (@nanzhong)

@@ -31,7 +31,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/kubernetes/pkg/scheduler/algorithm"
+	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
 )
 
 const (
@@ -104,7 +104,7 @@ func TestE2E(t *testing.T) {
 			)
 			start := time.Now()
 			if err := wait.Poll(5*time.Second, 6*time.Minute, func() (bool, error) {
-				nl, err := cs.Core().Nodes().List(metav1.ListOptions{LabelSelector: "kubernetes.io/role=node"})
+				nl, err := cs.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kubernetes.io/role=node"})
 				if err != nil {
 					return false, err
 				}
@@ -115,7 +115,7 @@ func TestE2E(t *testing.T) {
 				for _, node := range gotNodes {
 					// Make sure the "uninitialized" node taint is missing.
 					for _, taint := range node.Spec.Taints {
-						if taint.Key == algorithm.TaintExternalCloudProvider {
+						if taint.Key == schedulerapi.TaintExternalCloudProvider {
 							continue Nodes
 						}
 					}

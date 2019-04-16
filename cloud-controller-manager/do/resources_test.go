@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/kubernetes/pkg/cloudprovider"
 )
 
 func TestResources_DropletByID(t *testing.T) {
@@ -431,7 +430,7 @@ func TestResourcesController_SyncResources(t *testing.T) {
 
 func lbName(idx int) string {
 	svc := createSvc(idx, false)
-	return cloudprovider.GetLoadBalancerName(svc)
+	return getDefaultLoadBalancerName(svc)
 }
 
 func createSvc(idx int, isTypeLoadBalancer bool) *corev1.Service {

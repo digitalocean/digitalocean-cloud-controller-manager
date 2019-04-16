@@ -25,10 +25,10 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/kubernetes/pkg/cloudprovider"
+	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/klog"
 
 	"github.com/digitalocean/godo"
-	"github.com/golang/glog"
 )
 
 const (
@@ -159,7 +159,7 @@ func newLoadBalancers(resources *resources, client *godo.Client, region string) 
 //
 // GetLoadBalancer will not modify service.
 func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
-	lbName := cloudprovider.GetLoadBalancerName(service)
+	lbName := l.GetLoadBalancerName(ctx, clusterName, service)
 	lb, found := l.resources.LoadBalancerByName(lbName)
 	if !found {
 		return nil, false, nil
@@ -176,6 +176,16 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 			},
 		},
 	}, true, nil
+}
+
+// GetLoadBalancerName returns the name of the load balancer. Implementations must treat the
+// *v1.Service parameter as read-only and not modify it.
+func (l *loadBalancers) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
+	return getDefaultLoadBalancerName(service)
+}
+
+func getDefaultLoadBalancerName(service *v1.Service) string {
+	return cloudprovider.DefaultLoadBalancerName(service)
 }
 
 // EnsureLoadBalancer ensures that the cluster is running a load balancer for
@@ -234,7 +244,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	lbName := cloudprovider.GetLoadBalancerName(service)
+	lbName := l.GetLoadBalancerName(ctx, clusterName, service)
 	lb, found := l.resources.LoadBalancerByName(lbName)
 	if !found {
 		return errLBNotFound
@@ -263,7 +273,7 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 		return nil
 	}
 
-	lbName := cloudprovider.GetLoadBalancerName(service)
+	lbName := l.GetLoadBalancerName(ctx, clusterName, service)
 
 	lb, found := l.resources.LoadBalancerByName(lbName)
 	if !found {
@@ -295,7 +305,7 @@ func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 			}
 			addresses, err := nodeAddresses(droplet)
 			if err != nil {
-				glog.Errorf("error getting node addresses for %s: %v", droplet.Name, err)
+				klog.Errorf("error getting node addresses for %s: %v", droplet.Name, err)
 				continue
 			}
 			for _, address := range addresses {
@@ -313,7 +323,7 @@ func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	lbName := cloudprovider.GetLoadBalancerName(service)
+	lbName := getDefaultLoadBalancerName(service)
 
 	dropletIDs, err := l.nodesToDropletIDs(nodes)
 	if err != nil {

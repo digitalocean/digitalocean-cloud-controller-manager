@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/digitalocean/godo"
-	"k8s.io/kubernetes/pkg/cloudprovider"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 var _ cloudprovider.Zones = new(zones)

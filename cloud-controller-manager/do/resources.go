@@ -24,14 +24,13 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
-	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	v1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	v1lister "k8s.io/client-go/listers/core/v1"
-	"k8s.io/kubernetes/pkg/cloudprovider"
+	"k8s.io/klog"
 )
 
 const (
@@ -186,14 +185,14 @@ func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan str
 
 	// manually call to avoid initial tick delay
 	if err := fn(); err != nil {
-		glog.Errorf("%s failed: %s", name, err)
+		klog.Errorf("%s failed: %s", name, err)
 	}
 
 	for {
 		select {
 		case <-ticker.C:
 			if err := fn(); err != nil {
-				glog.Errorf("%s failed: %s", name, err)
+				klog.Errorf("%s failed: %s", name, err)
 			}
 		case <-stopCh:
 			return
@@ -234,7 +233,7 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 	go r.syncer.Sync("resources syncer", controllerSyncResourcesPeriod, stopCh, r.syncResources)
 
 	if r.resources.clusterID == "" {
-		glog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
+		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
 	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
@@ -246,22 +245,22 @@ func (r *ResourcesController) syncResources() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
 	defer cancel()
 
-	glog.V(2).Info("syncing droplet resources.")
+	klog.V(2).Info("syncing droplet resources.")
 	droplets, err := allDropletList(ctx, r.gclient)
 	if err != nil {
-		glog.Errorf("failed to sync droplet resources: %s.", err)
+		klog.Errorf("failed to sync droplet resources: %s.", err)
 	} else {
 		r.resources.UpdateDroplets(droplets)
-		glog.V(2).Info("synced droplet resources.")
+		klog.V(2).Info("synced droplet resources.")
 	}
 
-	glog.V(2).Info("syncing load-balancer resources.")
+	klog.V(2).Info("syncing load-balancer resources.")
 	lbs, err := allLoadBalancerList(ctx, r.gclient)
 	if err != nil {
-		glog.Errorf("failed to sync load-balancer resources: %s.", err)
+		klog.Errorf("failed to sync load-balancer resources: %s.", err)
 	} else {
 		r.resources.UpdateLoadBalancers(lbs)
-		glog.V(2).Info("synced load-balancer resources.")
+		klog.V(2).Info("synced load-balancer resources.")
 	}
 
 	return nil
@@ -293,7 +292,7 @@ func (r *ResourcesController) syncTags() error {
 			continue
 		}
 
-		name := cloudprovider.GetLoadBalancerName(svc)
+		name := getDefaultLoadBalancerName(svc)
 		if id, ok := loadBalancers[name]; ok {
 			res = append(res, godo.Resource{
 				ID:   id,
