@@ -177,6 +177,41 @@ func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	c.loadBalancerNameMap = newNameMap
 }
 
+func (c *resources) SyncDroplet(id int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
+	defer cancel()
+
+	droplet, res, err := c.client.Droplets.Get(ctx, id)
+	if err != nil {
+		if res != nil && res.StatusCode == http.StatusNotFound {
+			c.mutex.Lock()
+			defer c.mutex.Unlock()
+
+			oldDroplet, found := c.dropletIDMap[id]
+			if found {
+				delete(c.dropletIDMap, oldDroplet.ID)
+				delete(c.dropletNameMap, oldDroplet.Name)
+			}
+
+			return nil
+		}
+
+		return err
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	oldDroplet, found := c.dropletIDMap[droplet.ID]
+	if found && oldDroplet.Name != droplet.Name {
+		delete(c.dropletNameMap, oldDroplet.Name)
+	}
+	c.dropletIDMap[droplet.ID] = droplet
+	c.dropletNameMap[droplet.Name] = droplet
+
+	return nil
+}
+
 func (c *resources) SyncDroplets() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
 	defer cancel()

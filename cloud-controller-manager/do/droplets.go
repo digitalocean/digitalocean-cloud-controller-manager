@@ -141,6 +141,11 @@ func (i *instances) InstanceExistsByProviderID(_ context.Context, providerID str
 		return false, err
 	}
 
+	err = i.resources.SyncDroplet(id)
+	if err != nil {
+		return false, err
+	}
+
 	_, found := i.resources.DropletByID(id)
 	if !found {
 		// this is the case where we know the droplet is gone so we return false

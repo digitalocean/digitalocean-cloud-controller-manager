@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"sort"
 	"strconv"
@@ -254,6 +255,118 @@ func TestResources_LoadBalancers(t *testing.T) {
 	sort.Slice(foundLBs, func(a, b int) bool { return foundLBs[a].ID < foundLBs[b].ID })
 	if want, got := lbs, foundLBs; !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect lbs\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestResources_SyncDroplet(t *testing.T) {
+	tests := []struct {
+		name              string
+		dropletsSvc       godo.DropletsService
+		initialResources  *resources
+		expectedResources *resources
+		err               error
+	}{
+		{
+			name: "happy path",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return &godo.Droplet{ID: 1, Name: "updated-one"}, newFakeOKResponse(), nil
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "updated-one"}},
+				dropletNameMap: map[string]*godo.Droplet{"updated-one": {ID: 1, Name: "updated-one"}},
+			},
+			err: nil,
+		},
+		{
+			name: "error",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("fail")
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"updated-one": {ID: 1, Name: "one"}},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			err: errors.New("fail"),
+		},
+		{
+			name: "droplet not found",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return nil, newFakeResponse(http.StatusNotFound), errors.New("not found")
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{},
+				dropletNameMap: map[string]*godo.Droplet{},
+			},
+			err: nil,
+		},
+		{
+			name: "new droplet",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return &godo.Droplet{ID: 1, Name: "one"}, newFakeOKResponse(), nil
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{},
+				dropletNameMap: map[string]*godo.Droplet{},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			err: nil,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := &godo.Client{
+				Droplets: test.dropletsSvc,
+			}
+			fakeResources := newResources("", "", client)
+			fakeResources.dropletIDMap = test.initialResources.dropletIDMap
+			fakeResources.dropletNameMap = test.initialResources.dropletNameMap
+
+			err := fakeResources.SyncDroplet(1)
+			if test.err != nil {
+				if !reflect.DeepEqual(err, test.err) {
+					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("did not expect err but got: %s", err)
+				return
+			}
+
+			if want, got := test.expectedResources.dropletIDMap, fakeResources.dropletIDMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet id map\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.expectedResources.dropletNameMap, fakeResources.dropletNameMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet name map\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
