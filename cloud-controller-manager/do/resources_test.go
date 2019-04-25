@@ -348,7 +348,7 @@ func TestResources_SyncDroplet(t *testing.T) {
 			fakeResources.dropletIDMap = test.initialResources.dropletIDMap
 			fakeResources.dropletNameMap = test.initialResources.dropletNameMap
 
-			err := fakeResources.SyncDroplet(1)
+			err := fakeResources.SyncDroplet(context.Background(), 1)
 			if test.err != nil {
 				if !reflect.DeepEqual(err, test.err) {
 					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)
@@ -418,7 +418,7 @@ func TestResources_SyncDroplets(t *testing.T) {
 				{ID: 1, Name: "one"},
 			})
 
-			err := fakeResources.SyncDroplets()
+			err := fakeResources.SyncDroplets(context.Background())
 			if test.err != nil {
 				if !reflect.DeepEqual(err, test.err) {
 					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)

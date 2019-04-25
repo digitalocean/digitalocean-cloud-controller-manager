@@ -86,10 +86,19 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 }
 
 // InstanceID returns the cloud provider ID of the droplet identified by nodeName.
-func (i *instances) InstanceID(_ context.Context, nodeName types.NodeName) (string, error) {
+func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
 	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
-		return "", cloudprovider.InstanceNotFound
+		// NOTE attempt to sync once if not found. This will guarantee that nodes are actually non-existant and not missing due to a stale cache.
+		err := i.resources.SyncDroplets(ctx)
+		if err != nil {
+			return "", err
+		}
+
+		droplet, found = i.resources.DropletByName(string(nodeName))
+		if !found {
+			return "", cloudprovider.InstanceNotFound
+		}
 	}
 
 	return strconv.Itoa(droplet.ID), nil
@@ -132,7 +141,7 @@ func (i *instances) CurrentNodeName(_ context.Context, hostname string) (types.N
 
 // InstanceExistsByProviderID returns true if the droplet identified by
 // providerID is running.
-func (i *instances) InstanceExistsByProviderID(_ context.Context, providerID string) (bool, error) {
+func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID string) (bool, error) {
 	// NOTE: when false is returned with no error, the instance will be
 	// immediately deleted by the cloud controller manager.
 
@@ -141,7 +150,7 @@ func (i *instances) InstanceExistsByProviderID(_ context.Context, providerID str
 		return false, err
 	}
 
-	err = i.resources.SyncDroplet(id)
+	err = i.resources.SyncDroplet(ctx, id)
 	if err != nil {
 		return false, err
 	}

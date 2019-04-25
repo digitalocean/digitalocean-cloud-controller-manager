@@ -177,8 +177,8 @@ func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	c.loadBalancerNameMap = newNameMap
 }
 
-func (c *resources) SyncDroplet(id int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
+func (c *resources) SyncDroplet(ctx context.Context, id int) error {
+	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
 	defer cancel()
 
 	droplet, res, err := c.client.Droplets.Get(ctx, id)
@@ -212,8 +212,8 @@ func (c *resources) SyncDroplet(id int) error {
 	return nil
 }
 
-func (c *resources) SyncDroplets() error {
-	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
+func (c *resources) SyncDroplets(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
 	defer cancel()
 
 	droplets, err := allDropletList(ctx, c.client)
@@ -308,7 +308,7 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 // DigitalOcean API.
 func (r *ResourcesController) syncResources() error {
 	klog.V(2).Info("syncing droplet resources.")
-	err := r.resources.SyncDroplets()
+	err := r.resources.SyncDroplets(context.Background())
 	if err != nil {
 		klog.Errorf("failed to sync droplet resources: %s.", err)
 	} else {
