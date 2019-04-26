@@ -89,7 +89,7 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
 	droplet, found := i.resources.DropletByName(string(nodeName))
 	if !found {
-		// NOTE attempt to sync once if not found. This will guarantee that nodes are actually non-existant and not missing due to a stale cache.
+		// NOTE attempt to sync once if not found. This will guarantee that nodes are actually non-existent and not missing due to a stale cache.
 		err := i.resources.SyncDroplets(ctx)
 		if err != nil {
 			return "", err
