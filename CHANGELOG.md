@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v0.1.14 (beta) - Apr 26 2018
+## v0.1.14 (beta) - Apr 26th 2019
 
 * Update Kubernetes dependencies to 1.14.1 (@timoreimann)
 * Handle case where stale droplet cache can result in incorrect node deletions (@nanzhong)
