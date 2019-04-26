@@ -1958,7 +1958,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources("", "")
+			fakeResources := newResources("", "", nil)
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
@@ -2034,7 +2034,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 				},
 			}
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources(test.clusterID, test.vpcID)
+			fakeResources := newResources(test.clusterID, test.vpcID, nil)
 			fakeResources.clusterVPCID = test.vpcID
 			fakeResources.UpdateDroplets([]godo.Droplet{
 				{
@@ -2173,7 +2173,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources("", "")
+			fakeResources := newResources("", "", nil)
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
@@ -2278,7 +2278,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeResources := newResources("", "")
+			fakeResources := newResources("", "", nil)
 			fakeResources.UpdateLoadBalancers(test.lbs)
 
 			lb := &loadBalancers{
@@ -2482,7 +2482,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				updateFn: test.updateFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "")
+			fakeResources := newResources("", "", nil)
 			fakeResources.UpdateDroplets(test.droplets)
 			fakeResources.UpdateLoadBalancers(test.lbs)
 

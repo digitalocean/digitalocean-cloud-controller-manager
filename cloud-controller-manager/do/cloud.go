@@ -87,7 +87,7 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	clusterID := os.Getenv(doClusterIDEnv)
 	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
-	resources := newResources(clusterID, clusterVPCID)
+	resources := newResources(clusterID, clusterVPCID, doClient)
 
 	return &cloud{
 		client:        doClient,

@@ -48,6 +48,8 @@ type resources struct {
 	clusterID    string
 	clusterVPCID string
 
+	client *godo.Client
+
 	dropletIDMap        map[int]*godo.Droplet
 	dropletNameMap      map[string]*godo.Droplet
 	loadBalancerIDMap   map[string]*godo.LoadBalancer
@@ -56,10 +58,12 @@ type resources struct {
 	mutex sync.RWMutex
 }
 
-func newResources(clusterID, clusterVPCID string) *resources {
+func newResources(clusterID, clusterVPCID string, client *godo.Client) *resources {
 	return &resources{
 		clusterID:    clusterID,
 		clusterVPCID: clusterVPCID,
+
+		client: client,
 
 		dropletIDMap:        make(map[int]*godo.Droplet),
 		dropletNameMap:      make(map[string]*godo.Droplet),
@@ -173,6 +177,67 @@ func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
 	c.loadBalancerNameMap = newNameMap
 }
 
+func (c *resources) SyncDroplet(ctx context.Context, id int) error {
+	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
+	defer cancel()
+
+	droplet, res, err := c.client.Droplets.Get(ctx, id)
+	if err != nil {
+		if res != nil && res.StatusCode == http.StatusNotFound {
+			c.mutex.Lock()
+			defer c.mutex.Unlock()
+
+			oldDroplet, found := c.dropletIDMap[id]
+			if found {
+				delete(c.dropletIDMap, oldDroplet.ID)
+				delete(c.dropletNameMap, oldDroplet.Name)
+			}
+
+			return nil
+		}
+
+		return err
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	oldDroplet, found := c.dropletIDMap[droplet.ID]
+	if found && oldDroplet.Name != droplet.Name {
+		delete(c.dropletNameMap, oldDroplet.Name)
+	}
+	c.dropletIDMap[droplet.ID] = droplet
+	c.dropletNameMap[droplet.Name] = droplet
+
+	return nil
+}
+
+func (c *resources) SyncDroplets(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
+	defer cancel()
+
+	droplets, err := allDropletList(ctx, c.client)
+	if err != nil {
+		return err
+	}
+
+	c.UpdateDroplets(droplets)
+	return nil
+}
+
+func (c *resources) SyncLoadBalancers() error {
+	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
+	defer cancel()
+
+	lbs, err := allLoadBalancerList(ctx, c.client)
+	if err != nil {
+		return err
+	}
+
+	c.UpdateLoadBalancers(lbs)
+	return nil
+}
+
 type syncer interface {
 	Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error)
 }
@@ -242,24 +307,19 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 // syncResources updates the local resources representation from the
 // DigitalOcean API.
 func (r *ResourcesController) syncResources() error {
-	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
-	defer cancel()
-
 	klog.V(2).Info("syncing droplet resources.")
-	droplets, err := allDropletList(ctx, r.gclient)
+	err := r.resources.SyncDroplets(context.Background())
 	if err != nil {
 		klog.Errorf("failed to sync droplet resources: %s.", err)
 	} else {
-		r.resources.UpdateDroplets(droplets)
 		klog.V(2).Info("synced droplet resources.")
 	}
 
 	klog.V(2).Info("syncing load-balancer resources.")
-	lbs, err := allLoadBalancerList(ctx, r.gclient)
+	err = r.resources.SyncLoadBalancers()
 	if err != nil {
 		klog.Errorf("failed to sync load-balancer resources: %s.", err)
 	} else {
-		r.resources.UpdateLoadBalancers(lbs)
 		klog.V(2).Info("synced load-balancer resources.")
 	}
 

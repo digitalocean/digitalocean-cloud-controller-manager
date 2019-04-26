@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"sort"
 	"strconv"
@@ -67,7 +68,7 @@ func TestResources_DropletByID(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources("", "")
+			resources := newResources("", "", nil)
 			resources.UpdateDroplets(test.droplets)
 
 			droplet, found := resources.DropletByID(test.findID)
@@ -110,7 +111,7 @@ func TestResources_DropletByName(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources("", "")
+			resources := newResources("", "", nil)
 			resources.UpdateDroplets(test.droplets)
 
 			droplet, found := resources.DropletByName(test.findName)
@@ -172,7 +173,7 @@ func TestResources_LoadBalancerByID(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources("", "")
+			resources := newResources("", "", nil)
 			resources.UpdateLoadBalancers(test.lbs)
 
 			lb, found := resources.LoadBalancerByID(test.findID)
@@ -225,7 +226,7 @@ func TestResources_AddLoadBalancer(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			resources := newResources("", "")
+			resources := newResources("", "", nil)
 			resources.UpdateLoadBalancers(test.lbs)
 
 			resources.AddLoadBalancer(test.newLB)
@@ -254,6 +255,261 @@ func TestResources_LoadBalancers(t *testing.T) {
 	sort.Slice(foundLBs, func(a, b int) bool { return foundLBs[a].ID < foundLBs[b].ID })
 	if want, got := lbs, foundLBs; !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect lbs\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestResources_SyncDroplet(t *testing.T) {
+	tests := []struct {
+		name              string
+		dropletsSvc       godo.DropletsService
+		initialResources  *resources
+		expectedResources *resources
+		err               error
+	}{
+		{
+			name: "happy path",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return &godo.Droplet{ID: 1, Name: "updated-one"}, newFakeOKResponse(), nil
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "updated-one"}},
+				dropletNameMap: map[string]*godo.Droplet{"updated-one": {ID: 1, Name: "updated-one"}},
+			},
+			err: nil,
+		},
+		{
+			name: "error",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("fail")
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"updated-one": {ID: 1, Name: "one"}},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			err: errors.New("fail"),
+		},
+		{
+			name: "droplet not found",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return nil, newFakeResponse(http.StatusNotFound), errors.New("not found")
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{},
+				dropletNameMap: map[string]*godo.Droplet{},
+			},
+			err: nil,
+		},
+		{
+			name: "new droplet",
+			dropletsSvc: &fakeDropletService{
+				getFunc: func(ctx context.Context, id int) (*godo.Droplet, *godo.Response, error) {
+					return &godo.Droplet{ID: 1, Name: "one"}, newFakeOKResponse(), nil
+				},
+			},
+			initialResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{},
+				dropletNameMap: map[string]*godo.Droplet{},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			err: nil,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := &godo.Client{
+				Droplets: test.dropletsSvc,
+			}
+			fakeResources := newResources("", "", client)
+			fakeResources.dropletIDMap = test.initialResources.dropletIDMap
+			fakeResources.dropletNameMap = test.initialResources.dropletNameMap
+
+			err := fakeResources.SyncDroplet(context.Background(), 1)
+			if test.err != nil {
+				if !reflect.DeepEqual(err, test.err) {
+					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("did not expect err but got: %s", err)
+				return
+			}
+
+			if want, got := test.expectedResources.dropletIDMap, fakeResources.dropletIDMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet id map\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.expectedResources.dropletNameMap, fakeResources.dropletNameMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet name map\nwant: %#v\n got: %#v", want, got)
+			}
+		})
+	}
+}
+
+func TestResources_SyncDroplets(t *testing.T) {
+	tests := []struct {
+		name              string
+		dropletsSvc       godo.DropletsService
+		expectedResources *resources
+		err               error
+	}{
+		{
+			name: "happy path",
+			dropletsSvc: &fakeDropletService{
+				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
+				},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
+				dropletNameMap: map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
+			},
+			err: nil,
+		},
+		{
+			name: "droplets svc failure",
+			dropletsSvc: &fakeDropletService{
+				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("droplets svc fail")
+				},
+			},
+			expectedResources: &resources{
+				dropletIDMap:   map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
+				dropletNameMap: map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
+			},
+			err: errors.New("droplets svc fail"),
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := &godo.Client{
+				Droplets: test.dropletsSvc,
+			}
+			fakeResources := newResources("", "", client)
+			fakeResources.UpdateDroplets([]godo.Droplet{
+				{ID: 1, Name: "one"},
+			})
+
+			err := fakeResources.SyncDroplets(context.Background())
+			if test.err != nil {
+				if !reflect.DeepEqual(err, test.err) {
+					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("did not expect err but got: %s", err)
+				return
+			}
+
+			if want, got := test.expectedResources.dropletIDMap, fakeResources.dropletIDMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet id map\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.expectedResources.dropletNameMap, fakeResources.dropletNameMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect droplet name map\nwant: %#v\n got: %#v", want, got)
+			}
+		})
+	}
+}
+
+func TestResources_SyncLoadBalancers(t *testing.T) {
+	tests := []struct {
+		name              string
+		lbsSvc            godo.LoadBalancersService
+		expectedResources *resources
+		err               error
+	}{
+		{
+			name: "happy path",
+			lbsSvc: &fakeLBService{
+				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
+				},
+			},
+			expectedResources: &resources{
+				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"2": {ID: "2", Name: "two"}},
+				loadBalancerNameMap: map[string]*godo.LoadBalancer{"two": {ID: "2", Name: "two"}},
+			},
+			err: nil,
+		},
+		{
+			name: "lbs svc failure",
+			lbsSvc: &fakeLBService{
+				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("lbs svc fail")
+				},
+			},
+			expectedResources: &resources{
+				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"1": {ID: "1", Name: "one"}},
+				loadBalancerNameMap: map[string]*godo.LoadBalancer{"one": {ID: "1", Name: "one"}},
+			},
+			err: errors.New("lbs svc fail"),
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			client := &godo.Client{
+				LoadBalancers: test.lbsSvc,
+			}
+			fakeResources := newResources("", "", client)
+			fakeResources.UpdateDroplets([]godo.Droplet{
+				{ID: 1, Name: "one"},
+			})
+			fakeResources.UpdateLoadBalancers([]godo.LoadBalancer{
+				{ID: "1", Name: "one"},
+			})
+
+			err := fakeResources.SyncLoadBalancers()
+			if test.err != nil {
+				if !reflect.DeepEqual(err, test.err) {
+					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("did not expect err but got: %s", err)
+				return
+			}
+
+			if want, got := test.expectedResources.loadBalancerIDMap, fakeResources.loadBalancerIDMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect lb id map\nwant: %#v\n got: %#v", want, got)
+			}
+			if want, got := test.expectedResources.loadBalancerNameMap, fakeResources.loadBalancerNameMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect lb name map\nwant: %#v\n got: %#v", want, got)
+			}
+		})
 	}
 }
 
@@ -299,9 +555,6 @@ var (
 )
 
 func TestResourcesController_Run(t *testing.T) {
-	fakeResources := newResources(clusterID, "")
-	kclient := fake.NewSimpleClientset()
-	inf := informers.NewSharedInformerFactory(kclient, 0)
 	gclient := &godo.Client{
 		Droplets: &fakeDropletService{
 			listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
@@ -314,6 +567,9 @@ func TestResourcesController_Run(t *testing.T) {
 			},
 		},
 	}
+	fakeResources := newResources(clusterID, "", gclient)
+	kclient := fake.NewSimpleClientset()
+	inf := informers.NewSharedInformerFactory(kclient, 0)
 
 	res := NewResourcesController(fakeResources, inf.Core().V1().Services(), kclient, gclient)
 	stop := make(chan struct{})
@@ -329,102 +585,6 @@ func TestResourcesController_Run(t *testing.T) {
 		// Terminate goroutines just in case.
 		close(stop)
 		t.Errorf("resources calls: %d tags calls: %d", syncer.synced["resources syncer"], syncer.synced["tags syncer"])
-	}
-}
-
-func TestResourcesController_SyncResources(t *testing.T) {
-	tests := []struct {
-		name              string
-		dropletsSvc       godo.DropletsService
-		lbsSvc            godo.LoadBalancersService
-		expectedResources *resources
-	}{
-		{
-			name: "happy path",
-			dropletsSvc: &fakeDropletService{
-				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-					return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
-				},
-			},
-			lbsSvc: &fakeLBService{
-				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
-				},
-			},
-			// both droplet and lb resources updated
-			expectedResources: &resources{
-				dropletIDMap:        map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
-				dropletNameMap:      map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
-				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"2": {ID: "2", Name: "two"}},
-				loadBalancerNameMap: map[string]*godo.LoadBalancer{"two": {ID: "2", Name: "two"}},
-			},
-		},
-		{
-			name: "droplets svc failure",
-			dropletsSvc: &fakeDropletService{
-				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-					return nil, newFakeNotOKResponse(), errors.New("droplets svc fail")
-				},
-			},
-			lbsSvc: &fakeLBService{
-				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
-				},
-			},
-			// only lb resources updated
-			expectedResources: &resources{
-				dropletIDMap:        map[int]*godo.Droplet{1: {ID: 1, Name: "one"}},
-				dropletNameMap:      map[string]*godo.Droplet{"one": {ID: 1, Name: "one"}},
-				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"2": {ID: "2", Name: "two"}},
-				loadBalancerNameMap: map[string]*godo.LoadBalancer{"two": {ID: "2", Name: "two"}},
-			},
-		},
-		{
-			name: "lbs svc failure",
-			dropletsSvc: &fakeDropletService{
-				listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-					return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
-				},
-			},
-			lbsSvc: &fakeLBService{
-				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return nil, newFakeNotOKResponse(), errors.New("lbs svc fail")
-				},
-			},
-			// only droplet resources updated
-			expectedResources: &resources{
-				dropletIDMap:        map[int]*godo.Droplet{2: {ID: 2, Name: "two"}},
-				dropletNameMap:      map[string]*godo.Droplet{"two": {ID: 2, Name: "two"}},
-				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"1": {ID: "1", Name: "one"}},
-				loadBalancerNameMap: map[string]*godo.LoadBalancer{"one": {ID: "1", Name: "one"}},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			fakeResources := newResources("", "")
-			fakeResources.UpdateDroplets([]godo.Droplet{
-				{ID: 1, Name: "one"},
-			})
-			fakeResources.UpdateLoadBalancers([]godo.LoadBalancer{
-				{ID: "1", Name: "one"},
-			})
-			kclient := fake.NewSimpleClientset()
-			inf := informers.NewSharedInformerFactory(kclient, 0)
-			gclient := &godo.Client{
-				Droplets:      test.dropletsSvc,
-				LoadBalancers: test.lbsSvc,
-			}
-			res := NewResourcesController(fakeResources, inf.Core().V1().Services(), kclient, gclient)
-			res.syncResources()
-			if want, got := test.expectedResources, res.resources; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect resources\nwant: %#v\n got: %#v", want, got)
-			}
-		})
 	}
 }
 
@@ -544,7 +704,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeResources := newResources("", "")
+			fakeResources := newResources("", "", nil)
 			for _, lb := range test.lbs {
 				lb := lb
 				fakeResources.loadBalancerIDMap[lb.ID] = lb
