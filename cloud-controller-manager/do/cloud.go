@@ -37,6 +37,8 @@ const (
 	providerName        string = "digitalocean"
 )
 
+var version string
+
 type tokenSource struct {
 	AccessToken string
 }
@@ -65,6 +67,11 @@ func newCloud() (cloudprovider.Interface, error) {
 	if overrideURL := os.Getenv(doOverrideAPIURLEnv); overrideURL != "" {
 		opts = append(opts, godo.SetBaseURL(overrideURL))
 	}
+
+	if version == "" {
+		version = "dev"
+	}
+	opts = append(opts, godo.SetUserAgent("digitalocean-cloud-controller-manager/"+version))
 
 	if token == "" {
 		return nil, fmt.Errorf("environment variable %q is required", doAccessTokenEnv)
