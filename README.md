@@ -26,6 +26,8 @@ will be not officially supported by us.
 
 Learn more about running DigitalOcean cloud controller manager [here](docs/getting-started.md)!
 
+_Note that this CCM is installed by default on [DOKS](https://www.digitalocean.com/products/kubernetes/) (DigitalOcean Managed Kubernetes), you don't have to do it yourself._
+
 ## Examples
 
 Here are some examples of how you could leverage `digitalocean-cloud-controller-manager`:
