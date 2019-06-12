@@ -52,9 +52,9 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 		return cloudprovider.Zone{}, err
 	}
 
-	d, found := z.resources.DropletByID(id)
-	if !found {
-		return cloudprovider.Zone{}, cloudprovider.InstanceNotFound
+	d, err := dropletByID(ctx, z.resources.client, id)
+	if err != nil {
+		return cloudprovider.Zone{}, err
 	}
 
 	return cloudprovider.Zone{Region: d.Region.Slug}, nil
@@ -64,9 +64,9 @@ func (z zones) GetZoneByProviderID(ctx context.Context, providerID string) (clou
 // by nodeName. GetZoneByNodeName only sets the Region field of the returned
 // cloudprovider.Zone.
 func (z zones) GetZoneByNodeName(ctx context.Context, nodeName types.NodeName) (cloudprovider.Zone, error) {
-	d, found := z.resources.DropletByName(string(nodeName))
-	if !found {
-		return cloudprovider.Zone{}, cloudprovider.InstanceNotFound
+	d, err := dropletByName(ctx, z.resources.client, nodeName)
+	if err != nil {
+		return cloudprovider.Zone{}, err
 	}
 
 	return cloudprovider.Zone{Region: d.Region.Slug}, nil

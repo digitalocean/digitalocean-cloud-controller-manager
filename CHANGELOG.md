@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## unreleased
+
+* Drop droplet cache usage in Instances implementation (@timoreimann)
+
 ## v0.1.14 (beta) - Apr 26th 2019
 
 * Update Kubernetes dependencies to 1.14.1 (@timoreimann)
