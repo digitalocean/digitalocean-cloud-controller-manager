@@ -107,5 +107,5 @@ if [[ ${num_lbs} -gt 0 ]]; then
   echo 'load-balancers cannot be deleted automatically; please remove from the following list manually where needed:'
   doctl compute load-balancer list
 else
-  echo 'no load-balancers must be deleted.'
+  echo 'no load-balancers found to be deleted.'
 fi
