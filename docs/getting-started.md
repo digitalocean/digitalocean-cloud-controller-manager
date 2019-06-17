@@ -42,7 +42,7 @@ For DigitalOcean accounts with small to medium numbers of droplets, iteration sh
 
 A solution to the problem is to pass the provider ID (aka droplet ID) via the kubelet on bootstrap through the `--provider-id=digitalocean://<droplet ID>` parameter. The droplet ID can be retrieved from the metadata service available on each droplet at the `http://169.254.169.254/metadata/v1/id` address. Passing the provider ID like this causes the node annotation to be available right from the start, thereby enabling fast API lookups for droplets at all times.
 
-DigitalOcean's managed Kubernetes offering DOKS sets the parameter ID on each worker node kubelet instance.
+DigitalOcean's managed Kubernetes offering DOKS sets the provider ID on each worker node kubelet instance.
 
 ### Kubernetes node names must match the droplet name, private ipv4 ip or public ipv4 ip
 
