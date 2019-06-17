@@ -29,13 +29,17 @@ import (
 var _ cloudprovider.Zones = new(zones)
 
 func TestZones_GetZoneByNodeName(t *testing.T) {
-	droplet := newFakeDroplet()
-	fakeResources := &resources{
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
-		},
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		droplets := []godo.Droplet{*droplet}
+
+		resp := newFakeOKResponse()
+		return droplets, resp, nil
 	}
-	zones := newZones(fakeResources, "nyc1")
+
+	res := &resources{client: newFakeClient(fake)}
+	zones := newZones(res, "nyc1")
 
 	expected := cloudprovider.Zone{Region: "test1"}
 
@@ -51,13 +55,15 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 }
 
 func TestZones_GetZoneByProviderID(t *testing.T) {
+	fake := &fakeDropletService{}
+
 	droplet := newFakeDroplet()
-	fakeResources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
-		},
+	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+		resp := newFakeOKResponse()
+		return droplet, resp, nil
 	}
-	zones := newZones(fakeResources, "nyc1")
+	res := &resources{client: newFakeClient(fake)}
+	zones := newZones(res, "nyc1")
 
 	expected := cloudprovider.Zone{Region: "test1"}
 

@@ -34,6 +34,16 @@ SIG Cloud Provider requires all cloud providers to specify a cluster ID in order
 
 As of this writing, there is [an ongoing debate](https://github.com/kubernetes/cloud-provider/issues/12) on whether the requirement to provide a cluster ID should be dropped again.
 
+#### --provider-id=digitalocean://\<droplet ID\>
+
+A so-called _provider ID_ annotation is attached to each node by the cloud controller manager that serves as a unique identifier to the cloud-specific VM representation. With DigitalOcean, the droplet ID is used for this purpose. The provider ID can be leveraged for efficient droplet lookups via the DigitalOcean API. Lacking the provider ID, a name-based lookup is mandated by the cloud provider interface. However, this is fairly expensive at DigitalOcean since the API does not support droplet retrieval based on names, meaning that the DigitalOcean cloud controller manager needs to iterate over all available droplets to find the one matching the desired name.
+
+For DigitalOcean accounts with small to medium numbers of droplets, iteration should not be much of an issue. However, accounts having a large number of droplets (at the order of hundreds) would likely experience observable performance degradations.
+
+A solution to the problem is to pass the provider ID (aka droplet ID) via the kubelet on bootstrap through the `--provider-id=digitalocean://<droplet ID>` parameter. The droplet ID can be retrieved from the metadata service available on each droplet at the `http://169.254.169.254/metadata/v1/id` address. Passing the provider ID like this causes the node annotation to be available right from the start, thereby enabling fast API lookups for droplets at all times.
+
+DigitalOcean's managed Kubernetes offering DOKS sets the provider ID on each worker node kubelet instance.
+
 ### Kubernetes node names must match the droplet name, private ipv4 ip or public ipv4 ip
 
 By default, the kubelet will name nodes based on the node's hostname. On DigitalOcean, node hostnames are set based on the name of the droplet. If you decide to override the hostname on kubelets with `--hostname-override`, this will also override the node name in Kubernetes. It is important that the node name on Kubernetes matches either the droplet name, private ipv4 ip or the public ipv4 ip, otherwise cloud controller manager cannot find the corresponding droplet to nodes.

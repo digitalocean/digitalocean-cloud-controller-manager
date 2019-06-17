@@ -72,22 +72,6 @@ func newResources(clusterID, clusterVPCID string, client *godo.Client) *resource
 	}
 }
 
-func (c *resources) DropletByID(id int) (droplet *godo.Droplet, found bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	droplet, found = c.dropletIDMap[id]
-	return droplet, found
-}
-
-func (c *resources) DropletByName(name string) (droplet *godo.Droplet, found bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	droplet, found = c.dropletNameMap[name]
-	return droplet, found
-}
-
 func (c *resources) Droplets() []*godo.Droplet {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()

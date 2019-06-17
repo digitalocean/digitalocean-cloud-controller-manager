@@ -20,9 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/digitalocean/godo"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
@@ -49,10 +51,10 @@ func newInstances(resources *resources, region string) cloudprovider.Instances {
 //
 // When nodeName identifies more than one droplet, only the first will be
 // considered.
-func (i *instances) NodeAddresses(_ context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
-	droplet, found := i.resources.DropletByName(string(nodeName))
-	if !found {
-		return nil, cloudprovider.InstanceNotFound
+func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
+	droplet, err := dropletByName(ctx, i.resources.client, nodeName)
+	if err != nil {
+		return nil, err
 	}
 
 	return nodeAddresses(droplet)
@@ -61,15 +63,15 @@ func (i *instances) NodeAddresses(_ context.Context, nodeName types.NodeName) ([
 // NodeAddressesByProviderID returns all the valid addresses of the droplet
 // identified by providerID. Only the public/private IPv4 addresses will be
 // considered for now.
-func (i *instances) NodeAddressesByProviderID(_ context.Context, providerID string) ([]v1.NodeAddress, error) {
+func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID string) ([]v1.NodeAddress, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return nil, err
 	}
 
-	droplet, found := i.resources.DropletByID(id)
-	if !found {
-		return nil, cloudprovider.InstanceNotFound
+	droplet, err := dropletByID(ctx, i.resources.client, id)
+	if err != nil {
+		return nil, err
 	}
 
 	return nodeAddresses(droplet)
@@ -87,43 +89,33 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceID returns the cloud provider ID of the droplet identified by nodeName.
 func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
-	droplet, found := i.resources.DropletByName(string(nodeName))
-	if !found {
-		// NOTE attempt to sync once if not found. This will guarantee that nodes are actually non-existent and not missing due to a stale cache.
-		err := i.resources.SyncDroplets(ctx)
-		if err != nil {
-			return "", err
-		}
-
-		droplet, found = i.resources.DropletByName(string(nodeName))
-		if !found {
-			return "", cloudprovider.InstanceNotFound
-		}
+	droplet, err := dropletByName(ctx, i.resources.client, nodeName)
+	if err != nil {
+		return "", err
 	}
-
 	return strconv.Itoa(droplet.ID), nil
 }
 
 // InstanceType returns the type of the droplet identified by name.
-func (i *instances) InstanceType(_ context.Context, nodeName types.NodeName) (string, error) {
-	droplet, found := i.resources.DropletByName(string(nodeName))
-	if !found {
-		return "", cloudprovider.InstanceNotFound
+func (i *instances) InstanceType(ctx context.Context, name types.NodeName) (string, error) {
+	droplet, err := dropletByName(ctx, i.resources.client, name)
+	if err != nil {
+		return "", err
 	}
 
 	return droplet.SizeSlug, nil
 }
 
 // InstanceTypeByProviderID returns the type of the droplet identified by providerID.
-func (i *instances) InstanceTypeByProviderID(_ context.Context, providerID string) (string, error) {
+func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID string) (string, error) {
 	id, err := dropletIDFromProviderID(providerID)
 	if err != nil {
 		return "", err
 	}
 
-	droplet, found := i.resources.DropletByID(id)
-	if !found {
-		return "", cloudprovider.InstanceNotFound
+	droplet, err := dropletByID(ctx, i.resources.client, id)
+	if err != nil {
+		return "", err
 	}
 
 	return droplet.SizeSlug, err
@@ -150,34 +142,68 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 		return false, err
 	}
 
-	err = i.resources.SyncDroplet(ctx, id)
-	if err != nil {
-		return false, err
+	_, err = dropletByID(ctx, i.resources.client, id)
+	if err == nil {
+		return true, nil
 	}
 
-	_, found := i.resources.DropletByID(id)
-	if !found {
-		// this is the case where we know the droplet is gone so we return false
-		// with no err to delete it
-		return false, nil
+	godoErr, ok := err.(*godo.ErrorResponse)
+	if !ok {
+		return false, fmt.Errorf("unexpected error type %T from godo: %s", err, err)
 	}
 
-	return true, nil
+	if godoErr.Response.StatusCode != http.StatusNotFound {
+		return false, fmt.Errorf("error checking if instance exists: %s", err)
+	}
+
+	return false, nil
 }
 
 // InstanceShutdownByProviderID returns true if the droplet is turned off
-func (i *instances) InstanceShutdownByProviderID(_ context.Context, providerID string) (bool, error) {
-	id, err := dropletIDFromProviderID(providerID)
+func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID string) (bool, error) {
+	dropletID, err := dropletIDFromProviderID(providerID)
 	if err != nil {
-		return false, fmt.Errorf("error getting droplet ID from provider ID %s, err: %v", providerID, err)
+		return false, fmt.Errorf("error getting droplet ID from provider ID %q: %s", providerID, err)
 	}
 
-	droplet, found := i.resources.DropletByID(id)
-	if !found {
-		return false, cloudprovider.InstanceNotFound
+	droplet, err := dropletByID(ctx, i.resources.client, dropletID)
+	if err != nil {
+		return false, fmt.Errorf("error getting droplet %q by ID: %s", dropletID, err)
 	}
 
 	return droplet.Status == dropletShutdownStatus, nil
+}
+
+// dropletByID returns a *godo.Droplet value for the droplet identified by id.
+func dropletByID(ctx context.Context, client *godo.Client, id int) (*godo.Droplet, error) {
+	droplet, _, err := client.Droplets.Get(ctx, id)
+	return droplet, err
+}
+
+// dropletByName returns a *godo.Droplet for the droplet identified by nodeName.
+//
+// When nodeName identifies more than one droplet, only the first will be
+// considered.
+func dropletByName(ctx context.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
+	// TODO (andrewsykim): list by tag once a tagging format is determined
+	droplets, err := allDropletList(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, droplet := range droplets {
+		if droplet.Name == string(nodeName) {
+			return &droplet, nil
+		}
+		addresses, _ := nodeAddresses(&droplet)
+		for _, address := range addresses {
+			if address.Address == string(nodeName) {
+				return &droplet, nil
+			}
+		}
+	}
+
+	return nil, cloudprovider.InstanceNotFound
 }
 
 // dropletIDFromProviderID returns a droplet's ID from providerID.

@@ -150,16 +150,17 @@ func newFakeShutdownDroplet() *godo.Droplet {
 var _ cloudprovider.Instances = new(instances)
 
 func TestNodeAddresses(t *testing.T) {
-	droplet := newFakeDroplet()
-	fakeResources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
-		},
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
-		},
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		droplets := []godo.Droplet{*droplet}
+
+		resp := newFakeOKResponse()
+		return droplets, resp, nil
 	}
-	instances := newInstances(fakeResources, "nyc1")
+
+	res := &resources{client: newFakeClient(fake)}
+	instances := newInstances(res, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
 		{
@@ -188,16 +189,14 @@ func TestNodeAddresses(t *testing.T) {
 }
 
 func TestNodeAddressesByProviderID(t *testing.T) {
-	droplet := newFakeDroplet()
-	fakeResources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
-		},
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
-		},
+	fake := &fakeDropletService{}
+	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		resp := newFakeOKResponse()
+		return droplet, resp, nil
 	}
-	instances := newInstances(fakeResources, "nyc1")
+	res := &resources{client: newFakeClient(fake)}
+	instances := newInstances(res, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
 		{
@@ -226,16 +225,17 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 }
 
 func TestInstanceID(t *testing.T) {
-	droplet := newFakeDroplet()
-	fakeResources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
-		},
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
-		},
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		droplets := []godo.Droplet{*droplet}
+
+		resp := newFakeOKResponse()
+		return droplets, resp, nil
 	}
-	instances := newInstances(fakeResources, "nyc1")
+
+	res := &resources{client: newFakeClient(fake)}
+	instances := newInstances(res, "nyc1")
 
 	id, err := instances.InstanceID(context.TODO(), "test-droplet")
 	if err != nil {
@@ -248,16 +248,17 @@ func TestInstanceID(t *testing.T) {
 }
 
 func TestInstanceType(t *testing.T) {
-	droplet := newFakeDroplet()
-	fakeResources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
-		},
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
-		},
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		droplets := []godo.Droplet{*droplet}
+
+		resp := newFakeOKResponse()
+		return droplets, resp, nil
 	}
-	instances := newInstances(fakeResources, "nyc1")
+
+	res := &resources{client: newFakeClient(fake)}
+	instances := newInstances(res, "nyc1")
 
 	instanceType, err := instances.InstanceType(context.TODO(), "test-droplet")
 	if err != nil {
@@ -270,16 +271,15 @@ func TestInstanceType(t *testing.T) {
 }
 
 func Test_InstanceShutdownByProviderID(t *testing.T) {
-	droplet := newFakeShutdownDroplet()
-	fakeResources := &resources{
-		dropletIDMap: map[int]*godo.Droplet{
-			droplet.ID: droplet,
-		},
-		dropletNameMap: map[string]*godo.Droplet{
-			droplet.Name: droplet,
-		},
+	fake := &fakeDropletService{}
+	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+		droplet := newFakeShutdownDroplet()
+		resp := newFakeOKResponse()
+		return droplet, resp, nil
 	}
-	instances := newInstances(fakeResources, "nyc1")
+
+	res := &resources{client: newFakeClient(fake)}
+	instances := newInstances(res, "nyc1")
 
 	shutdown, err := instances.InstanceShutdownByProviderID(context.TODO(), "digitalocean://123")
 	if err != nil {
