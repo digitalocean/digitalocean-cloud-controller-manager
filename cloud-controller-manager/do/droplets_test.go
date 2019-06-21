@@ -19,10 +19,12 @@ package do
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
 
 	"github.com/digitalocean/godo"
@@ -337,6 +339,57 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 				t.Errorf("actual err: %v", err)
 				t.Errorf("expected err: %v", testcase.err)
 				t.Error("unexpected err")
+			}
+		})
+	}
+}
+
+func TestDropletMatching(t *testing.T) {
+	tests := []struct {
+		name     string
+		nodeName string
+		wantErr  error
+	}{
+		{
+			name:     "internal IP matches",
+			nodeName: "10.0.0.0",
+			wantErr:  nil,
+		},
+		{
+			name:     "external IP matches",
+			nodeName: "99.99.99.99",
+			wantErr:  nil,
+		},
+		{
+			name:     "no match",
+			nodeName: "1.2.3.4",
+			wantErr:  cloudprovider.InstanceNotFound,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf(test.name), func(t *testing.T) {
+			fake := &fakeDropletService{}
+			fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				droplet := newFakeDroplet()
+				droplets := []godo.Droplet{*droplet}
+
+				resp := newFakeOKResponse()
+				return droplets, resp, nil
+			}
+
+			res := &resources{client: newFakeClient(fake)}
+			instances := newInstances(res, "nyc1")
+
+			addresses, err := instances.NodeAddresses(context.Background(), types.NodeName(test.nodeName))
+			if err != test.wantErr {
+				t.Fatalf("got error %v, want %v", err, test.wantErr)
+			}
+
+			gotAddrs := addresses != nil
+			wantAddrs := err == nil
+			if gotAddrs != wantAddrs {
+				t.Errorf("got addresses %#v, want addresses: %t", addresses, wantAddrs)
 			}
 		})
 	}
