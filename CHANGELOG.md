@@ -3,6 +3,8 @@
 ## unreleased
 
 * Drop droplet cache usage in Instances implementation (@timoreimann)
+* Add note to README about CCM being already installed on DOKS (@snormore)
+* Set a custom user agent for the godo client (@andrewsomething)
 
 ## v0.1.14 (beta) - Apr 26th 2019
 
