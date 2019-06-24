@@ -35,7 +35,7 @@ func init() {
 }
 
 func main() {
-	// TODO(timoreimann): Remove bogus GCE parameter until
+	// TODO(timoreimann): Remove bogus GCE parameter when
 	// https://github.com/kubernetes/kubernetes/issues/76205 gets shipped in
 	// Kubernetes 1.15.
 	flag.CommandLine.String("cloud-provider-gce-lb-src-cidrs", "", "NOT USED (workaround for https://github.com/kubernetes/kubernetes/issues/76205)")
