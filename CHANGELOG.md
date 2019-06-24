@@ -2,6 +2,7 @@
 
 ## unreleased
 
+* Set cloud tagging, authentication lookup skipping, and cloud provider flags in-code (@timoreimann)
 * Drop droplet cache usage in Instances implementation (@timoreimann)
 * Add note to README about CCM being already installed on DOKS (@snormore)
 * Set a custom user agent for the godo client (@andrewsomething)
