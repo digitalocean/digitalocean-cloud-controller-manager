@@ -30,11 +30,12 @@ import (
 )
 
 const (
+	// ProviderName specifies the name for the DigitalOcean provider
+	ProviderName        string = "digitalocean"
 	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
 	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
 	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
-	providerName        string = "digitalocean"
 )
 
 var version string
@@ -107,7 +108,7 @@ func newCloud() (cloudprovider.Interface, error) {
 }
 
 func init() {
-	cloudprovider.RegisterCloudProvider(providerName, func(io.Reader) (cloudprovider.Interface, error) {
+	cloudprovider.RegisterCloudProvider(ProviderName, func(io.Reader) (cloudprovider.Interface, error) {
 		return newCloud()
 	})
 }
@@ -144,7 +145,7 @@ func (c *cloud) Routes() (cloudprovider.Routes, bool) {
 }
 
 func (c *cloud) ProviderName() string {
-	return providerName
+	return ProviderName
 }
 
 func (c *cloud) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []string) {

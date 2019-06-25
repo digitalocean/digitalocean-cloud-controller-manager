@@ -221,8 +221,8 @@ func dropletIDFromProviderID(providerID string) (int, error) {
 	}
 
 	// since split[0] is actually "digitalocean:"
-	if strings.TrimSuffix(split[0], ":") != providerName {
-		return 0, fmt.Errorf("provider name from providerID should be digitalocean: %s", providerID)
+	if strings.TrimSuffix(split[0], ":") != ProviderName {
+		return 0, fmt.Errorf("provider name from providerID should be %s: %s", ProviderName, providerID)
 	}
 
 	return strconv.Atoi(split[2])

@@ -26,14 +26,6 @@ All `kubelet`s in your cluster **MUST** set the flag `--cloud-provider=external`
 
 In the future, `--cloud-provider=external` will be the default. Learn more about the future of cloud providers in Kubernetes [here](https://github.com/kubernetes/community/blob/master/contributors/design-proposals/cloud-provider/cloud-provider-refactoring.md).
 
-#### --allow-untagged-cloud=true
-
-SIG Cloud Provider requires all cloud providers to specify a cluster ID in order to allow for a clear separation of multiple cloud controller managers managing several clusters in the same account. For the time being, this is not needed on DigitalOcean and thus **MUST** be disabled explicitly via the `--allow-untagged-cloud=true` flag. Otherwise, cloud controller manager will fail to start.
-
-(Note that earlier versions of the cloud controller manager set this option in-code; however, it had to be moved to a CLI argument to account for upstream bootstrapping changes that made it challenging to continue the programmatic approach.)
-
-As of this writing, there is [an ongoing debate](https://github.com/kubernetes/cloud-provider/issues/12) on whether the requirement to provide a cluster ID should be dropped again.
-
 #### --provider-id=digitalocean://\<droplet ID\>
 
 A so-called _provider ID_ annotation is attached to each node by the cloud controller manager that serves as a unique identifier to the cloud-specific VM representation. With DigitalOcean, the droplet ID is used for this purpose. The provider ID can be leveraged for efficient droplet lookups via the DigitalOcean API. Lacking the provider ID, a name-based lookup is mandated by the cloud provider interface. However, this is fairly expensive at DigitalOcean since the API does not support droplet retrieval based on names, meaning that the DigitalOcean cloud controller manager needs to iterate over all available droplets to find the one matching the desired name.
