@@ -192,7 +192,7 @@ func (rc *RouteController) reconcile(nodes []*v1.Node, routes []*cloudprovider.R
 						klog.V(4).Infof(msg)
 						return err
 					}
-					klog.Infof("Created route for node %s %s with hint %s after %v", nodeName, route.DestinationCIDR, nameHint, time.Now().Sub(startTime))
+					klog.Infof("Created route for node %s %s with hint %s after %v", nodeName, route.DestinationCIDR, nameHint, time.Since(startTime))
 					return nil
 				})
 				if err != nil {
@@ -216,12 +216,14 @@ func (rc *RouteController) reconcile(nodes []*v1.Node, routes []*cloudprovider.R
 				// Delete the route.
 				go func(route *cloudprovider.Route, startTime time.Time) {
 					defer wg.Done()
+					rateLimiter <- struct{}{}
 					klog.Infof("Deleting route %s %s", route.Name, route.DestinationCIDR)
 					if err := rc.routes.DeleteRoute(context.TODO(), rc.clusterName, route); err != nil {
 						klog.Errorf("Could not delete route %s %s after %v: %v", route.Name, route.DestinationCIDR, time.Since(startTime), err)
 					} else {
 						klog.Infof("Deleted route %s %s after %v", route.Name, route.DestinationCIDR, time.Since(startTime))
 					}
+					<-rateLimiter
 				}(route, time.Now())
 			}
 		}
