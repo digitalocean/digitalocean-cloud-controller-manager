@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -32,7 +33,7 @@ import (
 )
 
 func init() {
-	healthz.DefaultHealthz()
+	healthz.InstallHandler(http.DefaultServeMux)
 }
 
 func main() {
