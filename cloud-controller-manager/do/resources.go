@@ -48,7 +48,8 @@ type resources struct {
 	clusterID    string
 	clusterVPCID string
 
-	client *godo.Client
+	client  *godo.Client
+	kclient kubernetes.Interface
 
 	dropletIDMap        map[int]*godo.Droplet
 	dropletNameMap      map[string]*godo.Droplet
@@ -58,12 +59,12 @@ type resources struct {
 	mutex sync.RWMutex
 }
 
-func newResources(clusterID, clusterVPCID string, client *godo.Client) *resources {
+func newResources(clusterID, clusterVPCID string, gclient *godo.Client) *resources {
 	return &resources{
 		clusterID:    clusterID,
 		clusterVPCID: clusterVPCID,
 
-		client: client,
+		client: gclient,
 
 		dropletIDMap:        make(map[int]*godo.Droplet),
 		dropletNameMap:      make(map[string]*godo.Droplet),
@@ -280,6 +281,7 @@ func NewResourcesController(
 	k kubernetes.Interface,
 	g *godo.Client,
 ) *ResourcesController {
+	r.kclient = k
 	return &ResourcesController{
 		resources: r,
 		kclient:   k,
