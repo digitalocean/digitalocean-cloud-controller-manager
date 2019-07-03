@@ -34,7 +34,13 @@ all: test
 
 publish: clean ci compile build push
 
-ci: check-headers gofmt govet golint test
+ci: check-headers check-unused gofmt govet golint test
+
+.PHONY: check-unused
+check-unused:
+	@GO111MODULE=on go mod tidy
+	@GO111MODULE=on go mod vendor
+	@git diff --exit-code -- go.sum go.mod vendor/ || ( echo "there are uncommitted changes to the Go modules and/or vendor files -- please run 'make vendor' and commit the changes first"; exit 1 )
 
 .PHONY: e2e
 e2e:
@@ -83,7 +89,6 @@ else
 	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 endif
-
 
 .PHONY: govet
 govet:
