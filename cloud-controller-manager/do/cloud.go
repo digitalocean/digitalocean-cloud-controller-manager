@@ -117,7 +117,7 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 	clientset := clientBuilder.ClientOrDie("do-shared-informers")
 	sharedInformer := informers.NewSharedInformerFactory(clientset, 0)
 
-	res := NewResourcesController(c.resources, sharedInformer.Core().V1().Services(), clientset, c.client)
+	res := NewResourcesController(c.resources, sharedInformer.Core().V1().Services(), clientset)
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)

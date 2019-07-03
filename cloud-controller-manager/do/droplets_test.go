@@ -161,7 +161,7 @@ func TestNodeAddresses(t *testing.T) {
 		return droplets, resp, nil
 	}
 
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	instances := newInstances(res, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
@@ -197,7 +197,7 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 		resp := newFakeOKResponse()
 		return droplet, resp, nil
 	}
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	instances := newInstances(res, "nyc1")
 
 	expectedAddresses := []v1.NodeAddress{
@@ -236,7 +236,7 @@ func TestInstanceID(t *testing.T) {
 		return droplets, resp, nil
 	}
 
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	instances := newInstances(res, "nyc1")
 
 	id, err := instances.InstanceID(context.TODO(), "test-droplet")
@@ -259,7 +259,7 @@ func TestInstanceType(t *testing.T) {
 		return droplets, resp, nil
 	}
 
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	instances := newInstances(res, "nyc1")
 
 	instanceType, err := instances.InstanceType(context.TODO(), "test-droplet")
@@ -280,7 +280,7 @@ func Test_InstanceShutdownByProviderID(t *testing.T) {
 		return droplet, resp, nil
 	}
 
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	instances := newInstances(res, "nyc1")
 
 	shutdown, err := instances.InstanceShutdownByProviderID(context.TODO(), "digitalocean://123")
@@ -378,7 +378,7 @@ func TestDropletMatching(t *testing.T) {
 				return droplets, resp, nil
 			}
 
-			res := &resources{client: newFakeClient(fake)}
+			res := &resources{gclient: newFakeClient(fake)}
 			instances := newInstances(res, "nyc1")
 
 			addresses, err := instances.NodeAddresses(context.Background(), types.NodeName(test.nodeName))

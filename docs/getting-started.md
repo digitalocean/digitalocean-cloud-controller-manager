@@ -75,6 +75,17 @@ The primary purpose of the variable is to allow DigitalOcean customers to easily
 
 When a cluster is created in a non-default VPC for the region, the environment variable `DO_CLUSTER_VPC_ID` must be specified or Load Balancer creation for services will fail.
 
+### Load-balancer ID annotations
+
+`digitalocean-cloud-controller-manager` attaches the UUID of load-balancers to the corresponding Service objects (given they are of type `LoadBalancer`) using the `service.k8s.digitalocean.com/load-balancer-id` annotation. This serves two purposes:
+
+1. To support load-balancer renames without impacting the correct working of `digitalocean-cloud-controller-manager`.
+2. To efficiently look up load-balancer resources in the DigitalOcean API.
+
+The annotation is added for both newly created and existing load-balancers. However, existing load-balancers lacking the annotation yet can only be associated correctly if they were not renamed before. Otherwise, the renamed load-balancer will be considered missing and a new one will be created instead, leaving the old one dangling.
+
+It is also possible to start owning an unmanaged load-balancer by adding the annotation manually prior to setting the Service type to `LoadBalancer`. Note however every load-balancer should be owned by exactly one `digitalocean-cloud-controller-manager` instance only to prevent concurrent and presumably conflicting modifications.
+
 ## Deployment
 
 ### Token

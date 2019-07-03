@@ -8,6 +8,7 @@
 
 ### Changed
 
+* Annotate Service objects by load-balancer UUIDs to enable free LB renames and improve the DO API consumption performance (@timoreimann)
 * Update Kubernetes dependencies to 1.15.0 (@timoreimann)
 * Set default LB health check protocol to TCP if not specified (@snormore)
 * Default to HTTP for sticky sessions if no protocol is defined (@snormore)

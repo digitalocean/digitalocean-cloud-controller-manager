@@ -52,7 +52,7 @@ func newInstances(resources *resources, region string) cloudprovider.Instances {
 // When nodeName identifies more than one droplet, only the first will be
 // considered.
 func (i *instances) NodeAddresses(ctx context.Context, nodeName types.NodeName) ([]v1.NodeAddress, error) {
-	droplet, err := dropletByName(ctx, i.resources.client, nodeName)
+	droplet, err := dropletByName(ctx, i.resources.gclient, nodeName)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (i *instances) NodeAddressesByProviderID(ctx context.Context, providerID st
 		return nil, err
 	}
 
-	droplet, err := dropletByID(ctx, i.resources.client, id)
+	droplet, err := dropletByID(ctx, i.resources.gclient, id)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (i *instances) ExternalID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceID returns the cloud provider ID of the droplet identified by nodeName.
 func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (string, error) {
-	droplet, err := dropletByName(ctx, i.resources.client, nodeName)
+	droplet, err := dropletByName(ctx, i.resources.gclient, nodeName)
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +98,7 @@ func (i *instances) InstanceID(ctx context.Context, nodeName types.NodeName) (st
 
 // InstanceType returns the type of the droplet identified by name.
 func (i *instances) InstanceType(ctx context.Context, name types.NodeName) (string, error) {
-	droplet, err := dropletByName(ctx, i.resources.client, name)
+	droplet, err := dropletByName(ctx, i.resources.gclient, name)
 	if err != nil {
 		return "", err
 	}
@@ -113,7 +113,7 @@ func (i *instances) InstanceTypeByProviderID(ctx context.Context, providerID str
 		return "", err
 	}
 
-	droplet, err := dropletByID(ctx, i.resources.client, id)
+	droplet, err := dropletByID(ctx, i.resources.gclient, id)
 	if err != nil {
 		return "", err
 	}
@@ -142,7 +142,7 @@ func (i *instances) InstanceExistsByProviderID(ctx context.Context, providerID s
 		return false, err
 	}
 
-	_, err = dropletByID(ctx, i.resources.client, id)
+	_, err = dropletByID(ctx, i.resources.gclient, id)
 	if err == nil {
 		return true, nil
 	}
@@ -166,7 +166,7 @@ func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID
 		return false, fmt.Errorf("error getting droplet ID from provider ID %q: %s", providerID, err)
 	}
 
-	droplet, err := dropletByID(ctx, i.resources.client, dropletID)
+	droplet, err := dropletByID(ctx, i.resources.gclient, dropletID)
 	if err != nil {
 		return false, fmt.Errorf("error getting droplet %q by ID: %s", dropletID, err)
 	}

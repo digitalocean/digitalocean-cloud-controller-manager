@@ -38,7 +38,7 @@ func TestZones_GetZoneByNodeName(t *testing.T) {
 		return droplets, resp, nil
 	}
 
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	zones := newZones(res, "nyc1")
 
 	expected := cloudprovider.Zone{Region: "test1"}
@@ -62,7 +62,7 @@ func TestZones_GetZoneByProviderID(t *testing.T) {
 		resp := newFakeOKResponse()
 		return droplet, resp, nil
 	}
-	res := &resources{client: newFakeClient(fake)}
+	res := &resources{gclient: newFakeClient(fake)}
 	zones := newZones(res, "nyc1")
 
 	expected := cloudprovider.Zone{Region: "test1"}
