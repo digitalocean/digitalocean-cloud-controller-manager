@@ -135,13 +135,25 @@ func (c *resources) AddLoadBalancer(lb godo.LoadBalancer) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	c.deleteLB(lb)
+	c.loadBalancerIDMap[lb.ID] = &lb
+	c.loadBalancerNameMap[lb.Name] = &lb
+}
+
+func (c *resources) DeleteLoadBalancer(lb godo.LoadBalancer) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.deleteLB(lb)
+}
+
+// deleteLB expects c.mutex to be hold.
+func (c *resources) deleteLB(lb godo.LoadBalancer) {
 	existingLB, found := c.loadBalancerIDMap[lb.ID]
 	if found {
 		delete(c.loadBalancerIDMap, existingLB.ID)
 		delete(c.loadBalancerNameMap, existingLB.Name)
 	}
-	c.loadBalancerIDMap[lb.ID] = &lb
-	c.loadBalancerNameMap[lb.Name] = &lb
 }
 
 func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {

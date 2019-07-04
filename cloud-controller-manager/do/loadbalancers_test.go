@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -2512,6 +2513,137 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			_, found := fakeResources.LoadBalancerByName(lbName)
 			if !found {
 				t.Error("could not find expected LB")
+			}
+		})
+	}
+}
+
+func Test_EnsureLoadBalancerDeleted(t *testing.T) {
+	lbName := "afoobar123"
+	tests := []struct {
+		name     string
+		lbs      []godo.LoadBalancer
+		deleteFn func(ctx context.Context, lbID string) (*godo.Response, error)
+		service  *v1.Service
+		err      error
+		inCache  bool
+	}{
+		{
+			name: "load-balancer evicted from cache already",
+			lbs:  nil,
+			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+				return newFakeNotOKResponse(), errors.New("delete should not have been invoked")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+			},
+			err:     nil,
+			inCache: false,
+		},
+		{
+			name: "delete failed",
+			lbs: []godo.LoadBalancer{
+				{
+					// loadbalancer names are a + service.UID
+					// see cloudprovider.GetLoadBalancerName
+					Name:   lbName,
+					IP:     "10.0.0.1",
+					Status: lbStatusActive,
+				},
+			},
+			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+				return newFakeNotOKResponse(), errors.New("API failed")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+			},
+			err:     errors.New("failed to delete load-balancer: API failed"),
+			inCache: true,
+		},
+		{
+			name: "load-balancer resource not found",
+			lbs: []godo.LoadBalancer{
+				{
+					// loadbalancer names are a + service.UID
+					// see cloudprovider.GetLoadBalancerName
+					Name:   lbName,
+					IP:     "10.0.0.1",
+					Status: lbStatusActive,
+				},
+			},
+			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+				return newFakeResponse(http.StatusNotFound), errors.New("lb not found")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+			},
+			err:     nil,
+			inCache: false,
+		},
+		{
+			name: "load-balancer deleted",
+			lbs: []godo.LoadBalancer{
+				{
+					// loadbalancer names are a + service.UID
+					// see cloudprovider.GetLoadBalancerName
+					Name:   lbName,
+					IP:     "10.0.0.1",
+					Status: lbStatusActive,
+				},
+			},
+			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+				return newFakeOKResponse(), nil
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+			},
+			err:     nil,
+			inCache: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fakeLB := &fakeLBService{
+				deleteFn: test.deleteFn,
+			}
+			fakeClient := newFakeLBClient(fakeLB)
+			fakeResources := newResources("", "", nil)
+			fakeResources.UpdateLoadBalancers(test.lbs)
+
+			lb := &loadBalancers{
+				resources:         fakeResources,
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+			}
+
+			// clusterName param in EnsureLoadBalancer currently not used
+			err := lb.EnsureLoadBalancerDeleted(context.Background(), "clusterName", test.service)
+			if !reflect.DeepEqual(err, test.err) {
+				t.Errorf("got error %v, want %v", err, test.err)
+			}
+
+			if test.err != nil {
+				return
+			}
+
+			cachedLB, found := fakeResources.LoadBalancerByName(lbName)
+			if found != test.inCache {
+				t.Errorf("got cached LB %v, wanted cache result: %t", cachedLB, test.inCache)
 			}
 		})
 	}
