@@ -180,7 +180,7 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 
 // GetLoadBalancerName returns the name of the load balancer. Implementations must treat the
 // *v1.Service parameter as read-only and not modify it.
-func (l *loadBalancers) GetLoadBalancerName(ctx context.Context, clusterName string, service *v1.Service) string {
+func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName string, service *v1.Service) string {
 	return getDefaultLoadBalancerName(service)
 }
 
@@ -264,17 +264,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 //
 // EnsureLoadBalancerDeleted will not modify service.
 func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
-	_, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		return nil
-	}
-
 	lbName := l.GetLoadBalancerName(ctx, clusterName, service)
-
 	lb, found := l.resources.LoadBalancerByName(lbName)
 	if !found {
 		return nil
@@ -282,12 +272,15 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 
 	resp, err := l.client.LoadBalancers.Delete(ctx, lb.ID)
 	if err != nil {
-		if resp.StatusCode == http.StatusNotFound {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			l.resources.DeleteLoadBalancer(*lb)
 			return nil
 		}
-		return err
+		return fmt.Errorf("failed to delete load-balancer: %s", err)
 	}
-	return fmt.Errorf("failed to delete load-balancer, status: %d %s", resp.StatusCode, resp.Status)
+
+	l.resources.DeleteLoadBalancer(*lb)
+	return nil
 }
 
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.

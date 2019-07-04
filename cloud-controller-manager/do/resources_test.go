@@ -155,6 +155,54 @@ func TestResources_AddLoadBalancer(t *testing.T) {
 	}
 }
 
+func TestResources_DeleteLoadBalancer(t *testing.T) {
+	tests := []struct {
+		name            string
+		existingLBs     []godo.LoadBalancer
+		deletedLB       godo.LoadBalancer
+		expectedIDMap   map[string]*godo.LoadBalancer
+		expectedNameMap map[string]*godo.LoadBalancer
+	}{
+		{
+			name:        "delete missing",
+			existingLBs: []godo.LoadBalancer{{ID: "1", Name: "existing"}},
+			deletedLB:   godo.LoadBalancer{ID: "2", Name: "other"},
+			expectedIDMap: map[string]*godo.LoadBalancer{
+				"1": {ID: "1", Name: "existing"},
+			},
+			expectedNameMap: map[string]*godo.LoadBalancer{
+				"existing": {ID: "1", Name: "existing"},
+			},
+		},
+		{
+			name:            "delete existing",
+			existingLBs:     []godo.LoadBalancer{{ID: "1", Name: "existing"}},
+			deletedLB:       godo.LoadBalancer{ID: "1", Name: "existing"},
+			expectedIDMap:   map[string]*godo.LoadBalancer{},
+			expectedNameMap: map[string]*godo.LoadBalancer{},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			resources := newResources("", "", nil)
+			resources.UpdateLoadBalancers(test.existingLBs)
+
+			resources.DeleteLoadBalancer(test.deletedLB)
+
+			if want, got := test.expectedIDMap, resources.loadBalancerIDMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect id map\nwant :%#v\n got: %#v", want, got)
+			}
+			if want, got := test.expectedNameMap, resources.loadBalancerNameMap; !reflect.DeepEqual(want, got) {
+				t.Errorf("incorrect name map\nwant :%#v\n got: %#v", want, got)
+			}
+		})
+	}
+}
+
 func TestResources_LoadBalancers(t *testing.T) {
 	lbs := []*godo.LoadBalancer{{ID: "1"}, {ID: "2"}}
 	resources := &resources{
