@@ -55,6 +55,10 @@ Specifies which algorithm the Load Balancer should use. Options are `round_robin
 
 Specifies which stick session type the loadbalancer should use. Options are `none` or `cookies`.
 
+**Note**
+ - Sticky sessions will route consistently to the same nodes, not pods, so you should avoid having more than one pod per node serving requests.
+ - Sticky sessions require your Service to configure `externalTrafficPolicy: Local` to avoid NAT confusion on the way in.
+
 ## service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name
 
 Specifies what cookie name to use for the DO load balancer sticky session. This annotation is required if `service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type` is set to `cookies`.
