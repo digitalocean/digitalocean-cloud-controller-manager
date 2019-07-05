@@ -1,0 +1,36 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: https-with-cert-minimal
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "http2"
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx-example
+  ports:
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 80
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-example
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-example
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+          protocol: TCP

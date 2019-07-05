@@ -136,6 +136,7 @@ const (
 	protocolTCP   = "tcp"
 	protocolHTTP  = "http"
 	protocolHTTPS = "https"
+	protocolHTTP2 = "http2"
 
 	// Port protocol values.
 	portProtocolTCP = "TCP"
@@ -407,11 +408,10 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	}
 
 	healthCheckPath := healthCheckPath(service)
-	port := service.Spec.Ports[0].NodePort
 
 	return &godo.HealthCheck{
 		Protocol:               healthCheckProtocol,
-		Port:                   int(port),
+		Port:                   int(service.Spec.Ports[0].NodePort),
 		Path:                   healthCheckPath,
 		CheckIntervalSeconds:   checkIntervalSecs,
 		ResponseTimeoutSeconds: responseTimeoutSecs,
@@ -456,7 +456,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	for _, port := range service.Spec.Ports {
 		// We use https for TLS, so set it explicitly if necessary.
-		if tlsPortMap[port.Port] {
+		if tlsPortMap[port.Port] && protocol != protocolHTTP2 {
 			protocol = protocolHTTPS
 		}
 
@@ -483,7 +483,7 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	forwardingRule.EntryPort = int(port.Port)
 	forwardingRule.TargetPort = int(port.NodePort)
 
-	if protocol == protocolHTTPS {
+	if protocol == protocolHTTPS || protocol == protocolHTTP2 {
 		err := buildTLSForwardingRule(&forwardingRule, service, port.Port, certificateID, tlsPassThrough)
 		if err != nil {
 			return nil, err
@@ -549,7 +549,7 @@ func getProtocol(service *v1.Service) (string, error) {
 		return protocolTCP, nil
 	}
 
-	if protocol != protocolTCP && protocol != protocolHTTP && protocol != protocolHTTPS {
+	if protocol != protocolTCP && protocol != protocolHTTP && protocol != protocolHTTPS && protocol != protocolHTTP2 {
 		return "", fmt.Errorf("invalid protocol: %q specified in annotation: %q", protocol, annDOProtocol)
 	}
 

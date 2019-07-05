@@ -385,6 +385,20 @@ func Test_getProtocol(t *testing.T) {
 			nil,
 		},
 		{
+			"http2 protocol specified",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "http2",
+					},
+				},
+			},
+			"http2",
+			nil,
+		},
+		{
 			"invalid protocol",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -681,6 +695,74 @@ func Test_buildForwardingRules(t *testing.T) {
 					TargetPort:     30000,
 					CertificateID:  "",
 					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"http2 forwarding rules with certificate ID",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:      "http2",
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      80,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"http2 forwarding rules with TLS passthrough",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "http2",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      80,
+					TargetProtocol: "http2",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: true,
 				},
 			},
 			nil,
@@ -1189,6 +1271,37 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 			errors.New("must set certificate id or enable tls pass through"),
 		},
+		{
+			"invalid HTTP2 config, neither certificate ID is set or tls pass through enabled",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "http2",
+						annDOTLSPorts: "443",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nil,
+			errors.New("must set certificate id or enable tls pass through"),
+		},
 	}
 
 	for _, test := range testcases {
@@ -1308,6 +1421,102 @@ func Test_buildHealthCheck(t *testing.T) {
 			healthcheck: defaultHealthCheck("tcp", 30000, ""),
 		},
 		{
+			name: "https health check",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:      "https",
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "http2 health check",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:      "http2",
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "https health check with TLS passthrough",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "https",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "http2 health check with TLS passthrough",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "http2",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+		},
+		{
 			name: "http health check using protocol override",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1333,6 +1542,56 @@ func Test_buildHealthCheck(t *testing.T) {
 		},
 		{
 			name: "https health check using protocol override",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "https",
+						annDOCertificateID:       "test-certificate",
+						annDOHealthCheckProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("http", 30000, ""),
+		},
+		{
+			name: "http2 health check using protocol override",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http2",
+						annDOCertificateID:       "test-certificate",
+						annDOHealthCheckProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("http", 30000, ""),
+		},
+		{
+			name: "http health check with path",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1901,6 +2160,84 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TargetProtocol: "http",
 						TargetPort:     30000,
 						CertificateID:  "",
+						TlsPassthrough: false,
+					},
+				},
+				HealthCheck: defaultHealthCheck("tcp", 30000, "/health"),
+				Algorithm:   "round_robin",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+			},
+			nil,
+		},
+		{
+			"successful load balancer request using http2",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http2",
+						annDOCertificateID:   "test-certificate",
+						annDOHealthCheckPath: "/health",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
+				// as loadbalancer name
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http2",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
 						TlsPassthrough: false,
 					},
 				},
