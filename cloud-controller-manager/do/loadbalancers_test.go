@@ -1237,7 +1237,7 @@ func Test_buildHealthCheck(t *testing.T) {
 			healthcheck: defaultHealthCheck("tcp", 30000, ""),
 		},
 		{
-			name: "http health check",
+			name: "default health check with http service protocol",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1257,7 +1257,55 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: defaultHealthCheck("http", 30000, ""),
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "default health check with https service protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:      "https",
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "default health check with TLS passthrough",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "https",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("tcp", 30000, ""),
 		},
 		{
 			name: "http health check using protocol override",
@@ -1267,6 +1315,31 @@ func Test_buildHealthCheck(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOProtocol:            "tcp",
+						annDOHealthCheckProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("http", 30000, ""),
+		},
+		{
+			name: "https health check using protocol override",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "https",
+						annDOCertificateID:       "test-certificate",
 						annDOHealthCheckProtocol: "http",
 					},
 				},
@@ -1305,30 +1378,7 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: defaultHealthCheck("http", 30000, "/health"),
-		},
-		{
-			name: "invalid protocol health check",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol: "invalid",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			errMsgPrefix: fmt.Sprintf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+			healthcheck: defaultHealthCheck("tcp", 30000, "/health"),
 		},
 		{
 			name: "invalid health check using protocol override",
@@ -1854,7 +1904,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				HealthCheck: defaultHealthCheck("tcp", 30000, "/health"),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -2009,7 +2059,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, ""),
+				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
 				Algorithm:   "least_connections",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -2088,7 +2138,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, ""),
+				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type:             "cookies",
@@ -2344,7 +2394,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						CertificateID:  "test-certificate",
 					},
 				},
-				HealthCheck:         defaultHealthCheck("http", 30000, ""),
+				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
 				Algorithm:           "round_robin",
 				RedirectHttpToHttps: true,
 				StickySessions: &godo.StickySessions{
