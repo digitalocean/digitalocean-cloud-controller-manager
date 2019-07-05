@@ -439,6 +439,13 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		tlsPorts = append(tlsPorts, 443)
 	}
 
+	// If using sticky sessions and no (or tcp) protocol was specified,
+	// default to HTTP.
+	stickySessionsType := getStickySessionsType(service)
+	if stickySessionsType == "cookies" && protocol == "tcp" {
+		protocol = "http"
+	}
+
 	if len(tlsPorts) > 0 {
 		if certificateID == "" && !tlsPassThrough {
 			return nil, errors.New("must set certificate id or enable tls pass through")
