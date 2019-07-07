@@ -127,6 +127,10 @@ const (
 
 	// This is the DO-specific tag component prepended to the cluster ID.
 	tagPrefixClusterID = "k8s"
+
+	// Sticky sessions types.
+	stickySessionsTypeNone    = "none"
+	stickySessionsTypeCookies = "cookies"
 )
 
 var errLBNotFound = errors.New("loadbalancer not found")
@@ -439,6 +443,13 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		tlsPorts = append(tlsPorts, 443)
 	}
 
+	// If using sticky sessions and no (or tcp) protocol was specified,
+	// default to HTTP.
+	stickySessionsType := getStickySessionsType(service)
+	if stickySessionsType == stickySessionsTypeCookies && protocol == "tcp" {
+		protocol = "http"
+	}
+
 	if len(tlsPorts) > 0 {
 		if certificateID == "" && !tlsPassThrough {
 			return nil, errors.New("must set certificate id or enable tls pass through")
@@ -487,7 +498,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
 	t := getStickySessionsType(service)
 
-	if t == "none" {
+	if t == stickySessionsTypeNone {
 		return &godo.StickySessions{
 			Type: t,
 		}, nil
@@ -672,10 +683,10 @@ func getStickySessionsType(service *v1.Service) string {
 	t := service.Annotations[annDOStickySessionsType]
 
 	switch t {
-	case "cookies":
-		return "cookies"
+	case stickySessionsTypeCookies:
+		return stickySessionsTypeCookies
 	default:
-		return "none"
+		return stickySessionsTypeNone
 	}
 }
 
