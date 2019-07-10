@@ -2,6 +2,10 @@
 
 ## unreleased
 
+### Changed
+
+- Update Kubernetes dependencies to 1.15 (@timoreimann)
+
 ## v0.1.15 (beta) - Jun 27th 2019
 
 * Set cloud tagging, authentication lookup skipping, and cloud provider flags in-code (@timoreimann)
