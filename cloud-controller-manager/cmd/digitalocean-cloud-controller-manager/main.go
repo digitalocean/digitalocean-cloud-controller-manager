@@ -17,8 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
+	"net/http"
 	"os"
 
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -32,15 +32,10 @@ import (
 )
 
 func init() {
-	healthz.DefaultHealthz()
+	healthz.InstallHandler(http.DefaultServeMux)
 }
 
 func main() {
-	// TODO(timoreimann): Remove bogus GCE parameter when
-	// https://github.com/kubernetes/kubernetes/issues/76205 gets shipped in
-	// Kubernetes 1.15.
-	flag.CommandLine.String("cloud-provider-gce-lb-src-cidrs", "", "NOT USED (workaround for https://github.com/kubernetes/kubernetes/issues/76205)")
-
 	command := app.NewCloudControllerManagerCommand()
 
 	// Set static flags for which we know the values.
