@@ -131,6 +131,14 @@ const (
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
 	stickySessionsTypeCookies = "cookies"
+
+	// Protocol values.
+	protocolTCP   = "tcp"
+	protocolHTTP  = "http"
+	protocolHTTPS = "https"
+
+	// Port protocol values.
+	portProtocolTCP = "TCP"
 )
 
 var errLBNotFound = errors.New("loadbalancer not found")
@@ -426,6 +434,8 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 // buildForwardingRules returns the forwarding rules of the Load Balancer of
 // service.
 func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
+	var forwardingRules []godo.ForwardingRule
+
 	protocol, err := getProtocol(service)
 	if err != nil {
 		return nil, err
@@ -439,60 +449,82 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	certificateID := getCertificateID(service)
 	tlsPassThrough := getTLSPassThrough(service)
 
-	if (certificateID != "" || tlsPassThrough) && len(tlsPorts) == 0 {
+	if len(tlsPorts) == 0 && (certificateID != "" || tlsPassThrough) {
 		tlsPorts = append(tlsPorts, 443)
+	}
+
+	tlsPortMap := map[int32]bool{}
+	for _, port := range tlsPorts {
+		tlsPortMap[int32(port)] = true
 	}
 
 	// If using sticky sessions and no (or tcp) protocol was specified,
 	// default to HTTP.
 	stickySessionsType := getStickySessionsType(service)
-	if stickySessionsType == stickySessionsTypeCookies && protocol == "tcp" {
-		protocol = "http"
+	if stickySessionsType == stickySessionsTypeCookies && protocol == protocolTCP {
+		protocol = protocolHTTP
 	}
 
-	if len(tlsPorts) > 0 {
-		if certificateID == "" && !tlsPassThrough {
-			return nil, errors.New("must set certificate id or enable tls pass through")
-		}
-
-		if certificateID != "" && tlsPassThrough {
-			return nil, errors.New("either certificate id should be set or tls pass through enabled, not both")
-		}
-	}
-
-	var forwardingRules []godo.ForwardingRule
 	for _, port := range service.Spec.Ports {
-		var forwardingRule godo.ForwardingRule
-		if port.Protocol != "TCP" {
-			return nil, fmt.Errorf("only TCP protocol is supported, got: %q", port.Protocol)
+		// We use https for TLS, so set it explicitly if necessary.
+		if tlsPortMap[port.Port] {
+			protocol = protocolHTTPS
 		}
 
-		forwardingRule.EntryProtocol = protocol
-		forwardingRule.TargetProtocol = protocol
-
-		forwardingRule.EntryPort = int(port.Port)
-		forwardingRule.TargetPort = int(port.NodePort)
-
-		// TLS rules should only apply when default protocol is http or https
-		for _, tlsPort := range tlsPorts {
-			if port.Port == int32(tlsPort) {
-				forwardingRule.EntryProtocol = "https"
-
-				if tlsPassThrough {
-					forwardingRule.TlsPassthrough = tlsPassThrough
-					forwardingRule.TargetProtocol = "https"
-				} else {
-					forwardingRule.CertificateID = certificateID
-					forwardingRule.TargetProtocol = "http"
-				}
-				break
-			}
+		forwardingRule, err := buildForwardingRule(service, &port, protocol, certificateID, tlsPassThrough)
+		if err != nil {
+			return nil, err
 		}
-
-		forwardingRules = append(forwardingRules, forwardingRule)
+		forwardingRules = append(forwardingRules, *forwardingRule)
 	}
 
 	return forwardingRules, nil
+}
+
+func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, certificateID string, tlsPassThrough bool) (*godo.ForwardingRule, error) {
+	var forwardingRule godo.ForwardingRule
+
+	if port.Protocol != portProtocolTCP {
+		return nil, fmt.Errorf("only TCP protocol is supported, got: %q", port.Protocol)
+	}
+
+	forwardingRule.EntryProtocol = protocol
+	forwardingRule.TargetProtocol = protocol
+
+	forwardingRule.EntryPort = int(port.Port)
+	forwardingRule.TargetPort = int(port.NodePort)
+
+	if protocol == protocolHTTPS {
+		err := buildTLSForwardingRule(&forwardingRule, service, port.Port, certificateID, tlsPassThrough)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &forwardingRule, nil
+}
+
+func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Service, port int32, certificateID string, tlsPassThrough bool) error {
+	if certificateID == "" && !tlsPassThrough {
+		return errors.New("must set certificate id or enable tls pass through")
+	}
+
+	if certificateID != "" && tlsPassThrough {
+		return errors.New("either certificate id should be set or tls pass through enabled, not both")
+	}
+
+	if tlsPassThrough {
+		forwardingRule.TlsPassthrough = tlsPassThrough
+		// We don't explicitly set the TargetProtocol here since in buildForwardingRule
+		// we already assign the annotation-defined protocol to both the EntryProtocol
+		// and TargetProtocol, and in the tlsPassthrough case we want the TargetProtocol
+		// to match the EntryProtocol.
+	} else {
+		forwardingRule.CertificateID = certificateID
+		forwardingRule.TargetProtocol = protocolHTTP
+	}
+
+	return nil
 }
 
 func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
@@ -525,10 +557,10 @@ func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
 func getProtocol(service *v1.Service) (string, error) {
 	protocol, ok := service.Annotations[annDOProtocol]
 	if !ok {
-		return "tcp", nil
+		return protocolTCP, nil
 	}
 
-	if protocol != "tcp" && protocol != "http" && protocol != "https" {
+	if protocol != protocolTCP && protocol != protocolHTTP && protocol != protocolHTTPS {
 		return "", fmt.Errorf("invalid protocol: %q specified in annotation: %q", protocol, annDOProtocol)
 	}
 
@@ -542,7 +574,7 @@ func healthCheckProtocol(service *v1.Service) (string, error) {
 		return "", nil
 	}
 
-	if protocol != "tcp" && protocol != "http" {
+	if protocol != protocolTCP && protocol != protocolHTTP {
 		return "", fmt.Errorf("invalid protocol: %q specified in annotation: %q", protocol, annDOProtocol)
 	}
 

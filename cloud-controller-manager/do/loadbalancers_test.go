@@ -371,6 +371,20 @@ func Test_getProtocol(t *testing.T) {
 			nil,
 		},
 		{
+			"https protocol specified",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "https",
+					},
+				},
+			},
+			"https",
+			nil,
+		},
+		{
 			"invalid protocol",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -672,6 +686,105 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
+			"unset forwarding rules on 443",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "tcp",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      443,
+					TargetProtocol: "tcp",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"http forwarding rules on 443",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http",
+					EntryPort:      443,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"tcp forwarding rules on 443",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "tcp",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      443,
+					TargetProtocol: "tcp",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
 			"tls forwarding rules",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -770,7 +883,7 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
-			"tls forwarding rules with certificate and derived tls port",
+			"tls forwarding rules with certificate and 443 port",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -817,7 +930,7 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
-			"tls forwarding rules with tls path through and derived tls port",
+			"tls forwarding rules with tls path through and 443 port",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
