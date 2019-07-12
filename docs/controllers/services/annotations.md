@@ -14,7 +14,7 @@ The path used to check if a backend droplet is healthy. Defaults to "/".
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol
 
-The health check protocol to use to check if a backend droplet is healthy. Defaults to the protocol used in `service.beta.kubernetes.io/do-loadbalancer-protocol`. Options are `tcp` and `http`.
+The health check protocol to use to check if a backend droplet is healthy. Defaults to `tcp` if not specified. Options are `tcp` and `http`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds
 

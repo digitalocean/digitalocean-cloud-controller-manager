@@ -389,17 +389,6 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		return nil, err
 	}
 
-	// if no health check protocol is specified, use the protocol used for
-	// load balancer traffic.
-	if healthCheckProtocol == "" {
-		protocol, err := getProtocol(service)
-		if err != nil {
-			return nil, err
-		}
-
-		healthCheckProtocol = protocol
-	}
-
 	checkIntervalSecs, err := healthCheckIntervalSeconds(service)
 	if err != nil {
 		return nil, err
@@ -567,11 +556,13 @@ func getProtocol(service *v1.Service) (string, error) {
 	return protocol, nil
 }
 
-// healthCheckProtocol returns the health check protocol as specified in the service
+// healthCheckProtocol returns the health check protocol as specified in the service,
+// falling back to TCP if not specified.
 func healthCheckProtocol(service *v1.Service) (string, error) {
-	protocol, ok := service.Annotations[annDOHealthCheckProtocol]
-	if !ok {
-		return "", nil
+	protocol := service.Annotations[annDOHealthCheckProtocol]
+
+	if protocol == "" {
+		return protocolTCP, nil
 	}
 
 	if protocol != protocolTCP && protocol != protocolHTTP {
