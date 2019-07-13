@@ -86,35 +86,6 @@ func (c *resources) Droplets() []*godo.Droplet {
 	return droplets
 }
 
-func (c *resources) LoadBalancerByID(id string) (droplet *godo.LoadBalancer, found bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	lb, found := c.loadBalancerIDMap[id]
-	return lb, found
-}
-
-func (c *resources) LoadBalancerByName(name string) (droplet *godo.LoadBalancer, found bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	lb, found := c.loadBalancerNameMap[name]
-	return lb, found
-}
-
-func (c *resources) LoadBalancers() []*godo.LoadBalancer {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	var lbs []*godo.LoadBalancer
-	for _, lb := range c.loadBalancerIDMap {
-		lb := lb
-		lbs = append(lbs, lb)
-	}
-
-	return lbs
-}
-
 func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
 	newIDMap := make(map[int]*godo.Droplet)
 	newNameMap := make(map[string]*godo.Droplet)
@@ -130,48 +101,6 @@ func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
 
 	c.dropletIDMap = newIDMap
 	c.dropletNameMap = newNameMap
-}
-
-func (c *resources) AddLoadBalancer(lb godo.LoadBalancer) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.deleteLB(lb)
-	c.loadBalancerIDMap[lb.ID] = &lb
-	c.loadBalancerNameMap[lb.Name] = &lb
-}
-
-func (c *resources) DeleteLoadBalancer(lb godo.LoadBalancer) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.deleteLB(lb)
-}
-
-// deleteLB expects c.mutex to be hold.
-func (c *resources) deleteLB(lb godo.LoadBalancer) {
-	existingLB, found := c.loadBalancerIDMap[lb.ID]
-	if found {
-		delete(c.loadBalancerIDMap, existingLB.ID)
-		delete(c.loadBalancerNameMap, existingLB.Name)
-	}
-}
-
-func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
-	newIDMap := make(map[string]*godo.LoadBalancer)
-	newNameMap := make(map[string]*godo.LoadBalancer)
-
-	for _, lb := range lbs {
-		lb := lb
-		newIDMap[lb.ID] = &lb
-		newNameMap[lb.Name] = &lb
-	}
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.loadBalancerIDMap = newIDMap
-	c.loadBalancerNameMap = newNameMap
 }
 
 func (c *resources) SyncDroplet(ctx context.Context, id int) error {
@@ -219,19 +148,6 @@ func (c *resources) SyncDroplets(ctx context.Context) error {
 	}
 
 	c.UpdateDroplets(droplets)
-	return nil
-}
-
-func (c *resources) SyncLoadBalancers() error {
-	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
-	defer cancel()
-
-	lbs, err := allLoadBalancerList(ctx, c.client)
-	if err != nil {
-		return err
-	}
-
-	c.UpdateLoadBalancers(lbs)
 	return nil
 }
 
@@ -313,14 +229,6 @@ func (r *ResourcesController) syncResources() error {
 		klog.V(2).Info("synced droplet resources.")
 	}
 
-	klog.V(2).Info("syncing load-balancer resources.")
-	err = r.resources.SyncLoadBalancers()
-	if err != nil {
-		klog.Errorf("failed to sync load-balancer resources: %s.", err)
-	} else {
-		klog.V(2).Info("synced load-balancer resources.")
-	}
-
 	return nil
 }
 
@@ -330,7 +238,10 @@ func (r *ResourcesController) syncTags() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
 
-	lbs := r.resources.LoadBalancers()
+	lbs, err := allLoadBalancerList(ctx, r.gclient)
+	if err != nil {
+		return fmt.Errorf("failed to list load-balancers: %s", err)
+	}
 
 	// Collect tag resources for known load balancer names (i.e., services
 	// with type=LoadBalancer.)

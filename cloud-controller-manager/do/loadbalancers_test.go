@@ -2729,7 +2729,6 @@ func Test_GetLoadBalancer(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeResources := newResources("", "", nil)
-			fakeResources.UpdateLoadBalancers(test.lbs)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -2934,7 +2933,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			fakeClient := newFakeLBClient(fakeLB)
 			fakeResources := newResources("", "", nil)
 			fakeResources.UpdateDroplets(test.droplets)
-			fakeResources.UpdateLoadBalancers(test.lbs)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
