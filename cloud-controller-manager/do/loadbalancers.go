@@ -175,7 +175,7 @@ func newLoadBalancers(resources *resources, client *godo.Client, region string) 
 //
 // GetLoadBalancer will not modify service.
 func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
-	lb, err := l.retrieveProcessedLoadBalancer(ctx, service)
+	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil, false, nil
@@ -207,47 +207,50 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 //
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	lbStatus, exists, err := l.GetLoadBalancer(ctx, clusterName, service)
+	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
 	if err != nil {
 		return nil, err
 	}
 
-	if !exists {
-		lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
+	var lb *godo.LoadBalancer
+	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
+	switch {
+	case err == nil:
+		// LB exists
+		lb, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 		if err != nil {
 			return nil, err
 		}
 
-		lb, _, err := l.client.LoadBalancers.Create(ctx, lbRequest)
+	case err == errLBNotFound:
+		// LB missing
+		lb, _, err = l.client.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			return nil, err
 		}
 
 		// Ensure UUID on service object.
-		if err := l.ensureLoadBalancerIDAnnot(service, lb.ID); err != nil {
+		err := l.ensureLoadBalancerIDAnnot(service, lb.ID)
+		if err != nil {
 			return nil, fmt.Errorf("failed to add load balancer ID annotation to %s/%s: %s", service.Namespace, service.Name, err)
 		}
 
-		if lb.Status != lbStatusActive {
-			return nil, fmt.Errorf("load balancer is not active (current status: %s)", lb.Status)
-		}
+	default:
+		// other LB retrieval error
+		return nil, fmt.Errorf("failed to retrieve load-balancer: %s", err)
+	}
 
-		return &v1.LoadBalancerStatus{
-			Ingress: []v1.LoadBalancerIngress{
-				{
-					IP: lb.IP,
-				},
+	if lb.Status != lbStatusActive {
+		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+	}
+
+	return &v1.LoadBalancerStatus{
+		Ingress: []v1.LoadBalancerIngress{
+			{
+				IP: lb.IP,
 			},
-		}, nil
-	}
-
-	err = l.UpdateLoadBalancer(ctx, clusterName, service, nodes)
-	if err != nil {
-		return nil, err
-	}
-
-	lbStatus, _, err = l.GetLoadBalancer(ctx, clusterName, service)
-	return lbStatus, err
+		},
+	}, nil
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -260,7 +263,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	lb, err := l.retrieveProcessedLoadBalancer(ctx, service)
+	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		return err
 	}
@@ -294,7 +297,7 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 	return nil
 }
 
-func (l *loadBalancers) retrieveProcessedLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
 	lb, err := l.retrieveLoadBalancer(ctx, service)
 	if err != nil {
 		// Return bare error to easily compare for errLBNotFound. Converting to
@@ -303,11 +306,7 @@ func (l *loadBalancers) retrieveProcessedLoadBalancer(ctx context.Context, servi
 	}
 
 	if err := l.ensureLoadBalancerIDAnnot(service, lb.ID); err != nil {
-		return nil, fmt.Errorf("failed to add load-balancer ID annotation: %s", err)
-	}
-
-	if lb.Status != lbStatusActive {
-		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+		return nil, fmt.Errorf("failed to add load-balancer ID annotation to %s/%s: %s", service.Namespace, service.Name, err)
 	}
 
 	return lb, nil
@@ -315,7 +314,7 @@ func (l *loadBalancers) retrieveProcessedLoadBalancer(ctx context.Context, servi
 
 func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
 	if id := service.ObjectMeta.Annotations[annoDOLBID]; id != "" {
-		klog.V(3).Infof("Looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
+		klog.V(2).Infof("Looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
 		lb, resp, err := l.client.LoadBalancers.Get(ctx, id)
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -329,7 +328,7 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 
 	// Retrieve by exhaustive enumeration.
 	lbName := getDefaultLoadBalancerName(service)
-	klog.V(3).Infof("Looking up load-balancer for service %s/%s by name %s", service.Namespace, service.Name, lbName)
+	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name %s", service.Namespace, service.Name, lbName)
 	return l.lbByName(ctx, lbName)
 }
 
