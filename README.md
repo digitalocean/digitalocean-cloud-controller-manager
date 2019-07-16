@@ -63,7 +63,7 @@ This will create a binary with version `dev` and docker image pushed to
 To release a new version first bump the version:
 
 ```bash
-make bump-version
+make NEW_VERSION=v1.0.0 bump-version
 ```
 
 Make sure everything looks good. Create a new branch with all changes:

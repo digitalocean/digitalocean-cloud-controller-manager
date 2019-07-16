@@ -18,9 +18,6 @@ else
   GIT_TREE_STATE=dirty
 endif
 
-## Bump the version in the version file. Set BUMP to [ patch | major | minor ]
-BUMP := patch
-
 COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
@@ -48,8 +45,8 @@ e2e:
 
 .PHONY: bump-version
 bump-version: 
-	@go get -u github.com/jessfraz/junk/sembump # update sembump tool
-	$(eval NEW_VERSION = $(shell sembump --kind $(BUMP) $(VERSION)))
+	@[ "${NEW_VERSION}" ] || ( echo "NEW_VERSION must be set (ex. make NEW_VERSION=v1.x.x bump-version)"; exit 1 )
+	@(echo ${NEW_VERSION} | grep -E "^v") || ( echo "NEW_VERSION must be a semver ('v' prefix is required)"; exit 1 )
 	@echo "Bumping VERSION from $(VERSION) to $(NEW_VERSION)"
 	@echo $(NEW_VERSION) > VERSION
 	@cp releases/${VERSION}.yml releases/${NEW_VERSION}.yml
