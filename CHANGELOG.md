@@ -2,12 +2,20 @@
 
 ## unreleased
 
+### Added
+
+* HTTP/2 support for LB services (@snormore)
+
 ### Changed
 
-* Update Kubernetes dependencies to 1.15 (@timoreimann)
-* HTTP/2 support for LB services (@snormore)
-* Default LB health check protocol to TCP if not specified (@snormore)
+* Update Kubernetes dependencies to 1.15.0 (@timoreimann)
+* Set default LB health check protocol to TCP if not specified (@snormore)
 * Default to HTTP for sticky sessions if no protocol is defined (@snormore)
+
+### Fixed
+
+* Do not return error when load-balancer deletion succeeds (@timoreimann)
+* Remove local load-balancer cache entry when load-balancer is deleted (@timoreimann)
 
 ## v0.1.15 (beta) - Jun 27th 2019
 
