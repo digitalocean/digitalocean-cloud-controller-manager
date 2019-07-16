@@ -2,6 +2,8 @@
 
 ## unreleased
 
+## v0.1.16 (beta) - Jul 16th 2019
+
 ### Added
 
 * HTTP/2 support for LB services (@snormore)
