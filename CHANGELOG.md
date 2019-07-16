@@ -4,7 +4,10 @@
 
 ### Changed
 
-- Update Kubernetes dependencies to 1.15 (@timoreimann)
+* Update Kubernetes dependencies to 1.15 (@timoreimann)
+* HTTP/2 support for LB services (@snormore)
+* Default LB health check protocol to TCP if not specified (@snormore)
+* Default to HTTP for sticky sessions if no protocol is defined (@snormore)
 
 ## v0.1.15 (beta) - Jun 27th 2019
 
