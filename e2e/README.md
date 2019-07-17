@@ -6,10 +6,10 @@ It may be run either locally or on the CI.
 
 ## usage
 
-The easiest way to run the end-to-end test is to execute `e2e.sh`. It requires the following environment variables to be set:
+The easiest way to run the end-to-end test is to execute `docker.sh test`. It requires the following environment variables to be set or available in a `.env` file:
 
 - `DIGITALOCEAN_ACCESS_TOKEN`: the DigitalOcean access token
-- `KOPS_REGION`: the DigitalOcean region (e.g., _SFO2_)
+- `KOPS_REGION`: the DigitalOcean region (e.g., _sfo2_)
 - `S3_ENDPOINT`: the Spaces endpoint; should consist of the `KOPS_REGION` followed by the official Spaces API host (e.g., _sfo2.digitaloceanspaces.com_)
 - `S3_ACCESS_KEY_ID`: the Spaces access key ID
 - `S3_SECRET_ACCESS_KEY`: the Spaces secret access key ID
@@ -25,6 +25,6 @@ The following environment parameters are optional:
 
 ## resource cleanup
 
-The end-to-end tests clean up resources used on the DigitalOcean cloud after themselves on completion (either successful or erroneous). In the case that teardown does not complete for whatever reason (say, because of a crash of the tests or resources being in an irreparable state), the `cleanup-resources.sh` script can be used to remove the resources explicitly.
+The end-to-end tests clean up resources used on the DigitalOcean cloud after themselves on completion (either successful or erroneous). In the case that teardown does not complete for whatever reason (say, because of a crash of the tests or resources being in an irreparable state), the `docker.sh clean <ID> <NAME>` script can be used to remove the resources explicitly.
 
 See the script's header for details.
