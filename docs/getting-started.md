@@ -77,14 +77,14 @@ When a cluster is created in a non-default VPC for the region, the environment v
 
 ### Load-balancer ID annotations
 
-`digitalocean-cloud-controller-manager` attaches the UUID of load-balancers to the corresponding Service objects (given they are of type `LoadBalancer`) using the `service.k8s.digitalocean.com/load-balancer-id` annotation. This serves two purposes:
+`digitalocean-cloud-controller-manager` attaches the UUID of load-balancers to the corresponding Service objects (given they are of type `LoadBalancer`) using the `kubernetes.digitalocean.com/load-balancer-id` annotation. This serves two purposes:
 
-1. To support load-balancer renames without impacting the correct working of `digitalocean-cloud-controller-manager`.
+1. To support load-balancer renames.
 2. To efficiently look up load-balancer resources in the DigitalOcean API.
 
-The annotation is added for both newly created and existing load-balancers. However, existing load-balancers lacking the annotation yet can only be associated correctly if they were not renamed before. Otherwise, the renamed load-balancer will be considered missing and a new one will be created instead, leaving the old one dangling.
+`digitalocean-cloud-controller-manager` annotates new and existing Services. Note that a load-balancer that is renamed before the annotation is added will be lost, and a new one will be created.
 
-It is also possible to start owning an unmanaged load-balancer by adding the annotation manually prior to setting the Service type to `LoadBalancer`. Note however every load-balancer should be owned by exactly one `digitalocean-cloud-controller-manager` instance only to prevent concurrent and presumably conflicting modifications.
+You can have `digitalocean-cloud-controller-manager` own an existing load-balancer by annotating the Service with the UUID of the load-balancer (but before setting the type to `LoadBalancer`). Do not do this while it is being managed by another cluster, or otherwise the `digitalocean-cloud-controller-managers` will make conflicting modifications to the load-balancer.
 
 ## Deployment
 

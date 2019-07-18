@@ -71,7 +71,7 @@ func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadB
 		}
 
 		if resp == nil {
-			return nil, fmt.Errorf("load balancers list request returned no response")
+			return nil, fmt.Error("load balancers list request returned no response")
 		}
 
 		list = append(list, lbs...)

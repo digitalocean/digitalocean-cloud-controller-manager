@@ -34,7 +34,7 @@ import (
 const (
 	// annoDOLoadBalancerID is the annotation specifying the load-balancer ID
 	// used to enable fast retrievals of load-balancers from the API by UUID.
-	annoDOLoadBalancerID = "service.k8s.digitalocean.com/load-balancer-id"
+	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
@@ -215,15 +215,15 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	var lb *godo.LoadBalancer
 	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
-	switch {
-	case err == nil:
+	switch err {
+	case nil:
 		// LB existing
 		lb, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
 		}
 
-	case err == errLBNotFound:
+	case errLBNotFound:
 		// LB missing
 		lb, _, err = l.client.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
@@ -354,7 +354,7 @@ func (l *loadBalancers) ensureLoadBalancerIDAnnot(service *v1.Service, lbID stri
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will
 // be lbNotFound if the load balancer does not exist.
 func (l *loadBalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
-	lbs, _, err := l.client.LoadBalancers.List(ctx, &godo.ListOptions{})
+	lbs, err := allLoadBalancerList(ctx, l.client)
 	if err != nil {
 		return nil, err
 	}

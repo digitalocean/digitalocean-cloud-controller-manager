@@ -267,6 +267,8 @@ func (r *ResourcesController) syncTags() error {
 			id = loadBalancerIDsByName[name]
 		}
 
+		// Renamed load-balancers that have no LB ID set yet would still be
+		// missed, so check again if we have an ID now.
 		if id != "" {
 			res = append(res, godo.Resource{
 				ID:   id,
