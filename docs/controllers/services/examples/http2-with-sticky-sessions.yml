@@ -17,7 +17,7 @@ spec:
   # confusion on the way in.
   externalTrafficPolicy: Local
   ports:
-    - name: http
+    - name: http2
       protocol: TCP
       port: 443
       targetPort: 80

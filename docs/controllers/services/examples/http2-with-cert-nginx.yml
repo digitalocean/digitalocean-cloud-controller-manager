@@ -11,7 +11,7 @@ spec:
   selector:
     app: nginx-example
   ports:
-    - name: https
+    - name: http2
       protocol: TCP
       port: 443
       targetPort: 80

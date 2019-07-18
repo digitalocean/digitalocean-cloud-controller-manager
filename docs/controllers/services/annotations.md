@@ -6,7 +6,9 @@ See example Kubernetes Services using LoadBalancers [here](examples/).
 
 ## service.beta.kubernetes.io/do-loadbalancer-protocol
 
-The default protocol for DigitalOcean Load Balancers. Ports specified in the annotation `service.beta.kubernetes.io/do-loadbalancer-tls-ports` will be overwritten to https. Options are `tcp`, `http`, `https`, and `http2`. Defaults to `tcp`.
+The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `http`, `https`, and `http2`. Defaults to `tcp`.
+
+If `https` or `http2` is specified, then either `service.beta.kubernetes.io/do-loadbalancer-certificate-id` or `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` must be specified as well.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-path
 
@@ -15,10 +17,6 @@ The path used to check if a backend droplet is healthy. Defaults to "/".
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol
 
 The health check protocol to use to check if a backend droplet is healthy. Defaults to `tcp` if not specified. Options are `tcp` and `http`.
-
-**Note**
- - If a `service.beta.kubernetes.io/do-loadbalancer-tls-ports` is specified, and `service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol` is not `http2`, then `https` is used as the service protocol.
- - If `http2` is specified, then either `service.beta.kubernetes.io/do-loadbalancer-certificate-id` or `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` must be specified since SSL is required for HTTP/2 DigitalOcean LBs.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds
 
@@ -38,18 +36,21 @@ The number of times a health check must pass for a backend Droplet to be marked 
 
 ## service.beta.kubernetes.io/do-loadbalancer-tls-ports
 
-Specify which ports of the loadbalancer should use the https protocol. This is a comma separated list of ports (e.g. 443,6443,7443).
+Specify which ports of the loadbalancer should use the https or http2 protocol. This is a comma separated list of ports (e.g. 443,6443,7443).
+
 If specified, exactly one of `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` and `service.beta.kubernetes.io/do-loadbalancer-certificate-id` must also be provided.
+
+If no TLS port is specified but one of `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` or `service.beta.kubernetes.io/do-loadbalancer-certificate-id` is, then port 443 is assumed to be used for TLS.
+
+If TLS ports are specified (either implicitly or explicitly) and `service.beta.kubernetes.io/do-loadbalancer-protocol` is not `http2`, then `https` is used as the service protocol for the TLS ports.
 
 ## service.beta.kubernetes.io/do-loadbalancer-tls-passthrough
 
 Specify whether the DigitalOcean Load Balancer should pass encrypted data to backend droplets. This is optional. Options are `true` or `false`. Defaults to `false`.
-If enabled, ports specified in `service.beta.kubernetes.io/do-loadbalancer-tls-ports` will use https, or 443 if none are given.
 
 ## service.beta.kubernetes.io/do-loadbalancer-certificate-id
 
 Specifies the certificate ID used for https. To list available certificates and their IDs, install [doctl](https://github.com/digitalocean/doctl) and run `doctl compute certificate list`.
-If enabled, ports specified in `service.beta.kubernetes.io/do-loadbalancer-tls-ports` will use https, or 443 if none are given.
 
 ## service.beta.kubernetes.io/do-loadbalancer-algorithm
 
