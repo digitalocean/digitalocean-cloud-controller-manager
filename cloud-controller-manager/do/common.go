@@ -18,6 +18,7 @@ package do
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
@@ -71,7 +72,7 @@ func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadB
 		}
 
 		if resp == nil {
-			return nil, fmt.Error("load balancers list request returned no response")
+			return nil, errors.New("load balancers list request returned no response")
 		}
 
 		list = append(list, lbs...)
