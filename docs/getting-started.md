@@ -77,7 +77,7 @@ When a cluster is created in a non-default VPC for the region, the environment v
 
 ### Load-balancer ID annotations
 
-`digitalocean-cloud-controller-manager` attaches the UUID of load-balancers to the corresponding Service objects (given they are of type `LoadBalancer`) using the `kubernetes.digitalocean.com/load-balancer-id` annotation. This serves two purposes:
+Starting with version v0.1.17, `digitalocean-cloud-controller-manager` attaches the UUID of load-balancers to the corresponding Service objects (given they are of type `LoadBalancer`) using the `kubernetes.digitalocean.com/load-balancer-id` annotation. This serves two purposes:
 
 1. To support load-balancer renames.
 2. To efficiently look up load-balancer resources in the DigitalOcean API.
