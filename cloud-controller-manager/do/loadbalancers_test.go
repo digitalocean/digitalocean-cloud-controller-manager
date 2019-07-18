@@ -17,9 +17,11 @@ limitations under the License.
 package do
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"reflect"
 	"strings"
@@ -31,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/klog"
 )
 
 var _ cloudprovider.LoadBalancer = new(loadBalancers)
@@ -2753,9 +2756,14 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeClient := newFakeLBClient(&fakeLBService{})
+			fakeClient := newFakeDropletClient(
+				&fakeDropletService{
+					listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+						return test.droplets, newFakeOKResponse(), nil
+					},
+				},
+			)
 			fakeResources := newResources("", "", fakeClient)
-			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -2764,7 +2772,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				lbActiveCheckTick: 1,
 			}
 
-			lbr, err := lb.buildLoadBalancerRequest(test.service, test.nodes)
+			lbr, err := lb.buildLoadBalancerRequest(context.Background(), test.service, test.nodes)
 
 			if !reflect.DeepEqual(lbr, test.lbr) {
 				t.Error("unexpected load balancer request")
@@ -2828,15 +2836,21 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 					},
 				},
 			}
-			fakeClient := newFakeLBClient(&fakeLBService{})
+			fakeClient := newFakeDropletClient(
+				&fakeDropletService{
+					listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+						droplets := []godo.Droplet{
+							{
+								ID:   100,
+								Name: "node-1",
+							},
+						}
+						return droplets, newFakeOKResponse(), nil
+					},
+				},
+			)
 			fakeResources := newResources(test.clusterID, test.vpcID, fakeClient)
 			fakeResources.clusterVPCID = test.vpcID
-			fakeResources.UpdateDroplets([]godo.Droplet{
-				{
-					ID:   100,
-					Name: "node-1",
-				},
-			})
 
 			lb := &loadBalancers{
 				resources: fakeResources,
@@ -2844,7 +2858,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 				clusterID: clusterID,
 			}
 
-			lbr, err := lb.buildLoadBalancerRequest(service, nodes)
+			lbr, err := lb.buildLoadBalancerRequest(context.Background(), service, nodes)
 			if test.err != nil {
 				if err == nil {
 					t.Fatal("expected error but got none")
@@ -2876,15 +2890,15 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 
 func Test_nodeToDropletIDs(t *testing.T) {
 	testcases := []struct {
-		name       string
-		nodes      []*v1.Node
-		droplets   []godo.Droplet
-		dropletIDs []int
-		err        error
+		name         string
+		nodes        []*v1.Node
+		droplets     []godo.Droplet
+		dropletIDs   []int
+		missingNames []string
 	}{
 		{
-			"node to droplet ids",
-			[]*v1.Node{
+			name: "node to droplet ids",
+			nodes: []*v1.Node{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
@@ -2901,7 +2915,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 					},
 				},
 			},
-			[]godo.Droplet{
+			droplets: []godo.Droplet{
 				{
 					ID:   100,
 					Name: "node-1",
@@ -2915,12 +2929,11 @@ func Test_nodeToDropletIDs(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			[]int{100, 101, 102},
-			nil,
+			dropletIDs: []int{100, 101, 102},
 		},
 		{
-			"node to droplet ID with droplets not in cluster",
-			[]*v1.Node{
+			name: "node to droplet ID with droplets not in cluster",
+			nodes: []*v1.Node{
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "node-1",
@@ -2937,7 +2950,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 					},
 				},
 			},
-			[]godo.Droplet{
+			droplets: []godo.Droplet{
 				{
 					ID:   100,
 					Name: "node-1",
@@ -2959,16 +2972,90 @@ func Test_nodeToDropletIDs(t *testing.T) {
 					Name: "node-11",
 				},
 			},
-			[]int{100, 101, 102},
-			nil,
+			dropletIDs: []int{100, 101, 102},
+		},
+		{
+			name: "droplet IDs returned from provider ID and API",
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+					Spec: v1.NodeSpec{
+						ProviderID: "digitalocean://100",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			droplets: []godo.Droplet{
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			dropletIDs: []int{100, 101, 102},
+		},
+		{
+			name: "missing droplets",
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+					Spec: v1.NodeSpec{
+						ProviderID: "digitalocean://100",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-4",
+					},
+				},
+			},
+			droplets: []godo.Droplet{
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+			},
+			dropletIDs:   []int{100, 101},
+			missingNames: []string{"node-3", "node-4"},
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeClient := newFakeLBClient(&fakeLBService{})
+			fakeClient := newFakeDropletClient(
+				&fakeDropletService{
+					listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+						return test.droplets, newFakeOKResponse(), nil
+					},
+				},
+			)
 			fakeResources := newResources("", "", fakeClient)
-			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -2976,19 +3063,32 @@ func Test_nodeToDropletIDs(t *testing.T) {
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
 			}
-			dropletIDs, err := lb.nodesToDropletIDs(test.nodes)
+
+			var logBuf bytes.Buffer
+			if len(test.missingNames) > 0 {
+				klog.SetOutput(ioutil.Discard)
+				klog.SetOutputBySeverity("ERROR", &logBuf)
+			}
+
+			dropletIDs, err := lb.nodesToDropletIDs(context.Background(), test.nodes)
 			if !reflect.DeepEqual(dropletIDs, test.dropletIDs) {
 				t.Error("unexpected droplet IDs")
 				t.Logf("expected: %v", test.dropletIDs)
 				t.Logf("actual: %v", dropletIDs)
 			}
 
-			if !reflect.DeepEqual(err, test.err) {
-				t.Error("unexpected error")
-				t.Logf("expected: %v", test.err)
-				t.Logf("actual: %v", err)
+			if err != nil {
+				t.Errorf("got error: %s", err)
 			}
 
+			if len(test.missingNames) > 0 {
+				klog.Flush()
+				wantErrMsg := fmt.Sprintf("Failed to find droplets for nodes %s", strings.Join(test.missingNames, " "))
+				gotErrMsg := logBuf.String()
+				if !strings.Contains(gotErrMsg, wantErrMsg) {
+					t.Errorf("got missing nodes error message %q, missing %q", gotErrMsg, wantErrMsg)
+				}
+			}
 		})
 	}
 }
@@ -3543,15 +3643,19 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
+			fakeDroplet := &fakeDropletService{
+				listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return test.droplets, newFakeOKResponse(), nil
+				},
+			}
 			fakeLB := &fakeLBService{
 				getFn:    test.getFn,
 				listFn:   test.listFn,
 				createFn: test.createFn,
 				updateFn: test.updateFn,
 			}
-			fakeClient := newFakeLBClient(fakeLB)
+			fakeClient := newFakeClient(fakeDroplet, fakeLB)
 			fakeResources := newResources("", "", fakeClient)
-			fakeResources.UpdateDroplets(test.droplets)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)

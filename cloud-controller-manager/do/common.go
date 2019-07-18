@@ -40,7 +40,7 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 		}
 
 		if resp == nil {
-			return nil, fmt.Errorf("droplets list request returned no response ")
+			return nil, errors.New("droplets list request returned no response")
 		}
 
 		list = append(list, droplets...)

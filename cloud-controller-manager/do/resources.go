@@ -51,9 +51,6 @@ type resources struct {
 	gclient *godo.Client
 	kclient kubernetes.Interface
 
-	dropletIDMap   map[int]*godo.Droplet
-	dropletNameMap map[string]*godo.Droplet
-
 	mutex sync.RWMutex
 }
 
@@ -69,88 +66,7 @@ func newResources(clusterID, clusterVPCID string, gclient *godo.Client) *resourc
 		clusterVPCID: clusterVPCID,
 
 		gclient: gclient,
-
-		dropletIDMap:   make(map[int]*godo.Droplet),
-		dropletNameMap: make(map[string]*godo.Droplet),
 	}
-}
-
-func (c *resources) Droplets() []*godo.Droplet {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	var droplets []*godo.Droplet
-	for _, droplet := range c.dropletIDMap {
-		droplet := droplet
-		droplets = append(droplets, droplet)
-	}
-
-	return droplets
-}
-
-func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
-	newIDMap := make(map[int]*godo.Droplet)
-	newNameMap := make(map[string]*godo.Droplet)
-
-	for _, droplet := range droplets {
-		droplet := droplet
-		newIDMap[droplet.ID] = &droplet
-		newNameMap[droplet.Name] = &droplet
-	}
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.dropletIDMap = newIDMap
-	c.dropletNameMap = newNameMap
-}
-
-func (c *resources) SyncDroplet(ctx context.Context, id int) error {
-	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
-	defer cancel()
-
-	droplet, res, err := c.gclient.Droplets.Get(ctx, id)
-	if err != nil {
-		if res != nil && res.StatusCode == http.StatusNotFound {
-			c.mutex.Lock()
-			defer c.mutex.Unlock()
-
-			oldDroplet, found := c.dropletIDMap[id]
-			if found {
-				delete(c.dropletIDMap, oldDroplet.ID)
-				delete(c.dropletNameMap, oldDroplet.Name)
-			}
-
-			return nil
-		}
-
-		return err
-	}
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	oldDroplet, found := c.dropletIDMap[droplet.ID]
-	if found && oldDroplet.Name != droplet.Name {
-		delete(c.dropletNameMap, oldDroplet.Name)
-	}
-	c.dropletIDMap[droplet.ID] = droplet
-	c.dropletNameMap[droplet.Name] = droplet
-
-	return nil
-}
-
-func (c *resources) SyncDroplets(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
-	defer cancel()
-
-	droplets, err := allDropletList(ctx, c.gclient)
-	if err != nil {
-		return err
-	}
-
-	c.UpdateDroplets(droplets)
-	return nil
 }
 
 type syncer interface {
@@ -208,27 +124,11 @@ func NewResourcesController(
 
 // Run starts the resources controller loop.
 func (r *ResourcesController) Run(stopCh <-chan struct{}) {
-	go r.syncer.Sync("resources syncer", controllerSyncResourcesPeriod, stopCh, r.syncResources)
-
 	if r.resources.clusterID == "" {
 		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
 	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
-}
-
-// syncResources updates the local resources representation from the
-// DigitalOcean API.
-func (r *ResourcesController) syncResources() error {
-	klog.V(2).Info("syncing droplet resources.")
-	err := r.resources.SyncDroplets(context.Background())
-	if err != nil {
-		klog.Errorf("failed to sync droplet resources: %s.", err)
-	} else {
-		klog.V(2).Info("synced droplet resources.")
-	}
-
-	return nil
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate
