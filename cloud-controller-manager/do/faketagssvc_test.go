@@ -28,15 +28,8 @@ import (
 var _ godo.TagsService = new(fakeTagsService)
 
 type fakeTagsService struct {
-	tags map[string]bool
-	// failOnRequest indicates that the fake should return an explicit error on
-	// the n-th request, where n is given as zero-based number. Set to a
-	// negative number to never return an explicit error.
-	failOnRequest int
-	// failError is the error to return when failOnRequest is >= 0. When not
-	// given, a default error is returned. Ignored when failOnRequest is < 0.
-	failError error
-
+	*fakeService
+	tags        map[string]bool
 	tagRequests []*godo.TagResourcesRequest
 }
 
@@ -45,27 +38,15 @@ func newFakeTagsService(tags ...string) *fakeTagsService {
 }
 
 func newFakeTagsServiceWithFailure(failOnReq int, failErr error, tags ...string) *fakeTagsService {
-	if failOnReq >= 0 && failErr == nil {
-		failErr = errors.New("no tags service for you")
-	}
-
 	t := map[string]bool{}
 	for _, tag := range tags {
 		t[tag] = true
 	}
 
 	return &fakeTagsService{
-		tags:          t,
-		failOnRequest: failOnReq,
-		failError:     failErr,
+		fakeService: newFakeServiceWithFailure(failOnReq, failErr),
+		tags:        t,
 	}
-}
-
-func (f *fakeTagsService) shouldFail() bool {
-	defer func() {
-		f.failOnRequest--
-	}()
-	return f.failOnRequest == 0
 }
 
 func (f *fakeTagsService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Tag, *godo.Response, error) {
