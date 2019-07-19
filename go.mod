@@ -28,6 +28,7 @@ require (
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/minio/minio-go v6.0.10+incompatible
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-homedir v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
