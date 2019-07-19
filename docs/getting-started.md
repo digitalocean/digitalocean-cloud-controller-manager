@@ -62,7 +62,6 @@ Currently `digitalocean-cloud-controller-manager` implements:
 
 In the future, it may implement:
 
-* volumecontroller - responsible for creating, deleting, attaching and detaching DO block storage.
 * routecontroller - responsible for creating firewall rules
 
 ### Resource Tagging
