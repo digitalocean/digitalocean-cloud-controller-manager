@@ -44,7 +44,7 @@ func newFakeTagsServiceWithFailure(failOnReq int, failErr error, tags ...string)
 	}
 
 	return &fakeTagsService{
-		fakeService: newFakeServiceWithFailure(failOnReq, failErr),
+		fakeService: newFakeService(failOnReq, failErr),
 		tags:        t,
 	}
 }

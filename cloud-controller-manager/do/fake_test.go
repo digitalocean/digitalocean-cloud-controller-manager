@@ -35,11 +35,7 @@ func (f *fakeService) shouldFail() bool {
 	return f.failOnRequest == 0
 }
 
-func newFakeService() *fakeService {
-	return newFakeServiceWithFailure(-1, nil)
-}
-
-func newFakeServiceWithFailure(failOnReq int, failErr error) *fakeService {
+func newFakeService(failOnReq int, failErr error) *fakeService {
 	if failOnReq >= 0 && failErr == nil {
 		failErr = errors.New("fake service is failing")
 	}
