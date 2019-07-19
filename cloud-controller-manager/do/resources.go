@@ -48,27 +48,30 @@ type resources struct {
 	clusterID    string
 	clusterVPCID string
 
-	client *godo.Client
+	gclient *godo.Client
+	kclient kubernetes.Interface
 
-	dropletIDMap        map[int]*godo.Droplet
-	dropletNameMap      map[string]*godo.Droplet
-	loadBalancerIDMap   map[string]*godo.LoadBalancer
-	loadBalancerNameMap map[string]*godo.LoadBalancer
+	dropletIDMap   map[int]*godo.Droplet
+	dropletNameMap map[string]*godo.Droplet
 
 	mutex sync.RWMutex
 }
 
-func newResources(clusterID, clusterVPCID string, client *godo.Client) *resources {
+// newResources initializes a new resources instance.
+
+// kclient can only be set during the cloud.Initialize call since that is when
+// the cloud provider framework provides us with a clientset. Fortunately, the
+// initialization order guarantees that kclient won't be consumed prior to it
+// being set.
+func newResources(clusterID, clusterVPCID string, gclient *godo.Client) *resources {
 	return &resources{
 		clusterID:    clusterID,
 		clusterVPCID: clusterVPCID,
 
-		client: client,
+		gclient: gclient,
 
-		dropletIDMap:        make(map[int]*godo.Droplet),
-		dropletNameMap:      make(map[string]*godo.Droplet),
-		loadBalancerIDMap:   make(map[string]*godo.LoadBalancer),
-		loadBalancerNameMap: make(map[string]*godo.LoadBalancer),
+		dropletIDMap:   make(map[int]*godo.Droplet),
+		dropletNameMap: make(map[string]*godo.Droplet),
 	}
 }
 
@@ -83,35 +86,6 @@ func (c *resources) Droplets() []*godo.Droplet {
 	}
 
 	return droplets
-}
-
-func (c *resources) LoadBalancerByID(id string) (droplet *godo.LoadBalancer, found bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	lb, found := c.loadBalancerIDMap[id]
-	return lb, found
-}
-
-func (c *resources) LoadBalancerByName(name string) (droplet *godo.LoadBalancer, found bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	lb, found := c.loadBalancerNameMap[name]
-	return lb, found
-}
-
-func (c *resources) LoadBalancers() []*godo.LoadBalancer {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	var lbs []*godo.LoadBalancer
-	for _, lb := range c.loadBalancerIDMap {
-		lb := lb
-		lbs = append(lbs, lb)
-	}
-
-	return lbs
 }
 
 func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
@@ -131,53 +105,11 @@ func (c *resources) UpdateDroplets(droplets []godo.Droplet) {
 	c.dropletNameMap = newNameMap
 }
 
-func (c *resources) AddLoadBalancer(lb godo.LoadBalancer) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.deleteLB(lb)
-	c.loadBalancerIDMap[lb.ID] = &lb
-	c.loadBalancerNameMap[lb.Name] = &lb
-}
-
-func (c *resources) DeleteLoadBalancer(lb godo.LoadBalancer) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.deleteLB(lb)
-}
-
-// deleteLB expects c.mutex to be hold.
-func (c *resources) deleteLB(lb godo.LoadBalancer) {
-	existingLB, found := c.loadBalancerIDMap[lb.ID]
-	if found {
-		delete(c.loadBalancerIDMap, existingLB.ID)
-		delete(c.loadBalancerNameMap, existingLB.Name)
-	}
-}
-
-func (c *resources) UpdateLoadBalancers(lbs []godo.LoadBalancer) {
-	newIDMap := make(map[string]*godo.LoadBalancer)
-	newNameMap := make(map[string]*godo.LoadBalancer)
-
-	for _, lb := range lbs {
-		lb := lb
-		newIDMap[lb.ID] = &lb
-		newNameMap[lb.Name] = &lb
-	}
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	c.loadBalancerIDMap = newIDMap
-	c.loadBalancerNameMap = newNameMap
-}
-
 func (c *resources) SyncDroplet(ctx context.Context, id int) error {
 	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
 	defer cancel()
 
-	droplet, res, err := c.client.Droplets.Get(ctx, id)
+	droplet, res, err := c.gclient.Droplets.Get(ctx, id)
 	if err != nil {
 		if res != nil && res.StatusCode == http.StatusNotFound {
 			c.mutex.Lock()
@@ -212,25 +144,12 @@ func (c *resources) SyncDroplets(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, syncResourcesTimeout)
 	defer cancel()
 
-	droplets, err := allDropletList(ctx, c.client)
+	droplets, err := allDropletList(ctx, c.gclient)
 	if err != nil {
 		return err
 	}
 
 	c.UpdateDroplets(droplets)
-	return nil
-}
-
-func (c *resources) SyncLoadBalancers() error {
-	ctx, cancel := context.WithTimeout(context.Background(), syncResourcesTimeout)
-	defer cancel()
-
-	lbs, err := allLoadBalancerList(ctx, c.client)
-	if err != nil {
-		return err
-	}
-
-	c.UpdateLoadBalancers(lbs)
 	return nil
 }
 
@@ -266,7 +185,6 @@ func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan str
 // synchronizes when needed.
 type ResourcesController struct {
 	kclient   kubernetes.Interface
-	gclient   *godo.Client
 	svcLister v1lister.ServiceLister
 
 	resources *resources
@@ -277,13 +195,12 @@ type ResourcesController struct {
 func NewResourcesController(
 	r *resources,
 	inf v1informers.ServiceInformer,
-	k kubernetes.Interface,
-	g *godo.Client,
+	client kubernetes.Interface,
 ) *ResourcesController {
+	r.kclient = client
 	return &ResourcesController{
 		resources: r,
-		kclient:   k,
-		gclient:   g,
+		kclient:   client,
 		svcLister: inf.Lister(),
 		syncer:    &tickerSyncer{},
 	}
@@ -311,14 +228,6 @@ func (r *ResourcesController) syncResources() error {
 		klog.V(2).Info("synced droplet resources.")
 	}
 
-	klog.V(2).Info("syncing load-balancer resources.")
-	err = r.resources.SyncLoadBalancers()
-	if err != nil {
-		klog.Errorf("failed to sync load-balancer resources: %s.", err)
-	} else {
-		klog.V(2).Info("synced load-balancer resources.")
-	}
-
 	return nil
 }
 
@@ -328,18 +237,22 @@ func (r *ResourcesController) syncTags() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
 
-	lbs := r.resources.LoadBalancers()
+	lbs, err := allLoadBalancerList(ctx, r.resources.gclient)
+	if err != nil {
+		return fmt.Errorf("failed to list load-balancers: %s", err)
+	}
 
-	// Collect tag resources for known load balancer names (i.e., services
-	// with type=LoadBalancer.)
+	// Collect tag resources for known load balancers (i.e., services with
+	// type=LoadBalancer that either have our own LB ID annotation set or go by
+	// a matching name).
 	svcs, err := r.svcLister.List(labels.Everything())
 	if err != err {
 		return fmt.Errorf("failed to list services: %s", err)
 	}
 
-	loadBalancers := make(map[string]string, len(lbs))
+	loadBalancerIDsByName := make(map[string]string, len(lbs))
 	for _, lb := range lbs {
-		loadBalancers[lb.Name] = lb.ID
+		loadBalancerIDsByName[lb.Name] = lb.ID
 	}
 
 	var res []godo.Resource
@@ -348,8 +261,15 @@ func (r *ResourcesController) syncTags() error {
 			continue
 		}
 
-		name := getDefaultLoadBalancerName(svc)
-		if id, ok := loadBalancers[name]; ok {
+		id := getLoadBalancerID(svc)
+		if id == "" {
+			name := getDefaultLoadBalancerName(svc)
+			id = loadBalancerIDsByName[name]
+		}
+
+		// Renamed load-balancers that have no LB ID set yet would still be
+		// missed, so check again if we have an ID now.
+		if id != "" {
 			res = append(res, godo.Resource{
 				ID:   id,
 				Type: godo.ResourceType(godo.LoadBalancerResourceType),
@@ -370,7 +290,7 @@ func (r *ResourcesController) syncTags() error {
 		// when we set the tag on LB creation. For LBs that have been created
 		// prior to CCM using cluster IDs, however, we need to create the tag
 		// explicitly.
-		_, _, err = r.gclient.Tags.Create(ctx, &godo.TagCreateRequest{
+		_, _, err = r.resources.gclient.Tags.Create(ctx, &godo.TagCreateRequest{
 			Name: tag,
 		})
 		if err != nil {
@@ -393,7 +313,7 @@ func (r *ResourcesController) tagResources(res []godo.Resource) error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
 	tag := buildK8sTag(r.resources.clusterID)
-	resp, err := r.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
+	resp, err := r.resources.gclient.Tags.TagResources(ctx, tag, &godo.TagResourcesRequest{
 		Resources: res,
 	})
 

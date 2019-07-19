@@ -29,6 +29,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 )
 
@@ -82,10 +83,20 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 }
 
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
-	client := godo.NewClient(nil)
-	client.LoadBalancers = fakeLB
+	return &godo.Client{
+		LoadBalancers: fakeLB,
+	}
+}
 
-	return client
+func createLB() *godo.LoadBalancer {
+	return &godo.LoadBalancer{
+		// loadbalancer names are a + service.UID
+		// see cloudprovider.DefaultLoadBalancerName
+		ID:     "load-balancer-id",
+		Name:   "afoobar123",
+		IP:     "10.0.0.1",
+		Status: lbStatusActive,
+	}
 }
 
 func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
@@ -2990,27 +3001,32 @@ func Test_nodeToDropletIDs(t *testing.T) {
 func Test_GetLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name     string
-		lbs      []godo.LoadBalancer
+		getFn    func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
+		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		service  *v1.Service
 		lbStatus *v1.LoadBalancerStatus
 		exists   bool
 		err      error
 	}{
 		{
-			name: "got loadbalancer",
-			lbs: []godo.LoadBalancer{
-				{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.GetLoadBalancerName
-					Name:   "afoobar123",
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				},
+			name: "got loadbalancer by name",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						// loadbalancer names are a + service.UID
+						// see cloudprovider.DefaultLoadBalancerName
+						ID:     "load-balancer-id",
+						Name:   "afoobar123",
+						IP:     "10.0.0.1",
+						Status: lbStatusActive,
+					},
+				}, newFakeOKResponse(), nil
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					UID:       "foobar123",
 					Annotations: map[string]string{
 						annDOProtocol: "http",
 					},
@@ -3037,7 +3053,56 @@ func Test_GetLoadBalancer(t *testing.T) {
 			err:    nil,
 		},
 		{
+			name: "got loadbalancer by ID",
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return &godo.LoadBalancer{
+					// loadbalancer names are a + service.UID
+					// see cloudprovider.DefaultLoadBalancerName
+					ID:     "load-balancer-id",
+					Name:   "afoobar123",
+					IP:     "10.0.0.1",
+					Status: lbStatusActive,
+				}, newFakeOKResponse(), nil
+			},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					UID:       "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			exists: true,
+			err:    nil,
+		},
+		{
 			name: "loadbalancer not found",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3065,11 +3130,20 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
+			fakeLB := &fakeLBService{
+				getFn:  test.getFn,
+				listFn: test.listFn,
+			}
+			fakeClient := newFakeLBClient(fakeLB)
 			fakeResources := newResources("", "", nil)
-			fakeResources.UpdateLoadBalancers(test.lbs)
+			fakeResources.kclient = fake.NewSimpleClientset()
+			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
+				t.Fatalf("failed to add service to fake client: %s", err)
+			}
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
+				client:            fakeClient,
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
@@ -3095,16 +3169,28 @@ func Test_GetLoadBalancer(t *testing.T) {
 				t.Logf("actual: %v", err)
 			}
 
+			if test.exists {
+				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
+				if err != nil {
+					t.Fatalf("failed to get service from kube client: %s", err)
+				}
+
+				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+				wantLoadBalancerID := "load-balancer-id"
+				if gotLoadBalancerID != wantLoadBalancerID {
+					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
+				}
+			}
 		})
 	}
 }
 
 func Test_EnsureLoadBalancer(t *testing.T) {
-	lbName := "afoobar123"
 	testcases := []struct {
 		name     string
 		droplets []godo.Droplet
-		lbs      []godo.LoadBalancer
+		getFn    func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
+		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		createFn func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		updateFn func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		service  *v1.Service
@@ -3113,7 +3199,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		err      error
 	}{
 		{
-			name: "successfully ensured loadbalancer, already exists",
+			name: "successfully ensured loadbalancer by name, already exists",
 			droplets: []godo.Droplet{
 				{
 					ID:   100,
@@ -3128,23 +3214,17 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			lbs: []godo.LoadBalancer{
-				{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.GetLoadBalancerName
-					Name:   lbName,
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				},
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
+			},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
+			},
+			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
 			},
 			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return &godo.LoadBalancer{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.GetLoadBalancerName
-					Name:   lbName,
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				}, newFakeOKResponse(), nil
+				return createLB(), newFakeOKResponse(), nil
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3192,7 +3272,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			err: nil,
 		},
 		{
-			name: "successfully ensured loadbalancer that didn't exist",
+			name: "successfully ensured loadbalancer by ID, already exists",
 			droplets: []godo.Droplet{
 				{
 					ID:   100,
@@ -3207,13 +3287,91 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			lbs: []godo.LoadBalancer{},
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return createLB(), newFakeOKResponse(), nil
+			},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+			},
 			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return &godo.LoadBalancer{
-					Name:   lbName,
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				}, newFakeOKResponse(), nil
+				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+			},
+			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return createLB(), newFakeOKResponse(), nil
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "successfully ensured loadbalancer by name that didn't exist",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
+			},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+			},
+			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return createLB(), newFakeOKResponse(), nil
+			},
+			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3260,18 +3418,150 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "successfully ensured loadbalancer by ID that didn't exist",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeResponse(http.StatusNotFound), errors.New("LB not found")
+			},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+			},
+			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return createLB(), newFakeOKResponse(), nil
+			},
+			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name:     "failed to ensure existing load-balancer, state is non-active",
+			droplets: []godo.Droplet{},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
+			},
+			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+			},
+			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				lb := createLB()
+				lb.Status = lbStatusNew
+				return lb, newFakeOKResponse(), nil
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			lbStatus: nil,
+			err:      fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew),
+		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeLB := &fakeLBService{
+				getFn:    test.getFn,
+				listFn:   test.listFn,
 				createFn: test.createFn,
 				updateFn: test.updateFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
 			fakeResources := newResources("", "", nil)
 			fakeResources.UpdateDroplets(test.droplets)
-			fakeResources.UpdateLoadBalancers(test.lbs)
+			fakeResources.kclient = fake.NewSimpleClientset()
+			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
+				t.Fatalf("failed to add service to fake client: %s", err)
+			}
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -3295,10 +3585,17 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				t.Logf("actual: %v", err)
 			}
 
-			// check that lbName exists in resources (either already exists, or was added by create)
-			_, found := fakeResources.LoadBalancerByName(lbName)
-			if !found {
-				t.Error("could not find expected LB")
+			if test.err == nil {
+				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
+				if err != nil {
+					t.Fatalf("failed to get service from kube client: %s", err)
+				}
+
+				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+				wantLoadBalancerID := "load-balancer-id"
+				if gotLoadBalancerID != wantLoadBalancerID {
+					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
+				}
 			}
 		})
 	}
@@ -3308,15 +3605,16 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 	lbName := "afoobar123"
 	tests := []struct {
 		name     string
-		lbs      []godo.LoadBalancer
+		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		deleteFn func(ctx context.Context, lbID string) (*godo.Response, error)
 		service  *v1.Service
 		err      error
-		inCache  bool
 	}{
 		{
-			name: "load-balancer evicted from cache already",
-			lbs:  nil,
+			name: "retrieval failed",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("API failed")
+			},
 			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
 				return newFakeNotOKResponse(), errors.New("delete should not have been invoked")
 			},
@@ -3326,19 +3624,36 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 					UID:  "foobar123",
 				},
 			},
-			err:     nil,
-			inCache: false,
+			err: errors.New("API failed"),
+		},
+		{
+			name: "load-balancer resource not found",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+			},
+			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+				return newFakeNotOKResponse(), errors.New("delete should not have been called")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+			},
+			err: nil,
 		},
 		{
 			name: "delete failed",
-			lbs: []godo.LoadBalancer{
-				{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.GetLoadBalancerName
-					Name:   lbName,
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						// loadbalancer names are a + service.UID
+						// see cloudprovider.DefaultLoadBalancerName
+						Name:   lbName,
+						IP:     "10.0.0.1",
+						Status: lbStatusActive,
+					},
+				}, newFakeOKResponse(), nil
 			},
 			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
 				return newFakeNotOKResponse(), errors.New("API failed")
@@ -3349,42 +3664,20 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 					UID:  "foobar123",
 				},
 			},
-			err:     errors.New("failed to delete load-balancer: API failed"),
-			inCache: true,
+			err: errors.New("failed to delete load-balancer: API failed"),
 		},
 		{
-			name: "load-balancer resource not found",
-			lbs: []godo.LoadBalancer{
-				{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.GetLoadBalancerName
-					Name:   lbName,
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				},
-			},
-			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
-				return newFakeResponse(http.StatusNotFound), errors.New("lb not found")
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-				},
-			},
-			err:     nil,
-			inCache: false,
-		},
-		{
-			name: "load-balancer deleted",
-			lbs: []godo.LoadBalancer{
-				{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.GetLoadBalancerName
-					Name:   lbName,
-					IP:     "10.0.0.1",
-					Status: lbStatusActive,
-				},
+			name: "delete succeeded",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						// loadbalancer names are a + service.UID
+						// see cloudprovider.DefaultLoadBalancerName
+						Name:   lbName,
+						IP:     "10.0.0.1",
+						Status: lbStatusActive,
+					},
+				}, newFakeOKResponse(), nil
 			},
 			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
 				return newFakeOKResponse(), nil
@@ -3395,19 +3688,18 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 					UID:  "foobar123",
 				},
 			},
-			err:     nil,
-			inCache: false,
+			err: nil,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			fakeLB := &fakeLBService{
+				listFn:   test.listFn,
 				deleteFn: test.deleteFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
 			fakeResources := newResources("", "", nil)
-			fakeResources.UpdateLoadBalancers(test.lbs)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -3420,16 +3712,72 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			// clusterName param in EnsureLoadBalancer currently not used
 			err := lb.EnsureLoadBalancerDeleted(context.Background(), "clusterName", test.service)
 			if !reflect.DeepEqual(err, test.err) {
-				t.Errorf("got error %v, want %v", err, test.err)
+				t.Errorf("got error %q, want %q", err, test.err)
+			}
+		})
+	}
+}
+
+func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
+	tests := []struct {
+		name string
+		sut  func(l *loadBalancers, svc *v1.Service) error
+	}{
+		{
+			name: "GetLoadBalancer",
+			sut: func(l *loadBalancers, svc *v1.Service) error {
+				_, _, err := l.GetLoadBalancer(context.Background(), "clusterName", svc)
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			svc := createLBSvc(1)
+			lb := godo.LoadBalancer{
+				// loadbalancer names are a + service.UID
+				// see cloudprovider.DefaultLoadBalancerName
+				ID:   "f7968b52-4ed9-4a16-af8b-304253f04e20",
+				Name: getDefaultLoadBalancerName(svc),
+				IP:   "10.0.0.1",
+				// Status: lbStatusActive,
+			}
+			fakeLB := &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{lb}, newFakeOKResponse(), nil
+				},
+			}
+			fakeClient := newFakeLBClient(fakeLB)
+			fakeResources := newResources("", "", nil)
+			// fakeResources.kclient = fake.NewSimpleClientset(svc)
+			fakeResources.kclient = fake.NewSimpleClientset()
+			if _, err := fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Create(svc); err != nil {
+				t.Fatalf("failed to add service to fake client: %s", err)
 			}
 
-			if test.err != nil {
-				return
+			l := &loadBalancers{
+				resources:         fakeResources,
+				client:            fakeClient,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
 			}
 
-			cachedLB, found := fakeResources.LoadBalancerByName(lbName)
-			if found != test.inCache {
-				t.Errorf("got cached LB %v, wanted cache result: %t", cachedLB, test.inCache)
+			err := test.sut(l, svc)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			svc, err = fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Get(svc.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("failed to get service from kube client: %s", err)
+			}
+
+			gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+			wantLoadBalancerID := lb.ID
+			if gotLoadBalancerID != wantLoadBalancerID {
+				t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
 			}
 		})
 	}

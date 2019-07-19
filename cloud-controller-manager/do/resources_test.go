@@ -33,11 +33,66 @@ import (
 	"github.com/digitalocean/godo"
 
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
+
+type serviceBuilder struct {
+	idx                int
+	isTypeLoadBalancer bool
+	loadBalancerID     string
+}
+
+func newSvcBuilder(idx int) *serviceBuilder {
+	return &serviceBuilder{
+		idx: idx,
+	}
+}
+
+func (sb *serviceBuilder) setTypeLoadBalancer(isTypeLoadBalancer bool) *serviceBuilder {
+	sb.isTypeLoadBalancer = isTypeLoadBalancer
+	return sb
+}
+
+func (sb *serviceBuilder) setLoadBalancerID(id string) *serviceBuilder {
+	sb.loadBalancerID = id
+	return sb
+}
+
+func (sb *serviceBuilder) build() *v1.Service {
+	rep := func(num int) string {
+		return strings.Repeat(strconv.Itoa(sb.idx), num)
+	}
+
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        fmt.Sprintf("service%d", sb.idx),
+			Namespace:   corev1.NamespaceDefault,
+			UID:         types.UID(fmt.Sprintf("%s-%s-%s-%s-%s", rep(7), rep(4), rep(4), rep(4), rep(12))),
+			Annotations: map[string]string{},
+		},
+	}
+	if sb.isTypeLoadBalancer {
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+	}
+	if sb.loadBalancerID != "" {
+		svc.Annotations[annoDOLoadBalancerID] = sb.loadBalancerID
+	}
+
+	return svc
+}
+
+func lbName(idx int) string {
+	svc := newSvcBuilder(idx).build()
+	return getDefaultLoadBalancerName(svc)
+}
+
+func createLBSvc(idx int) *corev1.Service {
+	return newSvcBuilder(idx).setTypeLoadBalancer(true).build()
+}
 
 func TestResources_Droplets(t *testing.T) {
 	droplets := []*godo.Droplet{
@@ -55,168 +110,6 @@ func TestResources_Droplets(t *testing.T) {
 	sort.Slice(foundDroplets, func(a, b int) bool { return foundDroplets[a].ID < foundDroplets[b].ID })
 	if want, got := droplets, foundDroplets; !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect droplets\nwant: %#v\n got: %#v", want, got)
-	}
-}
-
-func TestResources_LoadBalancerByID(t *testing.T) {
-	tests := []struct {
-		name    string
-		lbs     []godo.LoadBalancer
-		findID  string
-		foundLB *godo.LoadBalancer
-		found   bool
-	}{
-		{
-			name:    "existing lb",
-			lbs:     []godo.LoadBalancer{{ID: "1", Name: "one"}},
-			findID:  "1",
-			foundLB: &godo.LoadBalancer{ID: "1", Name: "one"},
-			found:   true,
-		},
-		{
-			name:    "missing lb",
-			lbs:     []godo.LoadBalancer{{ID: "1", Name: "one"}},
-			findID:  "two",
-			foundLB: nil,
-			found:   false,
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			resources := newResources("", "", nil)
-			resources.UpdateLoadBalancers(test.lbs)
-
-			lb, found := resources.LoadBalancerByID(test.findID)
-			if want, got := test.found, found; want != got {
-				t.Errorf("incorrect found\nwant: %#v\n got: %#v", want, got)
-			}
-			if want, got := test.foundLB, lb; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect lb\nwant: %#v\n got: %#v", want, got)
-			}
-		})
-	}
-}
-
-func TestResources_AddLoadBalancer(t *testing.T) {
-	tests := []struct {
-		name            string
-		lbs             []godo.LoadBalancer
-		newLB           godo.LoadBalancer
-		expectedIDMap   map[string]*godo.LoadBalancer
-		expectedNameMap map[string]*godo.LoadBalancer
-	}{
-		{
-			name:  "update existing",
-			lbs:   []godo.LoadBalancer{{ID: "1", Name: "one"}},
-			newLB: godo.LoadBalancer{ID: "1", Name: "new"},
-			expectedIDMap: map[string]*godo.LoadBalancer{
-				"1": {ID: "1", Name: "new"},
-			},
-			expectedNameMap: map[string]*godo.LoadBalancer{
-				"new": {ID: "1", Name: "new"},
-			},
-		},
-		{
-			name:  "update new",
-			lbs:   []godo.LoadBalancer{{ID: "1", Name: "one"}},
-			newLB: godo.LoadBalancer{ID: "2", Name: "two"},
-			expectedIDMap: map[string]*godo.LoadBalancer{
-				"1": {ID: "1", Name: "one"},
-				"2": {ID: "2", Name: "two"},
-			},
-			expectedNameMap: map[string]*godo.LoadBalancer{
-				"one": {ID: "1", Name: "one"},
-				"two": {ID: "2", Name: "two"},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			resources := newResources("", "", nil)
-			resources.UpdateLoadBalancers(test.lbs)
-
-			resources.AddLoadBalancer(test.newLB)
-
-			if want, got := test.expectedIDMap, resources.loadBalancerIDMap; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect id map\nwant :%#v\n got: %#v", want, got)
-			}
-			if want, got := test.expectedNameMap, resources.loadBalancerNameMap; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect name map\nwant :%#v\n got: %#v", want, got)
-			}
-		})
-	}
-}
-
-func TestResources_DeleteLoadBalancer(t *testing.T) {
-	tests := []struct {
-		name            string
-		existingLBs     []godo.LoadBalancer
-		deletedLB       godo.LoadBalancer
-		expectedIDMap   map[string]*godo.LoadBalancer
-		expectedNameMap map[string]*godo.LoadBalancer
-	}{
-		{
-			name:        "delete missing",
-			existingLBs: []godo.LoadBalancer{{ID: "1", Name: "existing"}},
-			deletedLB:   godo.LoadBalancer{ID: "2", Name: "other"},
-			expectedIDMap: map[string]*godo.LoadBalancer{
-				"1": {ID: "1", Name: "existing"},
-			},
-			expectedNameMap: map[string]*godo.LoadBalancer{
-				"existing": {ID: "1", Name: "existing"},
-			},
-		},
-		{
-			name:            "delete existing",
-			existingLBs:     []godo.LoadBalancer{{ID: "1", Name: "existing"}},
-			deletedLB:       godo.LoadBalancer{ID: "1", Name: "existing"},
-			expectedIDMap:   map[string]*godo.LoadBalancer{},
-			expectedNameMap: map[string]*godo.LoadBalancer{},
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			resources := newResources("", "", nil)
-			resources.UpdateLoadBalancers(test.existingLBs)
-
-			resources.DeleteLoadBalancer(test.deletedLB)
-
-			if want, got := test.expectedIDMap, resources.loadBalancerIDMap; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect id map\nwant :%#v\n got: %#v", want, got)
-			}
-			if want, got := test.expectedNameMap, resources.loadBalancerNameMap; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect name map\nwant :%#v\n got: %#v", want, got)
-			}
-		})
-	}
-}
-
-func TestResources_LoadBalancers(t *testing.T) {
-	lbs := []*godo.LoadBalancer{{ID: "1"}, {ID: "2"}}
-	resources := &resources{
-		loadBalancerIDMap: map[string]*godo.LoadBalancer{
-			lbs[0].ID: lbs[0],
-			lbs[1].ID: lbs[1],
-		},
-	}
-
-	foundLBs := resources.LoadBalancers()
-	// order found lbs by id so we can compare
-	sort.Slice(foundLBs, func(a, b int) bool { return foundLBs[a].ID < foundLBs[b].ID })
-	if want, got := lbs, foundLBs; !reflect.DeepEqual(want, got) {
-		t.Errorf("incorrect lbs\nwant: %#v\n got: %#v", want, got)
 	}
 }
 
@@ -402,79 +295,6 @@ func TestResources_SyncDroplets(t *testing.T) {
 	}
 }
 
-func TestResources_SyncLoadBalancers(t *testing.T) {
-	tests := []struct {
-		name              string
-		lbsSvc            godo.LoadBalancersService
-		expectedResources *resources
-		err               error
-	}{
-		{
-			name: "happy path",
-			lbsSvc: &fakeLBService{
-				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
-				},
-			},
-			expectedResources: &resources{
-				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"2": {ID: "2", Name: "two"}},
-				loadBalancerNameMap: map[string]*godo.LoadBalancer{"two": {ID: "2", Name: "two"}},
-			},
-			err: nil,
-		},
-		{
-			name: "lbs svc failure",
-			lbsSvc: &fakeLBService{
-				listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return nil, newFakeNotOKResponse(), errors.New("lbs svc fail")
-				},
-			},
-			expectedResources: &resources{
-				loadBalancerIDMap:   map[string]*godo.LoadBalancer{"1": {ID: "1", Name: "one"}},
-				loadBalancerNameMap: map[string]*godo.LoadBalancer{"one": {ID: "1", Name: "one"}},
-			},
-			err: errors.New("lbs svc fail"),
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			client := &godo.Client{
-				LoadBalancers: test.lbsSvc,
-			}
-			fakeResources := newResources("", "", client)
-			fakeResources.UpdateDroplets([]godo.Droplet{
-				{ID: 1, Name: "one"},
-			})
-			fakeResources.UpdateLoadBalancers([]godo.LoadBalancer{
-				{ID: "1", Name: "one"},
-			})
-
-			err := fakeResources.SyncLoadBalancers()
-			if test.err != nil {
-				if !reflect.DeepEqual(err, test.err) {
-					t.Errorf("incorrect err\nwant: %#v\n got: %#v", test.err, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Errorf("did not expect err but got: %s", err)
-				return
-			}
-
-			if want, got := test.expectedResources.loadBalancerIDMap, fakeResources.loadBalancerIDMap; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect lb id map\nwant: %#v\n got: %#v", want, got)
-			}
-			if want, got := test.expectedResources.loadBalancerNameMap, fakeResources.loadBalancerNameMap; !reflect.DeepEqual(want, got) {
-				t.Errorf("incorrect lb name map\nwant: %#v\n got: %#v", want, got)
-			}
-		})
-	}
-}
-
 type recordingSyncer struct {
 	*tickerSyncer
 
@@ -524,7 +344,7 @@ func TestResourcesController_Run(t *testing.T) {
 			},
 		},
 		LoadBalancers: &fakeLBService{
-			listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
@@ -533,7 +353,7 @@ func TestResourcesController_Run(t *testing.T) {
 	kclient := fake.NewSimpleClientset()
 	inf := informers.NewSharedInformerFactory(kclient, 0)
 
-	res := NewResourcesController(fakeResources, inf.Core().V1().Services(), kclient, gclient)
+	res := NewResourcesController(fakeResources, inf.Core().V1().Services(), kclient)
 	stop := make(chan struct{})
 	syncer := newRecordingSyncer(2, stop)
 	res.syncer = syncer
@@ -550,55 +370,35 @@ func TestResourcesController_Run(t *testing.T) {
 	}
 }
 
-func lbName(idx int) string {
-	svc := createSvc(idx, false)
-	return getDefaultLoadBalancerName(svc)
-}
-
-func createSvc(idx int, isTypeLoadBalancer bool) *corev1.Service {
-	rep := func(num int) string {
-		return strings.Repeat(strconv.Itoa(idx), num)
-	}
-
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("service%d", idx),
-			UID:  types.UID(fmt.Sprintf("%s-%s-%s-%s-%s", rep(7), rep(4), rep(4), rep(4), rep(12))),
-		},
-	}
-	if isTypeLoadBalancer {
-		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
-	}
-	return svc
-}
-
 func TestResourcesController_SyncTags(t *testing.T) {
 	testcases := []struct {
 		name        string
 		services    []*corev1.Service
-		lbs         []*godo.LoadBalancer
+		lbs         []godo.LoadBalancer
 		tagSvc      *fakeTagsService
 		errMsg      string
 		tagRequests []*godo.TagResourcesRequest
 	}{
 		{
 			name:     "no matching services",
-			services: []*corev1.Service{createSvc(1, true)},
-			lbs: []*godo.LoadBalancer{
+			services: []*corev1.Service{createLBSvc(1)},
+			lbs: []godo.LoadBalancer{
 				{ID: "1", Name: lbName(2)},
 			},
 		},
 		{
-			name:     "service without LoadBalancer type",
-			services: []*corev1.Service{createSvc(1, false)},
-			lbs: []*godo.LoadBalancer{
+			name: "service without LoadBalancer type",
+			services: []*corev1.Service{
+				newSvcBuilder(1).setTypeLoadBalancer(false).build(),
+			},
+			lbs: []godo.LoadBalancer{
 				{ID: "1", Name: lbName(1)},
 			},
 		},
 		{
 			name:     "unrecoverable resource tagging error",
-			services: []*corev1.Service{createSvc(1, true)},
-			lbs: []*godo.LoadBalancer{
+			services: []*corev1.Service{createLBSvc(1)},
+			lbs: []godo.LoadBalancer{
 				{ID: "1", Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsServiceWithFailure(0, errors.New("no tagging for you")),
@@ -606,8 +406,8 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		},
 		{
 			name:     "unrecoverable resource creation error",
-			services: []*corev1.Service{createSvc(1, true)},
-			lbs: []*godo.LoadBalancer{
+			services: []*corev1.Service{createLBSvc(1)},
+			lbs: []godo.LoadBalancer{
 				{ID: "1", Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsServiceWithFailure(1, errors.New("no tag creating for you")),
@@ -616,9 +416,9 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		{
 			name: "success on first resource tagging",
 			services: []*corev1.Service{
-				createSvc(1, true),
+				createLBSvc(1),
 			},
-			lbs: []*godo.LoadBalancer{
+			lbs: []godo.LoadBalancer{
 				{Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsService(clusterIDTag),
@@ -626,10 +426,10 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		{
 			name: "multiple tags",
 			services: []*corev1.Service{
-				createSvc(1, true),
-				createSvc(2, true),
+				createLBSvc(1),
+				createLBSvc(2),
 			},
-			lbs: []*godo.LoadBalancer{
+			lbs: []godo.LoadBalancer{
 				{ID: "1", Name: lbName(1)},
 				{ID: "2", Name: lbName(2)},
 			},
@@ -652,12 +452,32 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		{
 			name: "success on second resource tagging",
 			services: []*corev1.Service{
-				createSvc(1, true),
+				createLBSvc(1),
 			},
-			lbs: []*godo.LoadBalancer{
+			lbs: []godo.LoadBalancer{
 				{ID: "1", Name: lbName(1)},
 			},
 			tagSvc: newFakeTagsService(),
+		},
+		{
+			name: "found LB resource by ID annotation",
+			services: []*corev1.Service{
+				newSvcBuilder(1).setTypeLoadBalancer(true).setLoadBalancerID("f7968b52-4ed9-4a16-af8b-304253f04e20").build(),
+			},
+			lbs: []godo.LoadBalancer{
+				{Name: "renamed-lb"},
+			},
+			tagSvc: newFakeTagsService(clusterIDTag),
+			tagRequests: []*godo.TagResourcesRequest{
+				{
+					Resources: []godo.Resource{
+						{
+							ID:   "f7968b52-4ed9-4a16-af8b-304253f04e20",
+							Type: godo.LoadBalancerResourceType,
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -666,17 +486,21 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			fakeResources := newResources("", "", nil)
-			for _, lb := range test.lbs {
-				lb := lb
-				fakeResources.loadBalancerIDMap[lb.ID] = lb
+			gclient := &godo.Client{
+				Droplets: nil,
+				LoadBalancers: &fakeLBService{
+					listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+						return test.lbs, newFakeOKResponse(), nil
+					},
+				},
 			}
+
+			fakeResources := newResources("", "", gclient)
 			fakeTagsService := test.tagSvc
 			if fakeTagsService == nil {
 				fakeTagsService = newFakeTagsServiceWithFailure(0, errors.New("tags service not configured, should probably not have been called"))
 			}
 
-			gclient := godo.NewClient(nil)
 			gclient.Tags = fakeTagsService
 			kclient := fake.NewSimpleClientset()
 
@@ -688,7 +512,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 			}
 
 			sharedInformer := informers.NewSharedInformerFactory(kclient, 0)
-			res := NewResourcesController(fakeResources, sharedInformer.Core().V1().Services(), kclient, gclient)
+			res := NewResourcesController(fakeResources, sharedInformer.Core().V1().Services(), kclient)
 			sharedInformer.Start(nil)
 			sharedInformer.WaitForCacheSync(nil)
 
