@@ -128,15 +128,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - persistentvolumes
-  verbs:
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - endpoints
   verbs:
   - create
