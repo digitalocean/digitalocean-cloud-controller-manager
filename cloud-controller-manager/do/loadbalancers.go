@@ -218,9 +218,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	switch err {
 	case nil:
 		// LB existing
+		lbID := lb.ID
 		lb, _, err = l.client.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
+			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
 		}
 
 	case errLBNotFound:
