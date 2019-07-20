@@ -28,6 +28,13 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService) *godo.Client {
+	return &godo.Client{
+		Droplets:      fakeDroplet,
+		LoadBalancers: fakeLB,
+	}
+}
+
 func newFakeOKResponse() *godo.Response {
 	return newFakeResponse(http.StatusOK)
 }
@@ -75,8 +82,8 @@ func linksForPage(page int) *godo.Links {
 }
 
 func TestAllDropletList(t *testing.T) {
-	client := &godo.Client{
-		Droplets: &fakeDropletService{
+	client := newFakeDropletClient(
+		&fakeDropletService{
 			listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 				// Simulate pagination
 				droplets := []godo.Droplet{
@@ -90,7 +97,7 @@ func TestAllDropletList(t *testing.T) {
 				return droplets, resp, nil
 			},
 		},
-	}
+	)
 
 	droplets, err := allDropletList(context.Background(), client)
 	if err != nil {
@@ -106,8 +113,8 @@ func TestAllDropletList(t *testing.T) {
 }
 
 func TestAllLoadBalancerList(t *testing.T) {
-	client := &godo.Client{
-		LoadBalancers: &fakeLBService{
+	client := newFakeLBClient(
+		&fakeLBService{
 			listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				// Simulate pagination
 				lbs := []godo.LoadBalancer{
@@ -121,7 +128,7 @@ func TestAllLoadBalancerList(t *testing.T) {
 				return lbs, resp, nil
 			},
 		},
-	}
+	)
 
 	lbs, err := allLoadBalancerList(context.Background(), client)
 	if err != nil {

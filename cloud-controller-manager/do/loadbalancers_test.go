@@ -83,9 +83,7 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 }
 
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
-	return &godo.Client{
-		LoadBalancers: fakeLB,
-	}
+	return newFakeClient(nil, fakeLB)
 }
 
 func createLB() *godo.LoadBalancer {
@@ -2756,12 +2754,11 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources("", "", nil)
+			fakeResources := newResources("", "", fakeClient)
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
-				client:            fakeClient,
 				region:            "nyc3",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
@@ -2832,7 +2829,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 				},
 			}
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources(test.clusterID, test.vpcID, nil)
+			fakeResources := newResources(test.clusterID, test.vpcID, fakeClient)
 			fakeResources.clusterVPCID = test.vpcID
 			fakeResources.UpdateDroplets([]godo.Droplet{
 				{
@@ -2843,7 +2840,6 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 
 			lb := &loadBalancers{
 				resources: fakeResources,
-				client:    fakeClient,
 				region:    "nyc3",
 				clusterID: clusterID,
 			}
@@ -2971,12 +2967,11 @@ func Test_nodeToDropletIDs(t *testing.T) {
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
 			fakeClient := newFakeLBClient(&fakeLBService{})
-			fakeResources := newResources("", "", nil)
+			fakeResources := newResources("", "", fakeClient)
 			fakeResources.UpdateDroplets(test.droplets)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
-				client:            fakeClient,
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
@@ -3135,7 +3130,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 				listFn: test.listFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", nil)
+			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)
@@ -3143,7 +3138,6 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
-				client:            fakeClient,
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
@@ -3556,7 +3550,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				updateFn: test.updateFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", nil)
+			fakeResources := newResources("", "", fakeClient)
 			fakeResources.UpdateDroplets(test.droplets)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
@@ -3565,7 +3559,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
-				client:            fakeClient,
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
@@ -3699,11 +3692,10 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 				deleteFn: test.deleteFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", nil)
+			fakeResources := newResources("", "", fakeClient)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
-				client:            fakeClient,
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
@@ -3749,7 +3741,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 				},
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", nil)
+			fakeResources := newResources("", "", fakeClient)
 			// fakeResources.kclient = fake.NewSimpleClientset(svc)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Create(svc); err != nil {
@@ -3758,7 +3750,6 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 
 			l := &loadBalancers{
 				resources:         fakeResources,
-				client:            fakeClient,
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,

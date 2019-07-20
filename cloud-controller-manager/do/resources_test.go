@@ -337,18 +337,18 @@ var (
 )
 
 func TestResourcesController_Run(t *testing.T) {
-	gclient := &godo.Client{
-		Droplets: &fakeDropletService{
+	gclient := newFakeClient(
+		&fakeDropletService{
 			listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 				return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
-		LoadBalancers: &fakeLBService{
+		&fakeLBService{
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
-	}
+	)
 	fakeResources := newResources(clusterID, "", gclient)
 	kclient := fake.NewSimpleClientset()
 	inf := informers.NewSharedInformerFactory(kclient, 0)
@@ -486,14 +486,13 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			gclient := &godo.Client{
-				Droplets: nil,
-				LoadBalancers: &fakeLBService{
+			gclient := newFakeLBClient(
+				&fakeLBService{
 					listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 						return test.lbs, newFakeOKResponse(), nil
 					},
 				},
-			}
+			)
 
 			fakeResources := newResources("", "", gclient)
 			fakeTagsService := test.tagSvc
