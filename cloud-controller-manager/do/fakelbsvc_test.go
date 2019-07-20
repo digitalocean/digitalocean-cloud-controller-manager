@@ -130,7 +130,10 @@ func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBala
 		return nil, newFakeNotOKResponse(), f.failError
 	}
 
-	lb := &godo.LoadBalancer{ID: uuid.New()}
+	lb := &godo.LoadBalancer{
+		ID:     uuid.New(),
+		Status: lbStatusNew,
+	}
 	setLBFromReq(lb, lbr)
 	return lb, newFakeResponse(http.StatusAccepted), nil
 }
@@ -185,7 +188,6 @@ func (f *fakeLoadBalancerService) RemoveForwardingRules(ctx context.Context, lbI
 func setLBFromReq(lb *godo.LoadBalancer, lbr *godo.LoadBalancerRequest) {
 	lb.Name = lbr.Name
 	lb.Algorithm = lbr.Algorithm
-	lb.Status = lbStatusNew
 	lb.Created = time.Now().Format(time.RFC3339)
 	lb.ForwardingRules = mustCopy(lbr.ForwardingRules).([]godo.ForwardingRule)
 	lb.HealthCheck = mustCopy(lbr.HealthCheck).(*godo.HealthCheck)

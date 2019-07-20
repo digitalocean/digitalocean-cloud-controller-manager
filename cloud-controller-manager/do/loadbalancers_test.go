@@ -3227,7 +3227,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 func Test_GetLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name     string
-		fakeSvc  *fakeLoadBalancerService
+		fakeLB   *fakeLoadBalancerService
 		service  *v1.Service
 		lbStatus *v1.LoadBalancerStatus
 		exists   bool
@@ -3235,7 +3235,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 	}{
 		{
 			name: "got loadbalancer by name",
-			fakeSvc: newFakeLoadBalancerService(
+			fakeLB: newFakeLoadBalancerService(
 				godo.LoadBalancer{
 					// loadbalancer names are a + service.UID
 					// see cloudprovider.DefaultLoadBalancerName
@@ -3276,7 +3276,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 		},
 		{
 			name: "got loadbalancer by ID",
-			fakeSvc: newFakeLoadBalancerService(
+			fakeLB: newFakeLoadBalancerService(
 				godo.LoadBalancer{
 					// loadbalancer names are a + service.UID
 					// see cloudprovider.DefaultLoadBalancerName
@@ -3317,8 +3317,8 @@ func Test_GetLoadBalancer(t *testing.T) {
 			err:    nil,
 		},
 		{
-			name:    "loadbalancer not found",
-			fakeSvc: newFakeLoadBalancerService(),
+			name:   "loadbalancer not found",
+			fakeLB: newFakeLoadBalancerService(),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3346,8 +3346,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeLB := test.fakeSvc
-			fakeClient := newFakeLBClient(fakeLB)
+			fakeClient := newFakeLBClient(test.fakeLB)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
@@ -3381,7 +3380,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 				t.Logf("actual: %v", err)
 			}
 
-			fakeLB.assertCounts(t)
+			test.fakeLB.assertCounts(t)
 
 			if test.exists {
 				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
@@ -3403,6 +3402,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name     string
 		droplets []godo.Droplet
+		fakeLB   *fakeLoadBalancerService
 		getFn    func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
 		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		createFn func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
@@ -3428,18 +3428,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
+			fakeLB: newFakeLoadBalancerService(
+				*createLB(),
+			).expectGets(0).expectCreates(0),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3501,18 +3492,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
+			fakeLB: newFakeLoadBalancerService(
+				*createLB(),
+			).expectLists(0).expectCreates(0),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3575,18 +3557,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
-			},
+			fakeLB: newFakeLoadBalancerService().expectGets(0).expectUpdates(0),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3768,11 +3739,14 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					return test.droplets, newFakeOKResponse(), nil
 				},
 			}
-			fakeLB := &fakeLBService{
+			var fakeLB godo.LoadBalancersService = &fakeLBService{
 				getFn:    test.getFn,
 				listFn:   test.listFn,
 				createFn: test.createFn,
 				updateFn: test.updateFn,
+			}
+			if test.fakeLB != nil {
+				fakeLB = test.fakeLB
 			}
 			fakeClient := newFakeClient(fakeDroplet, fakeLB)
 			fakeResources := newResources("", "", fakeClient)
@@ -3800,6 +3774,10 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				t.Error("unexpected error")
 				t.Logf("expected: %v", test.err)
 				t.Logf("actual: %v", err)
+			}
+
+			if test.fakeLB != nil {
+				test.fakeLB.assertCounts(t)
 			}
 
 			if test.err == nil {
