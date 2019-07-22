@@ -304,22 +304,40 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 			err:        nil,
 		},
 		{
+			name:       "invalid providerID - unparseable",
+			providerID: "digitalocean://%01%02%03%04%05",
+			dropletID:  0,
+			err:        errors.New("failed to parse provider ID \"digitalocean://%01%02%03%04%05\": parse digitalocean://%01%02%03%04%05: invalid URL escape \"%01\""),
+		},
+		{
 			name:       "invalid providerID - empty string",
 			providerID: "",
 			dropletID:  0,
-			err:        errors.New("providerID cannot be empty string"),
+			err:        errors.New("unexpected provider ID scheme: expected \"digitalocean\", got \"\""),
 		},
 		{
 			name:       "invalid providerID - wrong format",
 			providerID: "digitalocean:/12345",
 			dropletID:  0,
-			err:        errors.New("unexpected providerID format: digitalocean:/12345, format should be: digitalocean://12345"),
+			err:        errors.New("provider ID number cannot be empty"),
 		},
 		{
 			name:       "invalid providerID - wrong provider name",
 			providerID: "do://12345",
 			dropletID:  0,
-			err:        errors.New("provider name from providerID should be digitalocean: do://12345"),
+			err:        errors.New("unexpected provider ID scheme: expected \"digitalocean\", got \"do\""),
+		},
+		{
+			name:       "invalid providerID - extra cruft",
+			providerID: "digitalocean://12345/cruft",
+			dropletID:  0,
+			err:        errors.New("unexpected provider ID format: \"digitalocean://12345/cruft\" should adhere to format \"digitalocean://12345\""),
+		},
+		{
+			name:       "invalid providerID - NaN",
+			providerID: "digitalocean://onetwothreeforfive",
+			dropletID:  0,
+			err:        errors.New("failed to convert provider ID number \"onetwothreeforfive\": strconv.Atoi: parsing \"onetwothreeforfive\": invalid syntax"),
 		},
 	}
 

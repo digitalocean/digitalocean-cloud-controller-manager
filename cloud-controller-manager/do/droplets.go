@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/digitalocean/godo"
 	v1 "k8s.io/api/core/v1"
@@ -211,24 +211,30 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 // The providerID spec should be retrievable from the Kubernetes
 // node object. The expected format is: digitalocean://droplet-id
 func dropletIDFromProviderID(providerID string) (int, error) {
-	if providerID == "" {
-		return 0, errors.New("providerID cannot be empty string")
-	}
-
-	split := strings.Split(providerID, "/")
-	if len(split) != 3 {
-		return 0, fmt.Errorf("unexpected providerID format: %s, format should be: digitalocean://12345", providerID)
-	}
-
-	// since split[0] is actually "digitalocean:"
-	if strings.TrimSuffix(split[0], ":") != ProviderName {
-		return 0, fmt.Errorf("provider name from providerID should be %s: %s", ProviderName, providerID)
-	}
-
-	digits := split[2]
-	dropletID, err := strconv.Atoi(digits)
+	u, err := url.Parse(providerID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to convert digits %q: %s", digits, err)
+		return 0, fmt.Errorf("failed to parse provider ID %q: %s", providerID, err)
+	}
+
+	provIDScheme := "digitalocean"
+	if u.Scheme != provIDScheme {
+		return 0, fmt.Errorf("unexpected provider ID scheme: expected %q, got %q", provIDScheme, u.Scheme)
+	}
+
+	provIDNum := u.Host
+	if provIDNum == "" {
+		return 0, errors.New("provider ID number cannot be empty")
+	}
+
+	// Ensure the provider ID carries no extra characters.
+	provID := url.URL{Scheme: provIDScheme, Host: provIDNum}
+	if providerID != provID.String() {
+		return 0, fmt.Errorf("unexpected provider ID format: %q should adhere to format \"digitalocean://12345\"", providerID)
+	}
+
+	dropletID, err := strconv.Atoi(provIDNum)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert provider ID number %q: %s", provIDNum, err)
 	}
 
 	return dropletID, nil
