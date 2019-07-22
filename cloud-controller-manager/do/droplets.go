@@ -21,8 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/digitalocean/godo"
 	v1 "k8s.io/api/core/v1"
@@ -211,25 +211,19 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 // The providerID spec should be retrievable from the Kubernetes
 // node object. The expected format is: digitalocean://droplet-id
 func dropletIDFromProviderID(providerID string) (int, error) {
-	u, err := url.Parse(providerID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse provider ID %q: %s", providerID, err)
+	if providerID == "" {
+		return 0, errors.New("provider ID cannot be empty")
 	}
 
-	provIDScheme := "digitalocean"
-	if u.Scheme != provIDScheme {
-		return 0, fmt.Errorf("unexpected provider ID scheme: expected %q, got %q", provIDScheme, u.Scheme)
+	const prefix = "digitalocean://"
+
+	if !strings.HasPrefix(providerID, prefix) {
+		return 0, fmt.Errorf("provider ID %q is missing prefix %q", providerID, prefix)
 	}
 
-	provIDNum := u.Host
+	provIDNum := strings.TrimPrefix(providerID, prefix)
 	if provIDNum == "" {
 		return 0, errors.New("provider ID number cannot be empty")
-	}
-
-	// Ensure the provider ID carries no extra characters.
-	provID := url.URL{Scheme: provIDScheme, Host: provIDNum}
-	if providerID != provID.String() {
-		return 0, fmt.Errorf("unexpected provider ID format: %q should adhere to format \"digitalocean://12345\"", providerID)
 	}
 
 	dropletID, err := strconv.Atoi(provIDNum)

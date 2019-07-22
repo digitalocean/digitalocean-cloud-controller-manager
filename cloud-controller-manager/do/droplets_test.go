@@ -304,40 +304,28 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 			err:        nil,
 		},
 		{
-			name:       "invalid providerID - unparseable",
-			providerID: "digitalocean://%01%02%03%04%05",
-			dropletID:  0,
-			err:        errors.New("failed to parse provider ID \"digitalocean://%01%02%03%04%05\": parse digitalocean://%01%02%03%04%05: invalid URL escape \"%01\""),
-		},
-		{
 			name:       "invalid providerID - empty string",
 			providerID: "",
 			dropletID:  0,
-			err:        errors.New("unexpected provider ID scheme: expected \"digitalocean\", got \"\""),
+			err:        errors.New("provider ID cannot be empty"),
 		},
 		{
-			name:       "invalid providerID - wrong format",
-			providerID: "digitalocean:/12345",
+			name:       "invalid providerID - empty number",
+			providerID: "digitalocean://",
 			dropletID:  0,
 			err:        errors.New("provider ID number cannot be empty"),
 		},
 		{
-			name:       "invalid providerID - wrong provider name",
-			providerID: "do://12345",
+			name:       "invalid providerID - wrong prefix",
+			providerID: "digitalocean:/12345",
 			dropletID:  0,
-			err:        errors.New("unexpected provider ID scheme: expected \"digitalocean\", got \"do\""),
+			err:        errors.New("provider ID \"digitalocean:/12345\" is missing prefix \"digitalocean://\""),
 		},
 		{
 			name:       "invalid providerID - extra cruft",
-			providerID: "digitalocean://12345/cruft",
+			providerID: "digitalocean://12345cruft",
 			dropletID:  0,
-			err:        errors.New("unexpected provider ID format: \"digitalocean://12345/cruft\" should adhere to format \"digitalocean://12345\""),
-		},
-		{
-			name:       "invalid providerID - NaN",
-			providerID: "digitalocean://onetwothreeforfive",
-			dropletID:  0,
-			err:        errors.New("failed to convert provider ID number \"onetwothreeforfive\": strconv.Atoi: parsing \"onetwothreeforfive\": invalid syntax"),
+			err:        errors.New("failed to convert provider ID number \"12345cruft\": strconv.Atoi: parsing \"12345cruft\": invalid syntax"),
 		},
 	}
 
