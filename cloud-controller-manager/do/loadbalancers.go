@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -206,7 +207,7 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 //
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
+	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
 	}
@@ -257,7 +258,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 //
 // UpdateLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
-	lbRequest, err := l.buildLoadBalancerRequest(service, nodes)
+	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
 		return fmt.Errorf("failed to build load-balancer request: %s", err)
 	}
@@ -370,28 +371,60 @@ func (l *loadBalancers) lbByName(ctx context.Context, name string) (*godo.LoadBa
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
 //
 // Node names are assumed to match droplet names.
-func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
-	droplets := l.resources.Droplets()
+func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node) ([]int, error) {
 	var dropletIDs []int
+	missingDroplets := map[string]bool{}
+
 	for _, node := range nodes {
-	Loop:
-		for _, droplet := range droplets {
-			if node.Name == droplet.Name {
-				dropletIDs = append(dropletIDs, droplet.ID)
-				break
-			}
-			addresses, err := nodeAddresses(droplet)
+		providerID := node.Spec.ProviderID
+		if providerID != "" {
+			dropletID, err := dropletIDFromProviderID(providerID)
 			if err != nil {
-				klog.Errorf("error getting node addresses for %s: %v", droplet.Name, err)
+				return nil, fmt.Errorf("failed to parse provider ID %q: %s", providerID, err)
+			}
+			dropletIDs = append(dropletIDs, dropletID)
+		} else {
+			missingDroplets[node.Name] = true
+		}
+	}
+
+	if len(missingDroplets) > 0 {
+		// Discover missing droplets by matching names.
+		droplets, err := allDropletList(ctx, l.resources.gclient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list all droplets: %s", err)
+		}
+
+		for _, droplet := range droplets {
+			if missingDroplets[droplet.Name] {
+				dropletIDs = append(dropletIDs, droplet.ID)
+				delete(missingDroplets, droplet.Name)
+				continue
+			}
+			addresses, err := nodeAddresses(&droplet)
+			if err != nil {
+				klog.Errorf("Error getting node addresses for %s: %s", droplet.Name, err)
 				continue
 			}
 			for _, address := range addresses {
-				if address.Address == string(node.Name) {
+				if missingDroplets[address.Address] {
 					dropletIDs = append(dropletIDs, droplet.ID)
-					break Loop
+					delete(missingDroplets, droplet.Name)
+					break
 				}
 			}
 		}
+	}
+
+	if len(missingDroplets) > 0 {
+		// Sort node names for stable output.
+		missingNames := make([]string, 0, len(missingDroplets))
+		for missingName := range missingDroplets {
+			missingNames = append(missingNames, missingName)
+		}
+		sort.Strings(missingNames)
+
+		klog.Errorf("Failed to find droplets for nodes %s", strings.Join(missingNames, " "))
 	}
 
 	return dropletIDs, nil
@@ -399,10 +432,10 @@ func (l *loadBalancers) nodesToDropletIDs(nodes []*v1.Node) ([]int, error) {
 
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
-func (l *loadBalancers) buildLoadBalancerRequest(service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
+func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
 	lbName := getDefaultLoadBalancerName(service)
 
-	dropletIDs, err := l.nodesToDropletIDs(nodes)
+	dropletIDs, err := l.nodesToDropletIDs(ctx, nodes)
 	if err != nil {
 		return nil, err
 	}

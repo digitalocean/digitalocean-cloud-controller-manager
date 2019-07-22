@@ -225,5 +225,11 @@ func dropletIDFromProviderID(providerID string) (int, error) {
 		return 0, fmt.Errorf("provider name from providerID should be %s: %s", ProviderName, providerID)
 	}
 
-	return strconv.Atoi(split[2])
+	digits := split[2]
+	dropletID, err := strconv.Atoi(digits)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert digits %q: %s", digits, err)
+	}
+
+	return dropletID, nil
 }

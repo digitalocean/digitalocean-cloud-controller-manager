@@ -4,6 +4,7 @@
 
 ### Added
 
+* Use provider ID for setting LB droplet targets (@timoreimann)
 * Annotate Service objects by load-balancer UUIDs to enable free LB renames and improve the DO API consumption performance (@timoreimann)
 
 ## v0.1.16 (beta) - Jul 16th 2019

@@ -36,9 +36,13 @@ A solution to the problem is to pass the provider ID (aka droplet ID) via the ku
 
 DigitalOcean's managed Kubernetes offering DOKS sets the provider ID on each worker node kubelet instance.
 
-### Kubernetes node names must match the droplet name, private ipv4 ip or public ipv4 ip
+### Kubernetes node name overriding
 
-By default, the kubelet will name nodes based on the node's hostname. On DigitalOcean, node hostnames are set based on the name of the droplet. If you decide to override the hostname on kubelets with `--hostname-override`, this will also override the node name in Kubernetes. It is important that the node name on Kubernetes matches either the droplet name, private ipv4 ip or the public ipv4 ip, otherwise cloud controller manager cannot find the corresponding droplet to nodes.
+By default, the kubelet will name nodes based on the node's hostname. On DigitalOcean, node hostnames are set based on the name of the droplet. If you decide to override the hostname on kubelets with `--hostname-override`, this will also override the node name in Kubernetes.
+
+Overriding the hostname is okay if provider IDs are injected by the kubelet. (See the previous section.) If that is not the case or there are nodes lacking the provider ID, however, then the Kubenretes node name must match either the droplet name, private ipv4 IP, or the public ipv4 IP. Otherwise, `cloud-controller-manager` won't be able to find the corresponding droplets in the DigitalOcean API and consequently fail to bootstrap nodes.
+
+### Kubernetes nodes can be reached via IP address only
 
 When setting the droplet host name as the node name (which is the default), Kubernetes will try to reach the node using its host name. However, this won't work since host names aren't resovable on DO. For example, when you run `kubectl logs` you will get an error like so:
 
