@@ -212,23 +212,23 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 // node object. The expected format is: digitalocean://droplet-id
 func dropletIDFromProviderID(providerID string) (int, error) {
 	if providerID == "" {
-		return 0, errors.New("providerID cannot be empty string")
+		return 0, errors.New("provider ID cannot be empty")
 	}
 
-	split := strings.Split(providerID, "/")
-	if len(split) != 3 {
-		return 0, fmt.Errorf("unexpected providerID format: %s, format should be: digitalocean://12345", providerID)
+	const prefix = "digitalocean://"
+
+	if !strings.HasPrefix(providerID, prefix) {
+		return 0, fmt.Errorf("provider ID %q is missing prefix %q", providerID, prefix)
 	}
 
-	// since split[0] is actually "digitalocean:"
-	if strings.TrimSuffix(split[0], ":") != ProviderName {
-		return 0, fmt.Errorf("provider name from providerID should be %s: %s", ProviderName, providerID)
+	provIDNum := strings.TrimPrefix(providerID, prefix)
+	if provIDNum == "" {
+		return 0, errors.New("provider ID number cannot be empty")
 	}
 
-	digits := split[2]
-	dropletID, err := strconv.Atoi(digits)
+	dropletID, err := strconv.Atoi(provIDNum)
 	if err != nil {
-		return 0, fmt.Errorf("failed to convert digits %q: %s", digits, err)
+		return 0, fmt.Errorf("failed to convert provider ID number %q: %s", provIDNum, err)
 	}
 
 	return dropletID, nil

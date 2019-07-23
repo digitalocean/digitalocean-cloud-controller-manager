@@ -307,19 +307,25 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 			name:       "invalid providerID - empty string",
 			providerID: "",
 			dropletID:  0,
-			err:        errors.New("providerID cannot be empty string"),
+			err:        errors.New("provider ID cannot be empty"),
 		},
 		{
-			name:       "invalid providerID - wrong format",
+			name:       "invalid providerID - empty number",
+			providerID: "digitalocean://",
+			dropletID:  0,
+			err:        errors.New("provider ID number cannot be empty"),
+		},
+		{
+			name:       "invalid providerID - wrong prefix",
 			providerID: "digitalocean:/12345",
 			dropletID:  0,
-			err:        errors.New("unexpected providerID format: digitalocean:/12345, format should be: digitalocean://12345"),
+			err:        errors.New("provider ID \"digitalocean:/12345\" is missing prefix \"digitalocean://\""),
 		},
 		{
-			name:       "invalid providerID - wrong provider name",
-			providerID: "do://12345",
+			name:       "invalid providerID - extra cruft",
+			providerID: "digitalocean://12345cruft",
 			dropletID:  0,
-			err:        errors.New("provider name from providerID should be digitalocean: do://12345"),
+			err:        errors.New("failed to convert provider ID number \"12345cruft\": strconv.Atoi: parsing \"12345cruft\": invalid syntax"),
 		},
 	}
 
