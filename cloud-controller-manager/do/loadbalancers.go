@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/net/publicsuffix"
 	v1 "k8s.io/api/core/v1"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
@@ -89,6 +90,9 @@ const (
 	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
 
+	// annDODomain is the annotation specifying the domain in front of the LB.
+	annDODomain = "service.beta.kubernetes.io/do-loadbalancer-domain"
+
 	// annDOAlgorithm is the annotation specifying which algorithm DO load balancer
 	// should use. Options are round_robin and least_connections. Defaults
 	// to round_robin.
@@ -147,7 +151,9 @@ const (
 	portProtocolTCP = "TCP"
 )
 
-var errLBNotFound = errors.New("loadbalancer not found")
+var (
+	errLBNotFound = errors.New("loadbalancer not found")
+)
 
 func buildK8sTag(val string) string {
 	return fmt.Sprintf("%s:%s", tagPrefixClusterID, val)
@@ -242,6 +248,112 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	if lb.Status != lbStatusActive {
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+	}
+
+	// EnsureDomain ...
+	domainName := getDomain(service)
+	var domain *godo.Domain
+	if domainName != "" {
+		var err error
+		var res *godo.Response
+
+		// Parse out the naked domain and sub-domain parts.
+		tld, _ := publicsuffix.PublicSuffix(domainName)
+		tld = fmt.Sprintf(".%s", tld)
+		if !strings.HasSuffix(domainName, tld) {
+			return nil, fmt.Errorf("unable to parse TLD from domain %s, got %s", domainName, tld)
+		}
+		domainPart := strings.TrimSuffix(domainName, tld)
+		domainParts := strings.Split(domainPart, ".")
+		nakedDomain := fmt.Sprintf("%s%s", domainParts[len(domainParts)-1], tld)
+		hostPart := strings.Join(domainParts[0:len(domainParts)-1], ".")
+		if hostPart == "" {
+			hostPart = "@"
+		}
+
+		// Retrieve the naked domain.
+		domain, res, err = l.resources.gclient.Domains.Get(ctx, nakedDomain)
+		if err == nil {
+			// Domain existing, check that it's pointing to our LB IP, error out if not.
+			var domainRecord *godo.DomainRecord
+			records, _, err := l.resources.gclient.Domains.Records(ctx, nakedDomain, &godo.ListOptions{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to retrieve domain records: %s", err)
+			}
+			for _, record := range records {
+				if record.Type == "A" && record.Name == hostPart {
+					if record.Data != lb.IP {
+						// TODO: emit event here for user to see.
+						return nil, fmt.Errorf("domain %s in use already for a different IP (%s): %s", domainName, record.Data, err)
+					}
+					domainRecord = &record
+					break
+				}
+			}
+
+			// If the domain exists but the record is missing, then create it.
+			if domainRecord == nil {
+				domainRecordEditReq := &godo.DomainRecordEditRequest{
+					Type: "A",
+					Name: hostPart,
+					Data: lb.IP,
+					TTL:  3600,
+				}
+				domainRecord, _, err = l.resources.gclient.Domains.CreateRecord(ctx, nakedDomain, domainRecordEditReq)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create domain record: %s", err)
+				}
+			}
+		} else if res.StatusCode == 404 {
+			// Domain missing.
+			// TODO: emit event here for user to see.
+			return nil, fmt.Errorf("domain %s does not exist: %s", nakedDomain, err)
+		} else {
+			// Unrecoverable domain retrieval error.
+			return nil, fmt.Errorf("failed to retrieve domain: %s", err)
+		}
+	}
+
+	// EnsureCertificate ...
+	protocol, err := getProtocol(service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get protocol: %s", err)
+	}
+	if domain != nil && (protocol == protocolHTTPS || protocol == protocolHTTP2) {
+		// Check if certificate exists already for the given domain.
+		var certificate *godo.Certificate
+		// TODO: paginated listing
+		certificates, _, err := l.resources.gclient.Certificates.List(ctx, &godo.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrieve certificates: %s", err)
+		}
+		for _, cert := range certificates {
+			for _, dnsName := range cert.DNSNames {
+				if dnsName == domain.Name {
+					certificate = &cert
+					break
+				}
+			}
+			if certificate != nil {
+				break
+			}
+		}
+
+		// Create the certificate if it doesn't exist.
+		if certificate == nil {
+			certName := strings.ReplaceAll(domain.Name, ".", "-")
+			certificateReq := &godo.CertificateRequest{
+				Name: certName,
+				DNSNames: []string{
+					domain.Name,
+				},
+				Type: "lets_encrypt",
+			}
+			certificate, _, err = l.resources.gclient.Certificates.Create(ctx, certificateReq)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create certificate: %s", err)
+			}
+		}
 	}
 
 	return &v1.LoadBalancerStatus{
@@ -658,6 +770,11 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	return protocol, nil
+}
+
+// getDomain returns the desired domain for the LB service.
+func getDomain(service *v1.Service) string {
+	return strings.ToLower(service.Annotations[annDODomain])
 }
 
 // healthCheckProtocol returns the health check protocol as specified in the service,

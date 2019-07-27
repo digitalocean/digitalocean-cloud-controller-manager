@@ -142,6 +142,7 @@ golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/lint/golint
 golang.org/x/lint
 # golang.org/x/net v0.0.0-20190311183353-d8887717615a
+golang.org/x/net/publicsuffix
 golang.org/x/net/http2
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts
