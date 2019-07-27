@@ -4,6 +4,7 @@
 
 ### Added
 
+* Support LB with status.Hostname instead of status.IP (@snormore)
 * Set default health check protocol to HTTP if health check path is given (@snormore)
 * Support custom annotation to specify HTTP2 ports (@timoreimann)
 * Use provider ID for setting LB droplet targets (@timoreimann)
