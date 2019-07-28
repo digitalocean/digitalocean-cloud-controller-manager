@@ -309,16 +309,16 @@ func Test_getCertificateID(t *testing.T) {
 	}
 }
 
-func Test_getTLSPorts(t *testing.T) {
-	testcases := []struct {
-		name     string
-		service  *v1.Service
-		tlsPorts []int
-		err      error
+func Test_getPorts(t *testing.T) {
+	tests := []struct {
+		name      string
+		service   *v1.Service
+		wantPorts []int
+		wantErr   bool
 	}{
 		{
-			"tls port specified",
-			&v1.Service{
+			name: "single port specified",
+			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
@@ -327,26 +327,94 @@ func Test_getTLSPorts(t *testing.T) {
 					},
 				},
 			},
-			[]int{443},
-			nil,
+			wantPorts: []int{443},
+			wantErr:   false,
+		},
+		{
+			name: "multiple ports specified",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPorts: "443,8443",
+					},
+				},
+			},
+			wantPorts: []int{443, 8443},
+			wantErr:   false,
+		},
+		{
+			name: "wrong port specification",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPorts: "443,eight-four-four-three",
+					},
+				},
+			},
+			wantErr: true,
 		},
 	}
 
-	for _, test := range testcases {
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			tlsPorts, err := getTLSPorts(test.service)
-			if !reflect.DeepEqual(tlsPorts, test.tlsPorts) {
-				t.Error("unexpected TLS ports")
-				t.Logf("expected %v", test.tlsPorts)
-				t.Logf("actual: %v", tlsPorts)
+			gotPorts, err := getPorts(test.service, annDOTLSPorts)
+			isErr := err != nil
+			if isErr != test.wantErr {
+				t.Fatalf("got error %q, want error: %t", err, test.wantErr)
 			}
 
-			if !reflect.DeepEqual(err, test.err) {
-				t.Error("unexpected error")
-				t.Logf("expected: %v", test.err)
-				t.Logf("actual: %v", err)
+			if !reflect.DeepEqual(gotPorts, test.wantPorts) {
+				t.Errorf("got ports %v, want %v", gotPorts, test.wantPorts)
 			}
 		})
+	}
+}
+
+func Test_getHTTPSPorts(t *testing.T) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			UID:  "abc123",
+			Annotations: map[string]string{
+				annDOTLSPorts: "443",
+			},
+		},
+	}
+
+	gotPorts, err := getHTTPSPorts(svc)
+	if err != nil {
+		t.Fatalf("got error %q", err)
+	}
+
+	wantPorts := []int{443}
+	if !reflect.DeepEqual(gotPorts, wantPorts) {
+		t.Errorf("got ports %v, want %v", gotPorts, wantPorts)
+	}
+}
+
+func Test_getHTTP2Ports(t *testing.T) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			UID:  "abc123",
+			Annotations: map[string]string{
+				annDOHTTP2Ports: "443",
+			},
+		},
+	}
+
+	gotPorts, err := getHTTP2Ports(svc)
+	if err != nil {
+		t.Fatalf("got error %q", err)
+	}
+
+	wantPorts := []int{443}
+	if !reflect.DeepEqual(gotPorts, wantPorts) {
+		t.Errorf("got ports %v, want %v", gotPorts, wantPorts)
 	}
 }
 
@@ -1071,6 +1139,117 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
+			"HTTP2 port 443 specified",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPassThrough: "true",
+						annDOHTTP2Ports:     "443",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-http2",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(40000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      80,
+					TargetProtocol: "tcp",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "http2",
+					TargetPort:     40000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+			},
+			nil,
+		},
+		{
+			"all HTTP* protocols used simultaneously",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "http",
+						annDOTLSPassThrough: "true",
+						annDOHTTP2Ports:     "886",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(40000),
+						},
+						{
+							Name:     "test-http2",
+							Protocol: "TCP",
+							Port:     int32(886),
+							NodePort: int32(50000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http",
+					EntryPort:      80,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "https",
+					EntryPort:      443,
+					TargetProtocol: "https",
+					TargetPort:     40000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      886,
+					TargetProtocol: "http2",
+					TargetPort:     50000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+			},
+			nil,
+		},
+		{
 			"default forwarding rules with sticky sessions",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1313,6 +1492,38 @@ func Test_buildForwardingRules(t *testing.T) {
 			},
 			nil,
 			errors.New("must set certificate id or enable tls pass through"),
+		},
+		{
+			"secure ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPorts:       "443,8443",
+						annDOHTTP2Ports:     "4443,443",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-http2",
+							Protocol: "TCP",
+							Port:     int32(4443),
+							NodePort: int32(40000),
+						},
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("%q and %q cannot share values but found: 443", annDOTLSPorts, annDOHTTP2Ports),
 		},
 	}
 

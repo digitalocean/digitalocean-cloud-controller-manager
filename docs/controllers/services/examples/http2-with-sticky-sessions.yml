@@ -41,11 +41,11 @@ spec:
         - containerPort: 80
           protocol: TCP
       # This is necessary for sticky-sessions because it can
-      # only consistently route to to the same nodes, not pods.
+      # only consistently route to the same nodes, not pods.
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchLabels:
-                app: hello
+                app: nginx-example
             topologyKey: kubernetes.io/hostname
