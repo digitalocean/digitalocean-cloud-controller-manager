@@ -5,9 +5,6 @@
 ### Added
 
 * Support custom annotation to specify HTTP2 ports (@timoreimann)
-
-### Added
-
 * Use provider ID for setting LB droplet targets (@timoreimann)
 * Annotate Service objects by load-balancer UUIDs to enable free LB renames and improve the DO API consumption performance (@timoreimann)
 
