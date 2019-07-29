@@ -2,10 +2,10 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: https-with-cert-minimal
+  name: http2-with-cert-minimal
   annotations:
-    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
     service.beta.kubernetes.io/do-loadbalancer-protocol: "http2"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
 spec:
   type: LoadBalancer
   selector:

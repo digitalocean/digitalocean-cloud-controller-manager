@@ -75,9 +75,14 @@ const (
 	annDOHealthCheckHealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold"
 
 	// annDOTLSPorts is the annotation used to specify which ports of the load balancer
-	// should use the https protocol. This is a comma separated list of ports
-	// (e.g. 443,6443,7443).
+	// should use the HTTPS protocol. This is a comma separated list of ports
+	// (e.g., 443,6443,7443).
 	annDOTLSPorts = "service.beta.kubernetes.io/do-loadbalancer-tls-ports"
+
+	// annDOHTTP2Ports is the annotation used to specify which ports of the load balancer
+	// should use the HTTP2 protocol. This is a comma separated list of ports
+	// (e.g., 443,6443,7443).
+	annDOHTTP2Ports = "service.beta.kubernetes.io/do-loadbalancer-http2-ports"
 
 	// annDOTLSPassThrough is the annotation used to specify whether the
 	// DO loadbalancer should pass encrypted data to backend droplets.
@@ -145,6 +150,8 @@ const (
 
 	// Port protocol values.
 	portProtocolTCP = "TCP"
+
+	defaultSecurePort = 443
 )
 
 var errLBNotFound = errors.New("loadbalancer not found")
@@ -534,23 +541,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	tlsPorts, err := getTLSPorts(service)
-	if err != nil {
-		return nil, err
-	}
-
-	certificateID := getCertificateID(service)
-	tlsPassThrough := getTLSPassThrough(service)
-
-	if len(tlsPorts) == 0 && (certificateID != "" || tlsPassThrough) {
-		tlsPorts = append(tlsPorts, 443)
-	}
-
-	tlsPortMap := map[int32]bool{}
-	for _, port := range tlsPorts {
-		tlsPortMap[int32(port)] = true
-	}
-
 	// If using sticky sessions and no (or tcp) protocol was specified,
 	// default to HTTP.
 	stickySessionsType := getStickySessionsType(service)
@@ -558,10 +548,46 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		protocol = protocolHTTP
 	}
 
+	httpsPorts, err := getHTTPSPorts(service)
+	if err != nil {
+		return nil, err
+	}
+
+	http2Ports, err := getHTTP2Ports(service)
+	if err != nil {
+		return nil, err
+	}
+
+	securePortDups := findDups(append(httpsPorts, http2Ports...))
+	if len(securePortDups) > 0 {
+		return nil, fmt.Errorf("%q and %q cannot share values but found: %s", annDOTLSPorts, annDOHTTP2Ports, strings.Join(securePortDups, ", "))
+	}
+
+	certificateID := getCertificateID(service)
+	tlsPassThrough := getTLSPassThrough(service)
+	needSecureProto := certificateID != "" || tlsPassThrough
+
+	if needSecureProto && len(httpsPorts) == 0 && !contains(http2Ports, defaultSecurePort) {
+		httpsPorts = append(httpsPorts, defaultSecurePort)
+	}
+
+	httpsPortMap := map[int32]bool{}
+	for _, port := range httpsPorts {
+		httpsPortMap[int32(port)] = true
+	}
+	http2PortMap := map[int32]bool{}
+	for _, port := range http2Ports {
+		http2PortMap[int32(port)] = true
+	}
+
 	for _, port := range service.Spec.Ports {
-		// We use https for TLS, so set it explicitly if necessary.
-		if tlsPortMap[port.Port] && protocol != protocolHTTP2 {
+		// Set secure protocols explicitly if correspondingly configured ports
+		// are found.
+		if httpsPortMap[port.Port] {
 			protocol = protocolHTTPS
+		}
+		if http2PortMap[port.Port] {
+			protocol = protocolHTTP2
 		}
 
 		forwardingRule, err := buildForwardingRule(service, &port, protocol, certificateID, tlsPassThrough)
@@ -747,26 +773,38 @@ func healthCheckHealthyThreshold(service *v1.Service) (int, error) {
 	return val, nil
 }
 
-// getTLSPorts returns the ports of service that are set to use TLS.
-func getTLSPorts(service *v1.Service) ([]int, error) {
-	tlsPorts, ok := service.Annotations[annDOTLSPorts]
+// getHTTP2Ports returns the ports for the given service that are set to use
+// HTTP2.
+func getHTTP2Ports(service *v1.Service) ([]int, error) {
+	return getPorts(service, annDOHTTP2Ports)
+}
+
+// getHTTPSPorts returns the ports for the given service that are set to use
+// HTTPS.
+func getHTTPSPorts(service *v1.Service) ([]int, error) {
+	return getPorts(service, annDOTLSPorts)
+}
+
+// getPorts returns the ports for the given service and annotation.
+func getPorts(service *v1.Service, anno string) ([]int, error) {
+	ports, ok := service.Annotations[anno]
 	if !ok {
 		return nil, nil
 	}
 
-	tlsPortsSlice := strings.Split(tlsPorts, ",")
+	portsSlice := strings.Split(ports, ",")
 
-	tlsPortsInt := make([]int, len(tlsPortsSlice))
-	for i, tlsPort := range tlsPortsSlice {
-		port, err := strconv.Atoi(tlsPort)
+	portsInt := make([]int, len(portsSlice))
+	for i, port := range portsSlice {
+		port, err := strconv.Atoi(port)
 		if err != nil {
 			return nil, err
 		}
 
-		tlsPortsInt[i] = port
+		portsInt[i] = port
 	}
 
-	return tlsPortsInt, nil
+	return portsInt, nil
 }
 
 // getCertificateID returns the certificate ID of service to use for fowarding
@@ -873,4 +911,31 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 
 func getLoadBalancerID(service *v1.Service) string {
 	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
+}
+
+func findDups(vals []int) []string {
+	occurrences := map[int]int{}
+
+	for _, val := range vals {
+		occurrences[val]++
+	}
+
+	var dups []string
+	for val, occur := range occurrences {
+		if occur > 1 {
+			dups = append(dups, strconv.Itoa(val))
+		}
+	}
+
+	sort.Strings(dups)
+	return dups
+}
+
+func contains(vals []int, val int) bool {
+	for _, v := range vals {
+		if v == val {
+			return true
+		}
+	}
+	return false
 }
