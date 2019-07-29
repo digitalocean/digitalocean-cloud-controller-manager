@@ -252,24 +252,25 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	// EnsureDomain ...
 	domainName := getDomain(service)
+
+	// Parse out the naked domain and sub-domain parts.
+	tld, _ := publicsuffix.PublicSuffix(domainName)
+	tld = fmt.Sprintf(".%s", tld)
+	if !strings.HasSuffix(domainName, tld) {
+		return nil, fmt.Errorf("unable to parse TLD from domain %s, got %s", domainName, tld)
+	}
+	domainPart := strings.TrimSuffix(domainName, tld)
+	domainParts := strings.Split(domainPart, ".")
+	nakedDomain := fmt.Sprintf("%s%s", domainParts[len(domainParts)-1], tld)
+	hostPart := strings.Join(domainParts[0:len(domainParts)-1], ".")
+	if hostPart == "" {
+		hostPart = "@"
+	}
+
 	var domain *godo.Domain
 	if domainName != "" {
 		var err error
 		var res *godo.Response
-
-		// Parse out the naked domain and sub-domain parts.
-		tld, _ := publicsuffix.PublicSuffix(domainName)
-		tld = fmt.Sprintf(".%s", tld)
-		if !strings.HasSuffix(domainName, tld) {
-			return nil, fmt.Errorf("unable to parse TLD from domain %s, got %s", domainName, tld)
-		}
-		domainPart := strings.TrimSuffix(domainName, tld)
-		domainParts := strings.Split(domainPart, ".")
-		nakedDomain := fmt.Sprintf("%s%s", domainParts[len(domainParts)-1], tld)
-		hostPart := strings.Join(domainParts[0:len(domainParts)-1], ".")
-		if hostPart == "" {
-			hostPart = "@"
-		}
 
 		// Retrieve the naked domain.
 		domain, res, err = l.resources.gclient.Domains.Get(ctx, nakedDomain)
@@ -314,12 +315,14 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		}
 	}
 
+	// TODO: if domain is given, find the associated certificate-id and set the annotation / pass it through above, otherwise create the new certificate.
+
 	// EnsureCertificate ...
-	protocol, err := getProtocol(service)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get protocol: %s", err)
-	}
-	if domain != nil && (protocol == protocolHTTPS || protocol == protocolHTTP2) {
+	// protocol, err := getProtocol(service)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to get protocol: %s", err)
+	// }
+	if domain != nil {
 		// Check if certificate exists already for the given domain.
 		var certificate *godo.Certificate
 		// TODO: paginated listing
@@ -329,7 +332,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		}
 		for _, cert := range certificates {
 			for _, dnsName := range cert.DNSNames {
-				if dnsName == domain.Name {
+				if dnsName == domainName {
 					certificate = &cert
 					break
 				}
@@ -341,11 +344,16 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 		// Create the certificate if it doesn't exist.
 		if certificate == nil {
-			certName := strings.ReplaceAll(domain.Name, ".", "-")
+			certName := strings.ReplaceAll(domainName, ".", "-")
+			dnsNames := []string{nakedDomain}
+			if domainName != nakedDomain {
+				dnsNames = append(dnsNames, domainName)
+			}
 			certificateReq := &godo.CertificateRequest{
 				Name: certName,
 				DNSNames: []string{
-					domain.Name,
+					nakedDomain,
+					domainName,
 				},
 				Type: "lets_encrypt",
 			}
