@@ -144,7 +144,7 @@ digitalocean          Opaque                                1         18h
 Currently we only support alpha release of the `digitalocean-cloud-controller-manager` due to its active development. Run the first alpha release like so
 
 ```bash
-kubectl apply -f releases/v0.1.16.yml
+kubectl apply -f releases/v0.1.17.yml
 deployment "digitalocean-cloud-controller-manager" created
 ```
 
