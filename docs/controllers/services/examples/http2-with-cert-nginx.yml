@@ -4,8 +4,7 @@ apiVersion: v1
 metadata:
   name: http2-with-cert-minimal
   annotations:
-    # HTTP2 port annotation for 443 needed since it defaults to HTTPS.
-    service.beta.kubernetes.io/do-loadbalancer-http2-ports: "443"
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "http2"
     service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
 spec:
   type: LoadBalancer
