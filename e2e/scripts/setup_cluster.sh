@@ -34,7 +34,16 @@ fi
 readonly KUBERNETES_VERSION="$1"
 readonly NUM_NODES="$2"
 
-SSH_PUBLIC_KEYFILE="${SSH_PUBLIC_KEYFILE:-${SCRIPT_DIR}/id_rsa.pub}"
+SSH_PUBLIC_KEYFILE=${SSH_PUBLIC_KEYFILE:-${HOME}/.ssh/id_rsa.pub}
+if [ ! -f ${SSH_PUBLIC_KEYFILE} ]; then
+  echo "${SSH_PUBLIC_KEYFILE} does not exist"
+  exit 1
+fi
+SSH_KEY_FINGERPRINT="$(ssh-keygen -E md5 -lf ${SSH_PUBLIC_KEYFILE} | cut -d " " -f 2 | sed -e "s/^MD5://")"
+if ! doctl compute ssh-key get ${SSH_KEY_FINGERPRINT}; then
+  echo "${SSH_PUBLIC_KEYFILE} (${SSH_KEY_FINGERPRINT}) does not exist in your DO account"
+  exit 1
+fi
 
 ensure_deps
 

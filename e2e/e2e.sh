@@ -38,5 +38,5 @@ echo "==> installing dependencies..."
   cd "${SCRIPT_DIR}"
   echo "==> running E2E tests..."
   # shellcheck disable=SC2086
-  go test -v -timeout 1h -count 1 -tags integration ${RUN} "./..."
+  GO111MODULE=on go test -mod=vendor -v -timeout 1h -count 1 -tags integration ${RUN} "./..."
 )

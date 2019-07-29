@@ -48,7 +48,7 @@ const (
 // (to clean up any previous left-overs) and after testing.
 func TestE2E(t *testing.T) {
 	var missingEnvs []string
-	for _, env := range []string{kopsEnvVarClusterName, kopsEnvVarStateStore} {
+	for _, env := range []string{kopsEnvVarClusterName} {
 		if _, ok := os.LookupEnv(env); !ok {
 			missingEnvs = append(missingEnvs, env)
 		}
