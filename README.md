@@ -39,7 +39,7 @@ Here are some examples of how you could leverage `digitalocean-cloud-controller-
 
 Requirements:
 
-* Go: min `v1.11.x`
+* Go: min `v1.12.x`
 
 This project uses [Go modules](https://github.com/golang/go/wiki/Modules) for dependency management and employs vendoring. Please ensure to run `make vendor` after any dependency modifications.
 
