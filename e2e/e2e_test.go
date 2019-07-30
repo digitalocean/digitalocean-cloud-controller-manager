@@ -227,6 +227,14 @@ func TestE2E(t *testing.T) {
 				// dangling. Therefore, we make sure to stick around until it's
 				// gone for sure, which we presume is the case if requests
 				// cannot be delivered anymore due to a network error.
+
+				// We skip this step if the LB address was never populated,
+				// however, indicating that the test never came that far.
+				if lbAddr == "" {
+					l.Println("Load balancer IP address was never assigned -- skipping check for winded down LB")
+					return
+				}
+
 				cl := &http.Client{
 					Timeout: 5 * time.Second,
 				}
