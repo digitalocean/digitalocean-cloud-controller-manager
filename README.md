@@ -35,6 +35,12 @@ Here are some examples of how you could leverage `digitalocean-cloud-controller-
 * [loadbalancers](docs/controllers/services/examples/)
 * [node labels and addresses](docs/controllers/node/examples/)
 
+## Production advise
+
+When creating load-balancers through CCM (via `LoadBalancer`-typed Services), it is important that you **must not change the DO load-balancer configuration manually.** Such changes will eventually be reverted by the reconciliation loop built into CCM.
+
+The only safe place to make load-balancer configuration changes is through the Service object.
+
 ## Development
 
 Requirements:
