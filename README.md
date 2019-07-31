@@ -39,7 +39,7 @@ Here are some examples of how you could leverage `digitalocean-cloud-controller-
 
 When creating load-balancers through CCM (via `LoadBalancer`-typed Services), it is important that you **must not change the DO load-balancer configuration manually.** Such changes will eventually be reverted by the reconciliation loop built into CCM. The only exception to this are load-balancer names which can be changed starting with CCM v0.1.17.
 
-The only place to make load-balancer configuration changes is through the Service object.
+The only safe place to make load-balancer configuration changes is through the Service object.
 
 ## Development
 
