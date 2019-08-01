@@ -2,6 +2,8 @@
 
 ## unreleased
 
+* Set default health check protocol to HTTP if health check path is given (@snormore)
+
 ## v0.1.16 (beta) - Jul 16th 2019
 
 ### Added
