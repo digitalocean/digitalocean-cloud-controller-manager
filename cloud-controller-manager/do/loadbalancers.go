@@ -560,8 +560,12 @@ func getProtocol(service *v1.Service) (string, error) {
 // falling back to TCP if not specified.
 func healthCheckProtocol(service *v1.Service) (string, error) {
 	protocol := service.Annotations[annDOHealthCheckProtocol]
+	path := healthCheckPath(service)
 
 	if protocol == "" {
+		if path != "" {
+			return protocolHTTP, nil
+		}
 		return protocolTCP, nil
 	}
 
