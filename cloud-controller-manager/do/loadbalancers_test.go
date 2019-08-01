@@ -1814,7 +1814,7 @@ func Test_buildHealthCheck(t *testing.T) {
 			healthcheck: defaultHealthCheck("http", 30000, ""),
 		},
 		{
-			name: "http health check with path",
+			name: "http health check with https and certificate",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1860,7 +1860,7 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: defaultHealthCheck("tcp", 30000, "/health"),
+			healthcheck: defaultHealthCheck("http", 30000, "/health"),
 		},
 		{
 			name: "invalid health check using protocol override",
@@ -2386,7 +2386,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, "/health"),
+				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -2464,7 +2464,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, "/health"),
+				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
