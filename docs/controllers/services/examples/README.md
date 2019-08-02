@@ -98,3 +98,54 @@ ID                                      IP                Name                  
 105c2071-dcfd-479c-8e84-883d66ba4dec    159.203.52.207    a16bdac1c797611e7af69267d6e0a2ca    active    2017-08-05T00:36:16Z    round_robin          tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:31644,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:31644,certificate_id:,tls_passthrough:false entry_protocol:https,entry_port:443,target_protocol:https,target_port:30566,certificate_id:,tls_passthrough:true
 
 ```
+
+## HTTPS or HTTP2 Load Balancer with Hostname
+
+The `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation can be used to specify the hostname used for the Service `status.Hostname` instead of assigning `status.IP` directly. This is useful as a workaround for the issue of [kube-proxy adding external LB address to node local iptables rule](https://github.com/kubernetes/kubernetes/issues/66607), which will break requests to an LB from in-cluster if the LB is expected to terminate SSL or proxy protocol.
+
+The workflow for this scenario is generally:
+
+ 1. Deploy the manifest with your Service (example below).
+ 1. Wait for the service external IP to be available.
+ 1. Add a DNS record for your hostname pointing to the external IP.
+ 1. Add the hostname annotation to your manifest (example below). Deploy it.
+
+```yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: hello
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "1234-5678-9012-3456"
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "https"
+    # Uncomment once hello.example.com points to the external IP address of the DO load-balancer.
+    # service.beta.kubernetes.io/do-loadbalancer-hostname: "hello.example.com"
+spec:
+  type: LoadBalancer
+  selector:
+    app: hello
+  ports:
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+      - name: hello
+        image: snormore/hello
+        ports:
+        - containerPort: 80
+          protocol: TCP
+
+```

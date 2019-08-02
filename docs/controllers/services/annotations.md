@@ -64,6 +64,10 @@ Specify whether the DigitalOcean Load Balancer should pass encrypted data to bac
 
 Specifies the certificate ID used for https. To list available certificates and their IDs, install [doctl](https://github.com/digitalocean/doctl) and run `doctl compute certificate list`.
 
+## service.beta.kubernetes.io/do-loadbalancer-hostname
+
+Specifies the hostname used for the Service `status.Hostname` instead of assigning `status.IP` directly. This can be used to workaround the issue of [kube-proxy adding external LB address to node local iptables rule](https://github.com/kubernetes/kubernetes/issues/66607), which will break requests to an LB from in-cluster if the LB is expected to terminate SSL or proxy protocol. See the [examples/README](examples/README.md) for more detail.
+
 ## service.beta.kubernetes.io/do-loadbalancer-algorithm
 
 Specifies which algorithm the Load Balancer should use. Options are `round_robin`, `least_connections`. Defaults to `round_robin`.

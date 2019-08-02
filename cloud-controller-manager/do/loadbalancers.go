@@ -94,6 +94,9 @@ const (
 	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
 
+	// annDOHostname is the annotation specifying the hostname to use for the LB.
+	annDOHostname = "service.beta.kubernetes.io/do-loadbalancer-hostname"
+
 	// annDOAlgorithm is the annotation specifying which algorithm DO load balancer
 	// should use. Options are round_robin and least_connections. Defaults
 	// to round_robin.
@@ -249,6 +252,18 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	if lb.Status != lbStatusActive {
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+	}
+
+	// If a LB hostname annotation is specified, return with it instead of the IP.
+	hostname := getHostname(service)
+	if hostname != "" {
+		return &v1.LoadBalancerStatus{
+			Ingress: []v1.LoadBalancerIngress{
+				{
+					Hostname: hostname,
+				},
+			},
+		}, nil
 	}
 
 	return &v1.LoadBalancerStatus{
@@ -684,6 +699,11 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	return protocol, nil
+}
+
+// getHostname returns the desired hostname for the LB service.
+func getHostname(service *v1.Service) string {
+	return strings.ToLower(service.Annotations[annDOHostname])
 }
 
 // healthCheckProtocol returns the health check protocol as specified in the service,

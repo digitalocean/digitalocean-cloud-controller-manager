@@ -1,0 +1,38 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: http2-with-cert-minimal
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "http2"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
+    # "example.com" should be configured to point at the IP address of the DO load-balancer
+    service.beta.kubernetes.io/do-loadbalancer-hostname: "example.com"
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx-example
+  ports:
+    - name: http2
+      protocol: TCP
+      port: 443
+      targetPort: 80
+
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-example
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: nginx-example
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+          protocol: TCP
