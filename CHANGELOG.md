@@ -4,6 +4,7 @@
 
 ### Added
 
+* Set default health check protocol to HTTP if health check path is given (@snormore)
 * Support custom annotation to specify HTTP2 ports (@timoreimann)
 * Use provider ID for setting LB droplet targets (@timoreimann)
 * Annotate Service objects by load-balancer UUIDs to enable free LB renames and improve the DO API consumption performance (@timoreimann)
