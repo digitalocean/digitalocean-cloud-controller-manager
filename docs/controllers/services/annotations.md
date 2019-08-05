@@ -79,7 +79,7 @@ Specifies which stick session type the loadbalancer should use. Options are `non
 **Note**
  - Sticky sessions will route consistently to the same nodes, not pods, so you should avoid having more than one pod per node serving requests.
  - Sticky sessions require your Service to configure `externalTrafficPolicy: Local` to avoid NAT confusion on the way in.
- - If you do not specify an explicit protocol via annotation, and you use sticky sessions, then the protocol will default to HTTP instead of TCP.
+ - Using sticky sessions with only a TCP forwarding rule will not work as expected. Sticky sessions requires HTTP to function properly.
 
 ## service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name
 
