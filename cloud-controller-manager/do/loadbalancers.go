@@ -25,9 +25,11 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/client-go/tools/record"
 	v1 "k8s.io/api/core/v1"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
+	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/digitalocean/godo"
 )
@@ -169,15 +171,22 @@ type loadBalancers struct {
 	clusterID         string
 	lbActiveTimeout   int
 	lbActiveCheckTick int
+	eventRecorder       record.EventRecorder
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
 func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
+	broadcaster := record.NewBroadcaster()
+	broadcaster.StartLogging(klog.Infof)
+	broadcaster.StartRecordingToSink(&v1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	eventRecorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "load-balancers"})
+
 	return &loadBalancers{
 		resources:         resources,
 		region:            region,
 		lbActiveTimeout:   defaultActiveTimeout,
 		lbActiveCheckTick: defaultActiveCheckTick,
+		eventRecorder: eventRecorder,
 	}
 }
 
@@ -253,6 +262,8 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	if lb.Status != lbStatusActive {
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
 	}
+
+	l.eventRecorder.Event(service, v1.EventTypeNormal, "DeletingLoadBalancer", "Deleting load balancer")
 
 	// If a LB hostname annotation is specified, return with it instead of the IP.
 	hostname := getHostname(service)
