@@ -447,13 +447,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		tlsPortMap[int32(port)] = true
 	}
 
-	// If using sticky sessions and no (or tcp) protocol was specified,
-	// default to HTTP.
-	stickySessionsType := getStickySessionsType(service)
-	if stickySessionsType == stickySessionsTypeCookies && protocol == protocolTCP {
-		protocol = protocolHTTP
-	}
-
 	for _, port := range service.Spec.Ports {
 		// We use https for TLS, so set it explicitly if necessary.
 		if tlsPortMap[port.Port] && protocol != protocolHTTP2 {
