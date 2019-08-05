@@ -556,13 +556,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	// If using sticky sessions and no (or tcp) protocol was specified,
-	// default to HTTP.
-	stickySessionsType := getStickySessionsType(service)
-	if stickySessionsType == stickySessionsTypeCookies && protocol == protocolTCP {
-		protocol = protocolHTTP
-	}
-
 	httpsPorts, err := getHTTPSPorts(service)
 	if err != nil {
 		return nil, err

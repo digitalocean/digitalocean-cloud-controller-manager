@@ -4,6 +4,7 @@ apiVersion: v1
 metadata:
   name: http-lb
   annotations:
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
     service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type: "cookies"
     service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name: "example"
     service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl: "60"

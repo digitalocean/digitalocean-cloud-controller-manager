@@ -1250,7 +1250,7 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
-			"default forwarding rules with sticky sessions",
+			"default forwarding rules with sticky sessions no protocol specified",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1274,9 +1274,9 @@ func Test_buildForwardingRules(t *testing.T) {
 			},
 			[]godo.ForwardingRule{
 				{
-					EntryProtocol:  "http",
+					EntryProtocol:  "tcp",
 					EntryPort:      80,
-					TargetProtocol: "http",
+					TargetProtocol: "tcp",
 					TargetPort:     30000,
 					CertificateID:  "",
 					TlsPassthrough: false,
@@ -1285,7 +1285,7 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
-			"http forwarding rules with sticky sessions",
+			"http forwarding rules with sticky sessions and http protocol",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -2649,86 +2649,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					UID:  "foobar123",
 					Annotations: map[string]string{
 						annDOProtocol:                 "http",
-						annDOStickySessionsType:       "cookies",
-						annDOStickySessionsCookieName: "DO-CCM",
-						annDOStickySessionsCookieTTL:  "300",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
-			},
-			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
-				Name:       "afoobar123",
-				DropletIDs: []int{100, 101, 102},
-				Region:     "nyc3",
-				ForwardingRules: []godo.ForwardingRule{
-					{
-						EntryProtocol:  "http",
-						EntryPort:      80,
-						TargetProtocol: "http",
-						TargetPort:     30000,
-						CertificateID:  "",
-						TlsPassthrough: false,
-					},
-				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
-				Algorithm:   "round_robin",
-				StickySessions: &godo.StickySessions{
-					Type:             "cookies",
-					CookieName:       "DO-CCM",
-					CookieTtlSeconds: 300,
-				},
-			},
-			nil,
-		},
-		{
-			"successful load balancer request with cookies sticky sessions defaults to http",
-			[]godo.Droplet{
-				{
-					ID:   100,
-					Name: "node-1",
-				},
-				{
-					ID:   101,
-					Name: "node-2",
-				},
-				{
-					ID:   102,
-					Name: "node-3",
-				},
-			},
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
 						annDOStickySessionsType:       "cookies",
 						annDOStickySessionsCookieName: "DO-CCM",
 						annDOStickySessionsCookieTTL:  "300",
