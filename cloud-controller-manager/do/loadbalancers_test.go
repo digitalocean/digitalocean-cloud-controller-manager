@@ -31,6 +31,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
@@ -87,6 +88,24 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
 	return newFakeClient(nil, fakeLB)
+}
+
+func newFakeEventRecorder() *eventRecorder {
+	return &eventRecorder{}
+}
+
+type eventRecorder struct{}
+
+func (e *eventRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+}
+
+func (e *eventRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+}
+
+func (e *eventRecorder) PastEventf(object runtime.Object, timestamp metav1.Time, eventtype, reason, messageFmt string, args ...interface{}) {
+}
+
+func (e *eventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
 }
 
 func createLB() *godo.LoadBalancer {
@@ -2901,6 +2920,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				region:            "nyc3",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				eventRecorder:     newFakeEventRecorder(),
 			}
 
 			lbr, err := lb.buildLoadBalancerRequest(context.Background(), test.service, test.nodes)
@@ -2984,9 +3004,10 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 			fakeResources.clusterVPCID = test.vpcID
 
 			lb := &loadBalancers{
-				resources: fakeResources,
-				region:    "nyc3",
-				clusterID: clusterID,
+				resources:     fakeResources,
+				region:        "nyc3",
+				clusterID:     clusterID,
+				eventRecorder: newFakeEventRecorder(),
 			}
 
 			lbr, err := lb.buildLoadBalancerRequest(context.Background(), service, nodes)
@@ -3193,6 +3214,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				eventRecorder:     newFakeEventRecorder(),
 			}
 
 			var logBuf bytes.Buffer
@@ -3372,6 +3394,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				eventRecorder:     newFakeEventRecorder(),
 			}
 
 			// we don't actually use clusterName param in GetLoadBalancer
@@ -3797,6 +3820,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				eventRecorder:     newFakeEventRecorder(),
 			}
 
 			// clusterName param in EnsureLoadBalancer currently not used
@@ -3934,6 +3958,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				eventRecorder:     newFakeEventRecorder(),
 			}
 
 			// clusterName param in EnsureLoadBalancer currently not used
@@ -3988,6 +4013,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				eventRecorder:     newFakeEventRecorder(),
 			}
 
 			err := test.sut(l, svc)

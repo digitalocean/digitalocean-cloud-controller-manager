@@ -179,7 +179,7 @@ type loadBalancers struct {
 func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartLogging(klog.Infof)
-	broadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	broadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: resources.kclient.CoreV1().Events("")})
 	eventRecorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "load-balancers"})
 
 	return &loadBalancers{
@@ -264,7 +264,19 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
 	}
 
-	l.eventRecorder.Event(service, v1.EventTypeNormal, "DeletingLoadBalancer", "Deleting load balancer")
+	// If using sticky sessions with TCP forwarding rules, then emit an event informing the user that sticky sessions
+	// will only be in effect with HTTP rules.
+	if lbRequest.StickySessions.Type != stickySessionsTypeNone {
+		tcpRulesCount := 0
+		for _, rule := range lbRequest.ForwardingRules {
+			if rule.EntryProtocol == protocolTCP {
+				tcpRulesCount++
+			}
+		}
+		if tcpRulesCount > 0 {
+			l.eventRecorder.Event(service, v1.EventTypeNormal, "EnsuringLoadBalancer", fmt.Sprintf("Sticky sessions will not be in effect on forwarding rules with entry protocol TCP, of which this LB has %d", tcpRulesCount))
+		}
+	}
 
 	// If a LB hostname annotation is specified, return with it instead of the IP.
 	hostname := getHostname(service)
