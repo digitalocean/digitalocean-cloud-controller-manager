@@ -285,15 +285,15 @@ k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/pkg/runtime/serializer
 k8s.io/apimachinery/pkg/util/runtime
+k8s.io/apimachinery/pkg/fields
+k8s.io/apimachinery/pkg/util/net
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/util/clock
 k8s.io/apimachinery/pkg/util/errors
 k8s.io/apimachinery/pkg/api/meta
 k8s.io/apimachinery/pkg/util/waitgroup
 k8s.io/apimachinery/pkg/version
-k8s.io/apimachinery/pkg/util/net
 k8s.io/apimachinery/pkg/conversion
-k8s.io/apimachinery/pkg/fields
 k8s.io/apimachinery/pkg/conversion/queryparams
 k8s.io/apimachinery/pkg/util/naming
 k8s.io/apimachinery/pkg/util/validation/field
@@ -418,6 +418,7 @@ k8s.io/client-go/informers
 k8s.io/client-go/informers/core/v1
 k8s.io/client-go/kubernetes
 k8s.io/client-go/kubernetes/scheme
+k8s.io/client-go/kubernetes/typed/core/v1
 k8s.io/client-go/listers/core/v1
 k8s.io/client-go/tools/record
 k8s.io/client-go/tools/leaderelection
@@ -461,7 +462,6 @@ k8s.io/client-go/kubernetes/typed/batch/v2alpha1
 k8s.io/client-go/kubernetes/typed/certificates/v1beta1
 k8s.io/client-go/kubernetes/typed/coordination/v1
 k8s.io/client-go/kubernetes/typed/coordination/v1beta1
-k8s.io/client-go/kubernetes/typed/core/v1
 k8s.io/client-go/kubernetes/typed/events/v1beta1
 k8s.io/client-go/kubernetes/typed/extensions/v1beta1
 k8s.io/client-go/kubernetes/typed/networking/v1
@@ -481,8 +481,8 @@ k8s.io/client-go/kubernetes/typed/storage/v1alpha1
 k8s.io/client-go/kubernetes/typed/storage/v1beta1
 k8s.io/client-go/rest
 k8s.io/client-go/util/flowcontrol
-k8s.io/client-go/tools/record/util
 k8s.io/client-go/tools/reference
+k8s.io/client-go/tools/record/util
 k8s.io/client-go/kubernetes/fake
 k8s.io/client-go/tools/clientcmd
 k8s.io/client-go/util/cert

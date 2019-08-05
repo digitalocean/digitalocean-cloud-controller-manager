@@ -25,11 +25,12 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/client-go/tools/record"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
-	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/digitalocean/godo"
 )
@@ -171,14 +172,14 @@ type loadBalancers struct {
 	clusterID         string
 	lbActiveTimeout   int
 	lbActiveCheckTick int
-	eventRecorder       record.EventRecorder
+	eventRecorder     record.EventRecorder
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
 func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartLogging(klog.Infof)
-	broadcaster.StartRecordingToSink(&v1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
+	broadcaster.StartRecordingToSink(&corev1.EventSinkImpl{Interface: kubeClient.CoreV1().Events("")})
 	eventRecorder := broadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "load-balancers"})
 
 	return &loadBalancers{
@@ -186,7 +187,7 @@ func newLoadBalancers(resources *resources, client *godo.Client, region string) 
 		region:            region,
 		lbActiveTimeout:   defaultActiveTimeout,
 		lbActiveCheckTick: defaultActiveCheckTick,
-		eventRecorder: eventRecorder,
+		eventRecorder:     eventRecorder,
 	}
 }
 
