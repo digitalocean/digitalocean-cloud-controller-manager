@@ -10,6 +10,10 @@
 * Use provider ID for setting LB droplet targets (@timoreimann)
 * Annotate Service objects by load-balancer UUIDs to enable free LB renames and improve the DO API consumption performance (@timoreimann)
 
+### Fixed
+
+* Do not force HTTP with sticky-sessions (@snormore)
+
 ## v0.1.16 (beta) - Jul 16th 2019
 
 ### Added
