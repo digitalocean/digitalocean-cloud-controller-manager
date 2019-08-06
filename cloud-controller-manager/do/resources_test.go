@@ -68,16 +68,18 @@ func (sb *serviceBuilder) build() *v1.Service {
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        fmt.Sprintf("service%d", sb.idx),
-			Namespace:   corev1.NamespaceDefault,
-			UID:         types.UID(fmt.Sprintf("%s-%s-%s-%s-%s", rep(7), rep(4), rep(4), rep(4), rep(12))),
-			Annotations: map[string]string{},
+			Name:      fmt.Sprintf("service%d", sb.idx),
+			Namespace: corev1.NamespaceDefault,
+			UID:       types.UID(fmt.Sprintf("%s-%s-%s-%s-%s", rep(7), rep(4), rep(4), rep(4), rep(12))),
 		},
 	}
 	if sb.isTypeLoadBalancer {
 		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 	}
 	if sb.loadBalancerID != "" {
+		if svc.Annotations == nil {
+			svc.Annotations = map[string]string{}
+		}
 		svc.Annotations[annoDOLoadBalancerID] = sb.loadBalancerID
 	}
 

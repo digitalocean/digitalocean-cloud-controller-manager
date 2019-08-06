@@ -368,6 +368,9 @@ func (l *loadBalancers) ensureLoadBalancerIDAnnot(service *v1.Service, lbID stri
 	// Make a copy so we don't mutate the shared informer cache from the cloud
 	// provider framework.
 	updated := service.DeepCopy()
+	if updated.ObjectMeta.Annotations == nil {
+		updated.ObjectMeta.Annotations = map[string]string{}
+	}
 	updated.ObjectMeta.Annotations[annoDOLoadBalancerID] = lbID
 
 	return patchService(l.resources.kclient, service, updated)
