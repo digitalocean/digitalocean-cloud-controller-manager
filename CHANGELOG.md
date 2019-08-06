@@ -2,10 +2,11 @@
 
 ## unreleased
 
+## v0.1.17 (beta) - Aug 6th 2019
+
 ### Added
 
 * Support LB with status.Hostname instead of status.IP (@snormore)
-* Set default health check protocol to HTTP if health check path is given (@snormore)
 * Support custom annotation to specify HTTP2 ports (@timoreimann)
 * Use provider ID for setting LB droplet targets (@timoreimann)
 * Annotate Service objects by load-balancer UUIDs to enable free LB renames and improve the DO API consumption performance (@timoreimann)
@@ -13,6 +14,7 @@
 ### Fixed
 
 * Do not force HTTP with sticky-sessions (@snormore)
+* Set default health check protocol to HTTP if health check path is given (@snormore)
 
 ## v0.1.16 (beta) - Jul 16th 2019
 
