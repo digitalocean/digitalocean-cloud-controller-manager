@@ -2,6 +2,10 @@
 
 ## unreleased
 
+### Changed
+
+* Reduce API interactions around LB tag synchronization (@timoreimann)
+
 ## v0.1.17 (beta) - Aug 6th 2019
 
 ### Added

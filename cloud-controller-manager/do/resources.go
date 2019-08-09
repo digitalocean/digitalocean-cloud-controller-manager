@@ -34,10 +34,8 @@ import (
 )
 
 const (
-	controllerSyncTagsPeriod      = 1 * time.Minute
-	controllerSyncResourcesPeriod = 1 * time.Minute
-	syncTagsTimeout               = 1 * time.Minute
-	syncResourcesTimeout          = 3 * time.Minute
+	controllerSyncTagsPeriod = 15 * time.Minute
+	syncTagsTimeout          = 1 * time.Minute
 )
 
 type tagMissingError struct {
@@ -137,17 +135,26 @@ func (r *ResourcesController) syncTags() error {
 	ctx, cancel := context.WithTimeout(context.Background(), syncTagsTimeout)
 	defer cancel()
 
-	lbs, err := allLoadBalancerList(ctx, r.resources.gclient)
-	if err != nil {
-		return fmt.Errorf("failed to list load-balancers: %s", err)
-	}
-
-	// Collect tag resources for known load balancers (i.e., services with
-	// type=LoadBalancer that either have our own LB ID annotation set or go by
-	// a matching name).
 	svcs, err := r.svcLister.List(labels.Everything())
 	if err != err {
 		return fmt.Errorf("failed to list services: %s", err)
+	}
+
+	var lbSvcs []*corev1.Service
+	for _, svc := range svcs {
+		if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
+			lbSvcs = append(lbSvcs, svc)
+		}
+	}
+
+	if len(lbSvcs) == 0 {
+		klog.V(5).Info("No load-balancers to tag because no LoadBalancer-typed services exist")
+		return nil
+	}
+
+	lbs, err := allLoadBalancerList(ctx, r.resources.gclient)
+	if err != nil {
+		return fmt.Errorf("failed to list load-balancers: %s", err)
 	}
 
 	loadBalancerIDsByName := make(map[string]string, len(lbs))
@@ -155,12 +162,11 @@ func (r *ResourcesController) syncTags() error {
 		loadBalancerIDsByName[lb.Name] = lb.ID
 	}
 
+	// Collect tag resources for known load-balancers (i.e., services with
+	// type=LoadBalancer that either have our own LB ID annotation set or go by
+	// a matching name).
 	var res []godo.Resource
-	for _, svc := range svcs {
-		if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
-			continue
-		}
-
+	for _, svc := range lbSvcs {
 		id := getLoadBalancerID(svc)
 		if id == "" {
 			name := getDefaultLoadBalancerName(svc)
@@ -168,7 +174,7 @@ func (r *ResourcesController) syncTags() error {
 		}
 
 		// Renamed load-balancers that have no LB ID set yet would still be
-		// missed, so check again if we have an ID now.
+		// missed, so check again if we have found an ID.
 		if id != "" {
 			res = append(res, godo.Resource{
 				ID:   id,
