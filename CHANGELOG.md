@@ -2,6 +2,8 @@
 
 ## unreleased
 
+## v0.1.18 (beta) - Aug 9th 2019
+
 ### Changed
 
 * Reduce API interactions around LB tag synchronization (@timoreimann)
