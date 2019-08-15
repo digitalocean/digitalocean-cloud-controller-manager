@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -90,13 +89,17 @@ func newFakeLBClient(lbService godo.LoadBalancersService) *godo.Client {
 }
 
 func createLB() *godo.LoadBalancer {
+	return createLBWithID("")
+}
+
+func createLBWithID(id string) *godo.LoadBalancer {
 	return &godo.LoadBalancer{
+		ID: id,
 		// loadbalancer names are a + service.UID
 		// see cloudprovider.DefaultLoadBalancerName
-		ID:     "load-balancer-id",
-		Name:   "afoobar123",
-		IP:     "10.0.0.1",
-		Status: lbStatusActive,
+		Name: "afoobar123",
+		// IP:     "10.0.0.1",
+		// Status: lbStatusActive,
 	}
 }
 
@@ -3400,17 +3403,14 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name     string
-		droplets []godo.Droplet
-		fakeLB   *fakeLoadBalancerService
-		getFn    func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
-		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		createFn func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		updateFn func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		service  *v1.Service
-		nodes    []*v1.Node
-		lbStatus *v1.LoadBalancerStatus
-		err      error
+		name       string
+		droplets   []godo.Droplet
+		fakeLB     *fakeLoadBalancerService
+		service    *v1.Service
+		nodes      []*v1.Node
+		err        error
+		lbStatus   *v1.LoadBalancerStatus
+		skipLBComp bool
 	}{
 		{
 			name: "successfully ensured loadbalancer by name, already exists",
@@ -3493,7 +3493,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			fakeLB: newFakeLoadBalancerService(
-				*createLB(),
+				*createLBWithID("load-balancer-id"),
 			).expectLists(0).expectCreates(0),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3557,7 +3557,10 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			fakeLB: newFakeLoadBalancerService().expectGets(0).expectUpdates(0),
+			fakeLB: newFakeLoadBalancerService().
+				expectGets(0).
+				expectUpdates(0).
+				setCreatedActiveOn(1),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3619,18 +3622,10 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeResponse(http.StatusNotFound), errors.New("LB not found")
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
-			},
+			fakeLB: newFakeLoadBalancerService().
+				expectLists(0).
+				expectUpdates(0).
+				setCreatedActiveOn(1),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3675,22 +3670,15 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			err: nil,
+			skipLBComp: true,
+			err:        nil,
 		},
 		{
 			name:     "failed to ensure existing load-balancer, state is non-active",
 			droplets: []godo.Droplet{},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				lb := createLB()
-				lb.Status = lbStatusNew
-				return lb, newFakeOKResponse(), nil
-			},
+			fakeLB: newFakeLoadBalancerService(
+				*createLB(),
+			).setCreatedActiveOn(-1),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3739,16 +3727,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					return test.droplets, newFakeOKResponse(), nil
 				},
 			}
-			var fakeLB godo.LoadBalancersService = &fakeLBService{
-				getFn:    test.getFn,
-				listFn:   test.listFn,
-				createFn: test.createFn,
-				updateFn: test.updateFn,
-			}
-			if test.fakeLB != nil {
-				fakeLB = test.fakeLB
-			}
-			fakeClient := newFakeClient(fakeDroplet, fakeLB)
+			fakeClient := newFakeClient(fakeDroplet, test.fakeLB)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
@@ -3776,9 +3755,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				t.Logf("actual: %v", err)
 			}
 
-			if test.fakeLB != nil {
-				test.fakeLB.assertCounts(t)
-			}
+			test.fakeLB.assertCounts(t)
 
 			if test.err == nil {
 				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
@@ -3786,10 +3763,15 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					t.Fatalf("failed to get service from kube client: %s", err)
 				}
 
-				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
-				wantLoadBalancerID := "load-balancer-id"
-				if gotLoadBalancerID != wantLoadBalancerID {
-					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
+				svcLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+				// We expect to have exactly one LB at this point.
+				fakeLBs := test.fakeLB.lbs
+				if len(fakeLBs) != 1 {
+					t.Fatalf("got %d fake load-balancer(s), want 1", len(fakeLBs))
+				}
+				lbID := fakeLBs[0].ID
+				if svcLoadBalancerID != lbID {
+					t.Errorf("got service load-balancer ID %q, want LB ID %q", svcLoadBalancerID, lbID)
 				}
 			}
 		})

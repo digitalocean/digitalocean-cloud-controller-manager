@@ -45,7 +45,11 @@ type serviceBuilder struct {
 	loadBalancerID     string
 }
 
-func newSvcBuilder(idx int) *serviceBuilder {
+func newSvcBuilder() *serviceBuilder {
+	return newSvcBuilderWithIdx(1)
+}
+
+func newSvcBuilderWithIdx(idx int) *serviceBuilder {
 	return &serviceBuilder{
 		idx: idx,
 	}
@@ -87,12 +91,12 @@ func (sb *serviceBuilder) build() *v1.Service {
 }
 
 func lbName(idx int) string {
-	svc := newSvcBuilder(idx).build()
+	svc := newSvcBuilderWithIdx(idx).build()
 	return getDefaultLoadBalancerName(svc)
 }
 
 func createLBSvc(idx int) *corev1.Service {
-	return newSvcBuilder(idx).setTypeLoadBalancer(true).build()
+	return newSvcBuilderWithIdx(idx).setTypeLoadBalancer(true).build()
 }
 
 type recordingSyncer struct {
@@ -190,7 +194,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		{
 			name: "service without LoadBalancer type",
 			services: []*corev1.Service{
-				newSvcBuilder(1).setTypeLoadBalancer(false).build(),
+				newSvcBuilderWithIdx(1).setTypeLoadBalancer(false).build(),
 			},
 			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
@@ -273,7 +277,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		{
 			name: "found LB resource by ID annotation",
 			services: []*corev1.Service{
-				newSvcBuilder(1).setTypeLoadBalancer(true).setLoadBalancerID("f7968b52-4ed9-4a16-af8b-304253f04e20").build(),
+				newSvcBuilderWithIdx(1).setTypeLoadBalancer(true).setLoadBalancerID("f7968b52-4ed9-4a16-af8b-304253f04e20").build(),
 			},
 			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{

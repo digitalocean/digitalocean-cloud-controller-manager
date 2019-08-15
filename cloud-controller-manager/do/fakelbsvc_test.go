@@ -34,6 +34,7 @@ type fakeLoadBalancerService struct {
 	wantLists, gotLists     int
 	wantCreates, gotCreates int
 	wantUpdates, gotUpdates int
+	createdActiveOn         int
 }
 
 func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
@@ -41,13 +42,20 @@ func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerServi
 }
 
 func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
+	for i, lb := range lbs {
+		if lb.Status == "" {
+			lbs[i].Status = lbStatusNew
+		}
+	}
 	return &fakeLoadBalancerService{
 		fakeService: newFakeService(failOnReq, failErr),
-		lbs:         lbs,
-		wantGets:    -1,
-		wantLists:   -1,
-		wantCreates: -1,
-		wantUpdates: -1,
+		// TODO: consider auto-/force-filling LBs for params like IP and state.
+		lbs:             lbs,
+		wantGets:        -1,
+		wantLists:       -1,
+		wantCreates:     -1,
+		wantUpdates:     -1,
+		createdActiveOn: 2,
 	}
 }
 
@@ -68,6 +76,11 @@ func (f *fakeLoadBalancerService) expectCreates(i int) *fakeLoadBalancerService 
 
 func (f *fakeLoadBalancerService) expectUpdates(i int) *fakeLoadBalancerService {
 	f.wantUpdates = i
+	return f
+}
+
+func (f *fakeLoadBalancerService) setCreatedActiveOn(i int) *fakeLoadBalancerService {
+	f.createdActiveOn = i
 	return f
 }
 
@@ -92,6 +105,10 @@ func (f *fakeLoadBalancerService) deepCopyP(lb godo.LoadBalancer) *godo.LoadBala
 }
 
 func (f *fakeLoadBalancerService) deepCopy(lb godo.LoadBalancer) godo.LoadBalancer {
+	if f.createdActiveOn >= 0 && f.gotGets+f.gotLists+f.gotUpdates >= f.createdActiveOn {
+		lb.Status = lbStatusActive
+		lb.IP = "10.0.0.1"
+	}
 	return mustCopy(lb).(godo.LoadBalancer)
 }
 
@@ -134,8 +151,10 @@ func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBala
 		ID:     uuid.New(),
 		Status: lbStatusNew,
 	}
+
 	setLBFromReq(lb, lbr)
-	return lb, newFakeResponse(http.StatusAccepted), nil
+	f.lbs = append(f.lbs, *lb)
+	return f.deepCopyP(*lb), newFakeResponse(http.StatusAccepted), nil
 }
 
 func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
