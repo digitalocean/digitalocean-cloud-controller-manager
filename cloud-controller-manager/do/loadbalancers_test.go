@@ -3404,30 +3404,14 @@ func Test_GetLoadBalancer(t *testing.T) {
 func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name       string
-		droplets   []godo.Droplet
 		fakeLB     *fakeLoadBalancerService
 		service    *v1.Service
-		nodes      []*v1.Node
 		err        error
 		lbStatus   *v1.LoadBalancerStatus
 		skipLBComp bool
 	}{
 		{
 			name: "successfully ensured loadbalancer by name, already exists",
-			droplets: []godo.Droplet{
-				{
-					ID:   100,
-					Name: "node-1",
-				},
-				{
-					ID:   101,
-					Name: "node-2",
-				},
-				{
-					ID:   102,
-					Name: "node-3",
-				},
-			},
 			fakeLB: newFakeLoadBalancerService(
 				*createLB(),
 			).expectGets(0).expectCreates(0),
@@ -3450,23 +3434,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
-			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
 					{
@@ -3478,20 +3445,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		},
 		{
 			name: "successfully ensured loadbalancer by ID, already exists",
-			droplets: []godo.Droplet{
-				{
-					ID:   100,
-					Name: "node-1",
-				},
-				{
-					ID:   101,
-					Name: "node-2",
-				},
-				{
-					ID:   102,
-					Name: "node-3",
-				},
-			},
 			fakeLB: newFakeLoadBalancerService(
 				*createLBWithID("load-balancer-id"),
 			).expectLists(0).expectCreates(0),
@@ -3515,23 +3468,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
-			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
 					{
@@ -3543,20 +3479,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		},
 		{
 			name: "successfully ensured loadbalancer by name that didn't exist",
-			droplets: []godo.Droplet{
-				{
-					ID:   100,
-					Name: "node-1",
-				},
-				{
-					ID:   101,
-					Name: "node-2",
-				},
-				{
-					ID:   102,
-					Name: "node-3",
-				},
-			},
 			fakeLB: newFakeLoadBalancerService().
 				expectGets(0).
 				expectUpdates(0).
@@ -3580,23 +3502,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
-			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
 					{
@@ -3608,20 +3513,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		},
 		{
 			name: "successfully ensured loadbalancer by ID that didn't exist",
-			droplets: []godo.Droplet{
-				{
-					ID:   100,
-					Name: "node-1",
-				},
-				{
-					ID:   101,
-					Name: "node-2",
-				},
-				{
-					ID:   102,
-					Name: "node-3",
-				},
-			},
 			fakeLB: newFakeLoadBalancerService().
 				expectLists(0).
 				expectUpdates(0).
@@ -3646,23 +3537,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
-			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
 					{
@@ -3674,8 +3548,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			err:        nil,
 		},
 		{
-			name:     "failed to ensure existing load-balancer, state is non-active",
-			droplets: []godo.Droplet{},
+			name: "failed to ensure existing load-balancer, state is non-active",
 			fakeLB: newFakeLoadBalancerService(
 				*createLB(),
 			).setCreatedActiveOn(-1),
@@ -3698,23 +3571,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
-			},
 			lbStatus: nil,
 			err:      fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew),
 		},
@@ -3722,12 +3578,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeDroplet := &fakeDropletService{
-				listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-					return test.droplets, newFakeOKResponse(), nil
-				},
-			}
-			fakeClient := newFakeClient(fakeDroplet, test.fakeLB)
+			fakeClient := newFakeLBClient(test.fakeLB)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
@@ -3741,8 +3592,35 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				lbActiveCheckTick: 1,
 			}
 
+			nodes := []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+					Spec: v1.NodeSpec{
+						ProviderID: "digitalocean://1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+					Spec: v1.NodeSpec{
+						ProviderID: "digitalocean://2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+					Spec: v1.NodeSpec{
+						ProviderID: "digitalocean://3",
+					},
+				},
+			}
+
 			// clusterName param in EnsureLoadBalancer currently not used
-			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "test", test.service, test.nodes)
+			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "test", test.service, nodes)
 			if !reflect.DeepEqual(lbStatus, test.lbStatus) {
 				t.Error("unexpected LB status")
 				t.Logf("expected: %v", test.lbStatus)
