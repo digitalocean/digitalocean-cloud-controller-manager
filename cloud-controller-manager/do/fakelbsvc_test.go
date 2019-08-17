@@ -27,6 +27,8 @@ import (
 	"github.com/pborman/uuid"
 )
 
+const lbIngressIP = "10.0.0.1"
+
 type fakeLoadBalancerService struct {
 	*fakeService
 	lbs                     []godo.LoadBalancer
@@ -107,7 +109,7 @@ func (f *fakeLoadBalancerService) deepCopyP(lb godo.LoadBalancer) *godo.LoadBala
 func (f *fakeLoadBalancerService) deepCopy(lb godo.LoadBalancer) godo.LoadBalancer {
 	if f.createdActiveOn >= 0 && f.gotGets+f.gotLists+f.gotUpdates >= f.createdActiveOn {
 		lb.Status = lbStatusActive
-		lb.IP = "10.0.0.1"
+		lb.IP = lbIngressIP
 	}
 	return mustCopy(lb).(godo.LoadBalancer)
 }
