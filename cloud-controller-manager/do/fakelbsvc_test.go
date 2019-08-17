@@ -46,12 +46,11 @@ func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerServi
 func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
 	for i, lb := range lbs {
 		if lb.Status == "" {
-			lbs[i].Status = lbStatusNew
+			lbs[i].Status = lbStatusActive
 		}
 	}
 	return &fakeLoadBalancerService{
-		fakeService: newFakeService(failOnReq, failErr),
-		// TODO: consider auto-/force-filling LBs for params like IP and state.
+		fakeService:     newFakeService(failOnReq, failErr),
 		lbs:             lbs,
 		wantGets:        -1,
 		wantLists:       -1,
@@ -86,7 +85,7 @@ func (f *fakeLoadBalancerService) setCreatedActiveOn(i int) *fakeLoadBalancerSer
 	return f
 }
 
-func (f *fakeLoadBalancerService) assertCounts(t *testing.T) {
+func (f *fakeLoadBalancerService) assertCalls(t *testing.T) {
 	if f.wantGets >= 0 && f.gotGets != f.wantGets {
 		t.Errorf("got %d get(s), want %d", f.gotGets, f.wantGets)
 	}

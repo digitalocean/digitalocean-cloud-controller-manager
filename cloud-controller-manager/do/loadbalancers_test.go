@@ -88,16 +88,25 @@ func newFakeLBClient(lbService godo.LoadBalancersService) *godo.Client {
 	return newFakeClient(nil, lbService)
 }
 
-func createLB() *godo.LoadBalancer {
-	return createLBWithID("")
+type lbOpts struct {
+	id     string
+	status string
 }
 
-func createLBWithID(id string) *godo.LoadBalancer {
+func createLB() *godo.LoadBalancer {
+	return createLBWithOpts(nil)
+}
+
+func createLBWithOpts(opts *lbOpts) *godo.LoadBalancer {
+	if opts == nil {
+		opts = &lbOpts{}
+	}
 	return &godo.LoadBalancer{
-		ID: id,
+		ID: opts.id,
 		// loadbalancer names are a + service.UID
 		// see cloudprovider.DefaultLoadBalancerName
-		Name: "afoobar123",
+		Name:   "afoobar123",
+		Status: opts.status,
 		// IP:     "10.0.0.1",
 		// Status: lbStatusActive,
 	}
@@ -3383,7 +3392,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 				t.Logf("actual: %v", err)
 			}
 
-			test.fakeLB.assertCounts(t)
+			test.fakeLB.assertCalls(t)
 
 			if test.exists {
 				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
@@ -3404,33 +3413,33 @@ func Test_GetLoadBalancer(t *testing.T) {
 func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name              string
-		fakeLB            *fakeLoadBalancerService
+		fakeLBSvc         *fakeLoadBalancerService
 		svcLoadBalancerID string
 		err               error
 	}{
 		{
 			name: "successfully ensured loadbalancer by name, already exists",
-			fakeLB: newFakeLoadBalancerService(
+			fakeLBSvc: newFakeLoadBalancerService(
 				*createLB(),
 			).expectGets(0).expectCreates(0),
 		},
 		{
 			name: "successfully ensured loadbalancer by ID, already exists",
-			fakeLB: newFakeLoadBalancerService(
-				*createLBWithID("load-balancer-id"),
+			fakeLBSvc: newFakeLoadBalancerService(
+				*createLBWithOpts(&lbOpts{id: "load-balancer-id"}),
 			).expectLists(0).expectCreates(0),
 			svcLoadBalancerID: "load-balancer-id",
 		},
 		{
 			name: "successfully ensured loadbalancer by name that didn't exist",
-			fakeLB: newFakeLoadBalancerService().
+			fakeLBSvc: newFakeLoadBalancerService().
 				expectGets(0).
 				expectUpdates(0).
 				setCreatedActiveOn(1),
 		},
 		{
 			name: "successfully ensured loadbalancer by ID that didn't exist",
-			fakeLB: newFakeLoadBalancerService().
+			fakeLBSvc: newFakeLoadBalancerService().
 				expectLists(0).
 				expectUpdates(0).
 				setCreatedActiveOn(1),
@@ -3438,8 +3447,8 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		},
 		{
 			name: "failed to ensure existing load-balancer, state is non-active",
-			fakeLB: newFakeLoadBalancerService(
-				*createLB(),
+			fakeLBSvc: newFakeLoadBalancerService(
+				*createLBWithOpts(&lbOpts{status: lbStatusNew}),
 			).setCreatedActiveOn(-1),
 			err: fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew),
 		},
@@ -3447,7 +3456,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			fakeClient := newFakeLBClient(test.fakeLB)
+			fakeClient := newFakeLBClient(test.fakeLBSvc)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 
@@ -3510,8 +3519,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			}
 
-			// clusterName param in EnsureLoadBalancer currently not used
-			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "test", service, nodes)
+			lbStatus, err := lb.EnsureLoadBalancer(context.TODO(), "cluster", service, nodes)
 
 			if !reflect.DeepEqual(err, test.err) {
 				t.Fatalf("got error %q, want %q", err, test.err)
@@ -3529,10 +3537,10 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			}
 
 			if !reflect.DeepEqual(lbStatus, wantLBStatus) {
-				t.Errorf("got LB status\n%v\nwant\n%v", lbStatus, wantLBStatus)
+				t.Errorf("got LB status\n%#+v\nwant\n%#+v", lbStatus, wantLBStatus)
 			}
 
-			test.fakeLB.assertCounts(t)
+			test.fakeLBSvc.assertCalls(t)
 
 			if test.err != nil {
 				return
@@ -3545,7 +3553,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 			svcLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
 			// We expect to have exactly one LB at this point.
-			fakeLBs := test.fakeLB.lbs
+			fakeLBs := test.fakeLBSvc.lbs
 			if len(fakeLBs) != 1 {
 				t.Fatalf("got %d fake load-balancer(s), want 1", len(fakeLBs))
 			}
