@@ -36,6 +36,7 @@ type fakeLoadBalancerService struct {
 	wantLists, gotLists     int
 	wantCreates, gotCreates int
 	wantUpdates, gotUpdates int
+	wantDeletes, gotDeletes int
 	createdActiveOn         int
 }
 
@@ -56,6 +57,7 @@ func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...
 		wantLists:       -1,
 		wantCreates:     -1,
 		wantUpdates:     -1,
+		wantDeletes:     -1,
 		createdActiveOn: 2,
 	}
 }
@@ -80,6 +82,11 @@ func (f *fakeLoadBalancerService) expectUpdates(i int) *fakeLoadBalancerService 
 	return f
 }
 
+func (f *fakeLoadBalancerService) expectDeletes(i int) *fakeLoadBalancerService {
+	f.wantDeletes = i
+	return f
+}
+
 func (f *fakeLoadBalancerService) setCreatedActiveOn(i int) *fakeLoadBalancerService {
 	f.createdActiveOn = i
 	return f
@@ -97,6 +104,9 @@ func (f *fakeLoadBalancerService) assertCalls(t *testing.T) {
 	}
 	if f.wantUpdates >= 0 && f.gotUpdates != f.wantUpdates {
 		t.Errorf("got %d update(s), want %d", f.gotUpdates, f.wantUpdates)
+	}
+	if f.wantDeletes >= 0 && f.gotDeletes != f.wantDeletes {
+		t.Errorf("got %d delete(s), want %d", f.gotDeletes, f.wantDeletes)
 	}
 }
 
@@ -175,6 +185,7 @@ func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *go
 }
 
 func (f *fakeLoadBalancerService) Delete(_ context.Context, lbID string) (*godo.Response, error) {
+	f.gotDeletes++
 	if f.shouldFail() {
 		return newFakeNotOKResponse(), f.failError
 	}
