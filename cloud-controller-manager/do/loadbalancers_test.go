@@ -3635,22 +3635,24 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 			test.fakeLB.assertCounts(t)
 
-			if test.err == nil {
-				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
-				if err != nil {
-					t.Fatalf("failed to get service from kube client: %s", err)
-				}
+			if test.err != nil {
+				return
+			}
 
-				svcLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
-				// We expect to have exactly one LB at this point.
-				fakeLBs := test.fakeLB.lbs
-				if len(fakeLBs) != 1 {
-					t.Fatalf("got %d fake load-balancer(s), want 1", len(fakeLBs))
-				}
-				lbID := fakeLBs[0].ID
-				if svcLoadBalancerID != lbID {
-					t.Errorf("got service load-balancer ID %q, want LB ID %q", svcLoadBalancerID, lbID)
-				}
+			svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
+			if err != nil {
+				t.Fatalf("failed to get service from kube client: %s", err)
+			}
+
+			svcLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+			// We expect to have exactly one LB at this point.
+			fakeLBs := test.fakeLB.lbs
+			if len(fakeLBs) != 1 {
+				t.Fatalf("got %d fake load-balancer(s), want 1", len(fakeLBs))
+			}
+			lbID := fakeLBs[0].ID
+			if svcLoadBalancerID != lbID {
+				t.Errorf("got service load-balancer ID %q, want LB ID %q", svcLoadBalancerID, lbID)
 			}
 		})
 	}
