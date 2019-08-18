@@ -49,6 +49,9 @@ func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...
 		if lb.Status == "" {
 			lbs[i].Status = lbStatusActive
 		}
+		if lbs[i].Status == lbStatusActive {
+			lbs[i].IP = lbIngressIP
+		}
 	}
 	return &fakeLoadBalancerService{
 		fakeService:     newFakeService(failOnReq, failErr),
