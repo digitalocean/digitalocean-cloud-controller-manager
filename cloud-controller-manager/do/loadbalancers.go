@@ -361,7 +361,7 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 }
 
 func (l *loadBalancers) ensureLoadBalancerIDAnnot(service *v1.Service, lbID string) error {
-	if val := getLoadBalancerID(service); val != "" {
+	if val := getLoadBalancerID(service); val == lbID {
 		return nil
 	}
 
