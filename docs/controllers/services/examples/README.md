@@ -99,16 +99,20 @@ ID                                      IP                Name                  
 
 ```
 
-## HTTPS or HTTP2 Load Balancer with Hostname
+## Accessing pods over a managed load-balancer from inside the cluster
 
-The `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation can be used to specify the hostname used for the Service `status.Hostname` instead of assigning `status.IP` directly. This is useful as a workaround for the issue of [kube-proxy adding external LB address to node local iptables rule](https://github.com/kubernetes/kubernetes/issues/66607), which will break requests to an LB from in-cluster if the LB is expected to terminate SSL or proxy protocol.
+Because of an existing [limitation in upstream Kubernetes](https://github.com/kubernetes/kubernetes/issues/66607), pods cannot talk to other pods via the IP address of an external load-balancer set up through a `LoadBalancer`-typed service. Kubernetes will cause the LB to be bypassed, potentially breaking workflows that expect TLS termination or proxy protocol handling to be applied consistently.
 
-The workflow for this scenario is generally:
+A workaround is to set up a DNS record for a custom hostname (at a provider of your choice) and have it point to the external IP address of the load-balancer. The clients would then speak to the service over the hostname (i.e., the load-balancer). To further simplify consumption of the hostname within a cluster, _digitalocean-cloud-controller-manager_ may be instructed to return the custom hostname (instead of the external LB IP address) in the service ingress status. This is done by specifying the hostname in the `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation and retrieving the service's `status.Hostname` field afterwards.
+
+Note that setting `service.beta.kubernetes.io/do-loadbalancer-hostname` is not a requirement. You may also register additional hostnames and have them all point at the IP address.
+
+The workflow for setting up the `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation is generally:
 
  1. Deploy the manifest with your Service (example below).
- 1. Wait for the service external IP to be available.
- 1. Add a DNS record for your hostname pointing to the external IP.
- 1. Add the hostname annotation to your manifest (example below). Deploy it.
+ 2. Wait for the service external IP to be available.
+ 3. Add a DNS record for your hostname pointing to the external IP.
+ 4. Add the hostname annotation to your manifest (example below). Deploy it.
 
 ```yaml
 kind: Service
