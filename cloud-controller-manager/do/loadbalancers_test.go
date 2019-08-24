@@ -3412,16 +3412,17 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name     string
-		droplets []godo.Droplet
-		getFn    func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
-		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		createFn func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		updateFn func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		service  *v1.Service
-		nodes    []*v1.Node
-		lbStatus *v1.LoadBalancerStatus
-		err      error
+		name              string
+		droplets          []godo.Droplet
+		getFn             func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
+		listFn            func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+		createFn          func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
+		updateFn          func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
+		service           *v1.Service
+		newLoadBalancerID string
+		nodes             []*v1.Node
+		lbStatus          *v1.LoadBalancerStatus
+		err               error
 	}{
 		{
 			name: "successfully ensured loadbalancer by name, already exists",
@@ -3666,7 +3667,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
 			},
 			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
+				lb := createLB()
+				lb.ID = "other-load-balancer-id"
+				return lb, newFakeOKResponse(), nil
 			},
 			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
@@ -3691,6 +3694,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
+			newLoadBalancerID: "other-load-balancer-id",
 			nodes: []*v1.Node{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -3821,6 +3825,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
 				wantLoadBalancerID := "load-balancer-id"
+				if test.newLoadBalancerID != "" {
+					wantLoadBalancerID = test.newLoadBalancerID
+				}
 				if gotLoadBalancerID != wantLoadBalancerID {
 					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
 				}
