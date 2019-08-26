@@ -45,7 +45,7 @@ Other than that, the only safe place to make load-balancer configuration changes
 
 ### DO load-balancer entry port restrictions
 
-For technical reasons, a few selected high ports cannot be used as load-balancer entry ports (i.e., the port that the load-balancer listens on for requests). Trying to use one of the affected ports as service port causes a _422 entry port is invalid_ HTTP error response to be returned by the DO API (and surfaced as a Kubernetes event).
+For technical reasons, the ports 50053, 50054, and 50055 cannot be used as load-balancer entry ports (i.e., the port that the load-balancer listens on for requests). Trying to use one of the affected ports as service port causes a _422 entry port is invalid_ HTTP error response to be returned by the DO API (and surfaced as a Kubernetes event).
 
 The solution is to change the service port to a different, non-conlicting one.
 
