@@ -2,6 +2,8 @@
 
 ## unreleased
 
+## v0.1.19 (beta) - Aug 28th 2019
+
 ### Changed
 
 * Overwrite service load-balancer ID on mismatch (@timoreimann)
