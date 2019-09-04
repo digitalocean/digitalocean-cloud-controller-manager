@@ -227,10 +227,9 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	switch err {
 	case nil:
 		// LB existing
-		lbID := lb.ID
-		lb, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+		err := l.updateLoadBalancer(ctx, lb, lbRequest, service)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
+			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
 		}
 
 	case errLBNotFound:
@@ -275,6 +274,53 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}, nil
 }
 
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) error {
+	var lbCertID string
+	for _, rule := range lb.ForwardingRules {
+		if rule.TlsPassthrough {
+			continue
+		}
+		if rule.CertificateID != "" {
+			lbCertID = rule.CertificateID
+			// it's not clear that it is even possible for different forwarding rules
+			// on the same loadbalancer to have different certificates associated
+			// with them -- as far as we are concerned where a load balancer is
+			// created by CCM in the first place it doesn't seem possible so we only
+			// need to grab the first one we find
+			break
+		}
+	}
+
+	serviceCertID := getCertificateID(service)
+	if lbCertID != "" && lbCertID != serviceCertID {
+		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
+		if err != nil {
+			return fmt.Errorf("failed to get current certificate for lb")
+		}
+
+		if lbCert.Type == "lets_encrypt" {
+			l.ensureCertificateIDAnnot(service, lbCertID)
+		} else {
+			_, _, err = l.resources.gclient.Certificates.Get(ctx, serviceCertID)
+			if err != nil {
+				respErr, ok := err.(*godo.ErrorResponse)
+				if ok && respErr.Response.StatusCode == 404 {
+					fmtStr := "certificate UUID %q not found; the %q service annotation refers to nonexistent DO Certificate"
+					respErr.Message = fmt.Sprintf(fmtStr, serviceCertID, annDOCertificateID)
+				}
+				return err
+			}
+		}
+	}
+
+	_, _, err := l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	if err != nil {
+		return fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
+	}
+
+	return nil
+}
+
 // UpdateLoadBalancer updates the load balancer for service to balance across
 // the droplets in nodes.
 //
@@ -290,12 +336,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	_, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
-	if err != nil {
-		return fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
-	}
-
-	return nil
+	return l.updateLoadBalancer(ctx, lb, lbRequest, service)
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
@@ -360,19 +401,26 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 	return l.lbByName(ctx, lbName)
 }
 
+func (l *loadBalancers) ensureCertificateIDAnnot(service *v1.Service, certID string) error {
+	return l.ensureServiceAnnotation(service, annDOCertificateID, certID)
+}
+
 func (l *loadBalancers) ensureLoadBalancerIDAnnot(service *v1.Service, lbID string) error {
 	if val := getLoadBalancerID(service); val == lbID {
 		return nil
 	}
 
+	return l.ensureServiceAnnotation(service, annoDOLoadBalancerID, lbID)
+}
+
+func (l *loadBalancers) ensureServiceAnnotation(service *v1.Service, annotName, annotValue string) error {
 	// Make a copy so we don't mutate the shared informer cache from the cloud
 	// provider framework.
 	updated := service.DeepCopy()
 	if updated.ObjectMeta.Annotations == nil {
 		updated.ObjectMeta.Annotations = map[string]string{}
 	}
-	updated.ObjectMeta.Annotations[annoDOLoadBalancerID] = lbID
-
+	updated.ObjectMeta.Annotations[annotName] = annotValue
 	return patchService(l.resources.kclient, service, updated)
 }
 
