@@ -3420,7 +3420,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		}
 		return f
 	}
-	defaultGetCertFn := getGetCertFnFn("custom")
+	defaultGetCertFn := getGetCertFnFn(certTypeCustom)
 	testcases := []struct {
 		name              string
 		droplets          []godo.Droplet

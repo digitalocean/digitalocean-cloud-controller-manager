@@ -292,26 +292,25 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	}
 
 	checkServiceCertID := true
-	serviceCertID := getCertificateID(service)
-	if lbCertID != "" && lbCertID != serviceCertID {
+	if lbCertID != "" && lbCertID != getCertificateID(service) {
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get current certificate for lb")
 		}
 
-		if lbCert.Type == "lets_encrypt" {
+		if lbCert.Type == certTypeLetsEncrypt {
 			l.ensureCertificateIDAnnot(service, lbCertID)
 			checkServiceCertID = false
 		}
 	}
 
 	if checkServiceCertID {
-		_, _, err := l.resources.gclient.Certificates.Get(ctx, serviceCertID)
+		_, _, err := l.resources.gclient.Certificates.Get(ctx, getCertificateID(service))
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
-			if ok && respErr.Response.StatusCode == 404 {
+			if ok && respErr.Response.StatusCode == http.StatusNotFound {
 				fmtStr := "certificate UUID %q not found; the %q service annotation refers to nonexistent DO Certificate"
-				respErr.Message = fmt.Sprintf(fmtStr, serviceCertID, annDOCertificateID)
+				respErr.Message = fmt.Sprintf(fmtStr, getCertificateID(service), annDOCertificateID)
 			}
 			return nil, err
 		}
