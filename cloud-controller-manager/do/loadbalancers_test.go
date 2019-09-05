@@ -100,6 +100,20 @@ func createLB() *godo.LoadBalancer {
 	}
 }
 
+func updateLB(lbr *godo.LoadBalancerRequest) *godo.LoadBalancer {
+	lb := createLB()
+	lb.ForwardingRules = lbr.ForwardingRules
+	lb.RedirectHttpToHttps = lbr.RedirectHttpToHttps
+	lb.StickySessions = lbr.StickySessions
+	lb.HealthCheck = lbr.HealthCheck
+	lb.EnableProxyProtocol = lbr.EnableProxyProtocol
+	lb.Name = lbr.Name
+	lb.Tags = lbr.Tags
+	lb.Algorithm = lbr.Algorithm
+
+	return lb
+}
+
 func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
 	svc := &v1.Service{}
 	is, _ := healthCheckIntervalSeconds(svc)

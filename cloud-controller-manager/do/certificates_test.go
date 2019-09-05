@@ -18,8 +18,14 @@ package do
 
 import (
 	"context"
+	"errors"
+	"reflect"
+	"testing"
 
 	"github.com/digitalocean/godo"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 type fakeCertService struct {
@@ -43,4 +49,155 @@ func (f *fakeCertService) Create(ctx context.Context, crtr *godo.CertificateRequ
 
 func (f *fakeCertService) Delete(ctx context.Context, certID string) (*godo.Response, error) {
 	return f.deleteFn(ctx, certID)
+}
+
+func Test_LBaaSCertificateScenarios(t *testing.T) {
+	defaultLBService := fakeLBService{
+		createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+		},
+		getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+			return createLB(), newFakeOKResponse(), nil
+		},
+		listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+			return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
+		},
+		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			lb := updateLB(lbr)
+			return lb, newFakeOKResponse(), nil
+		},
+	}
+
+	defaultCertService := fakeCertService{
+		getFn: func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
+			return &godo.Certificate{
+				ID:   certID,
+				Type: certTypeLetsEncrypt,
+			}, nil, nil
+		},
+	}
+
+	testcases := []struct {
+		name                  string
+		droplets              []godo.Droplet
+		fakeLBServiceFn       func() fakeLBService
+		fakeCertServiceFn     func() fakeCertService
+		service               *v1.Service
+		expectedServiceCertID string
+		err                   error
+	}{
+		{
+			name: "validate default test values, tls not enabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	nodes := []*v1.Node{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-1",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-2",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "node-3",
+			},
+		},
+	}
+	droplets := []godo.Droplet{
+		{
+			ID:   100,
+			Name: "node-1",
+		},
+		{
+			ID:   101,
+			Name: "node-2",
+		},
+		{
+			ID:   102,
+			Name: "node-3",
+		},
+	}
+	fakeDroplet := fakeDropletService{
+		listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+			return droplets, newFakeOKResponse(), nil
+		},
+	}
+
+	for _, tc := range testcases {
+		tc := tc
+		for _, methodName := range []string{"EnsureLoadBalancer", "UpdateLoadBalancer"} {
+			t.Run(tc.name+"_"+methodName, func(t *testing.T) {
+				lbService := defaultLBService
+				certService := defaultCertService
+
+				if tc.fakeLBServiceFn != nil {
+					lbService = tc.fakeLBServiceFn()
+				}
+
+				if tc.fakeCertServiceFn != nil {
+					certService = tc.fakeCertServiceFn()
+				}
+
+				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)
+				fakeResources := newResources("", "", fakeClient)
+				fakeResources.kclient = fake.NewSimpleClientset()
+				if _, err := fakeResources.kclient.CoreV1().Services(tc.service.Namespace).Create(tc.service); err != nil {
+					t.Fatalf("failed to add service to fake client: %s", err)
+				}
+
+				lb := &loadBalancers{
+					resources:         fakeResources,
+					region:            "nyc1",
+					lbActiveTimeout:   2,
+					lbActiveCheckTick: 1,
+				}
+
+				var err error
+				switch methodName {
+				case "EnsureLoadBalancer":
+					_, err = lb.EnsureLoadBalancer(context.TODO(), "test", tc.service, nodes)
+				case "UpdateLoadBalancer":
+					err = lb.UpdateLoadBalancer(context.TODO(), "test", tc.service, nodes)
+				default:
+					t.Errorf("unsupported loadbalancer method: %s", methodName)
+				}
+
+				if !reflect.DeepEqual(err, tc.err) {
+					t.Error("error does not match test case expectation")
+					t.Logf("expected: %v", tc.err)
+					t.Logf("actual: %v", err)
+				}
+
+				if tc.expectedServiceCertID != getCertificateID(tc.service) {
+					t.Error("unexpected service certificate ID annotation")
+					t.Logf("expected: %s", tc.expectedServiceCertID)
+					t.Logf("actual: %s", getCertificateID(tc.service))
+				}
+			})
+		}
+	}
 }
