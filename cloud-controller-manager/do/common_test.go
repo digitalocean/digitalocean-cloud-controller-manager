@@ -53,6 +53,15 @@ func newFakeResponse(statusCode int) *godo.Response {
 	}
 }
 
+func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
+	return &godo.ErrorResponse{
+		Response: &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+		},
+	}
+}
+
 func linksForPage(page int) *godo.Links {
 	switch page {
 	case 0, 1:

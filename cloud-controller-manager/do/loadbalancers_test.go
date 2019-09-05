@@ -100,6 +100,26 @@ func createLB() *godo.LoadBalancer {
 	}
 }
 
+func createHTTPSLB(entryPort, targetPort int, lbID, certID string) *godo.LoadBalancer {
+	return &godo.LoadBalancer{
+		// loadbalancer names are a + service.UID
+		// see cloudprovider.DefaultLoadBalancerName
+		ID:     lbID,
+		Name:   "afoobar123",
+		IP:     "10.0.0.1",
+		Status: lbStatusActive,
+		ForwardingRules: []godo.ForwardingRule{
+			{
+				EntryProtocol:  "https",
+				EntryPort:      entryPort,
+				TargetProtocol: "https",
+				TargetPort:     targetPort,
+				CertificateID:  certID,
+			},
+		},
+	}
+}
+
 func updateLB(lbr *godo.LoadBalancerRequest) *godo.LoadBalancer {
 	lb := createLB()
 	lb.ForwardingRules = lbr.ForwardingRules
