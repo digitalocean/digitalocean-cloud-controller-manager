@@ -95,7 +95,8 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol: "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+						annDOProtocol:        "http",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -111,7 +112,40 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			},
 		},
 		{
-			name: "validate behavior when LB cert ID and service cert ID match and correspond to non-existent cert",
+			name: "[letsencrypt] LB cert ID and service cert ID match ",
+			fakeLBServiceFn: func() fakeLBService {
+				s := defaultLBService
+				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id"), newFakeOKResponse(), nil
+				}
+				return s
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "test-cert-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			expectedServiceCertID: "test-cert-id",
+			expectedLBCertID:      "test-cert-id",
+		},
+		{
+			name: "[letsencrypt] LB cert ID and service cert ID match and correspond to non-existent cert",
 			fakeLBServiceFn: func() fakeLBService {
 				s := defaultLBService
 				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
@@ -131,8 +165,9 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:      "http",
-						annDOCertificateID: "test-cert-id",
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "test-cert-id",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -151,7 +186,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			err:                   fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, "test-cert-id"),
 		},
 		{
-			name: "validate behavior when LB cert ID and service cert ID match ",
+			name: "[letsencrypt] LB cert ID and service cert ID differ and both certs exist",
 			fakeLBServiceFn: func() fakeLBService {
 				s := defaultLBService
 				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
@@ -164,8 +199,9 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:      "http",
-						annDOCertificateID: "test-cert-id",
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "test-cert-id-2",
 					},
 				},
 				Spec: v1.ServiceSpec{
