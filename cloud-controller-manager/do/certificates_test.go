@@ -85,6 +85,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		fakeCertServiceFn     func() fakeCertService
 		service               *v1.Service
 		expectedServiceCertID string
+		expectedLBCertID      string
 		err                   error
 	}{
 		{
@@ -145,6 +146,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					},
 				},
 			},
+			expectedLBCertID:      "test-cert-id",
 			expectedServiceCertID: "test-cert-id",
 			err:                   fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, "test-cert-id"),
 		},
@@ -178,6 +180,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				},
 			},
 			expectedServiceCertID: "test-cert-id",
+			expectedLBCertID:      "test-cert-id",
 		},
 	}
 
@@ -263,10 +266,26 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					t.Logf("actual: %v", err)
 				}
 
-				if tc.expectedServiceCertID != getCertificateID(tc.service) {
+				service, err := fakeResources.kclient.CoreV1().Services(tc.service.Namespace).Get(tc.service.Name, metav1.GetOptions{})
+				if err != nil {
+					t.Fatalf("failed to get service from fake client: %s", err)
+				}
+
+				if tc.expectedServiceCertID != getCertificateID(service) {
 					t.Error("unexpected service certificate ID annotation")
 					t.Logf("expected: %s", tc.expectedServiceCertID)
-					t.Logf("actual: %s", getCertificateID(tc.service))
+					t.Logf("actual: %s", getCertificateID(service))
+				}
+
+				godoLoadBalancer, _, err := lbService.Get(context.TODO(), getLoadBalancerID(service))
+				if err != nil {
+					t.Fatalf("failed to get loadbalancer %q from fake client: %s", getLoadBalancerID(service), err)
+				}
+				lbCertID := getCertificateIDFromLB(godoLoadBalancer)
+				if tc.expectedLBCertID != lbCertID {
+					t.Error("unexpected loadbalancer certificate ID")
+					t.Logf("expected: %s", tc.expectedLBCertID)
+					t.Logf("actual: %s", lbCertID)
 				}
 			})
 		}

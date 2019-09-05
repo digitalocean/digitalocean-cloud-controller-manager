@@ -274,16 +274,21 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}, nil
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) (*godo.LoadBalancer, error) {
-	var lbCertID string
+func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
+	var id string
 	for _, rule := range lb.ForwardingRules {
 		if rule.CertificateID != "" {
-			lbCertID = rule.CertificateID
+			id = rule.CertificateID
 			// CCM does not currently support multiple certificates on the
 			// loadbalancers it manages so we only need to grab the first one we find
 			break
 		}
 	}
+	return id
+}
+
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) (*godo.LoadBalancer, error) {
+	lbCertID := getCertificateIDFromLB(lb)
 
 	checkServiceCertID := true
 	if lbCertID != "" && lbCertID != getCertificateID(service) {
