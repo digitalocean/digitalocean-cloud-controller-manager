@@ -89,7 +89,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		err                   error
 	}{
 		{
-			name: "validate default test values, tls not enabled",
+			name: "default test values, tls not enabled",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
