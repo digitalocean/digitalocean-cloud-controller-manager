@@ -277,16 +277,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) (*godo.LoadBalancer, error) {
 	var lbCertID string
 	for _, rule := range lb.ForwardingRules {
-		if rule.TlsPassthrough {
-			continue
-		}
 		if rule.CertificateID != "" {
 			lbCertID = rule.CertificateID
-			// it's not clear that it is even possible for different forwarding rules
-			// on the same loadbalancer to have different certificates associated
-			// with them -- as far as we are concerned where a load balancer is
-			// created by CCM in the first place it doesn't seem possible so we only
-			// need to grab the first one we find
+			// CCM does not currently support multiple certificates on the
+			// loadbalancers it manages so we only need to grab the first one we find
 			break
 		}
 	}
@@ -295,7 +289,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	if lbCertID != "" && lbCertID != getCertificateID(service) {
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current certificate for lb")
+			return nil, fmt.Errorf("failed to get current certificate for lb: %s", err)
 		}
 
 		if lbCert.Type == certTypeLetsEncrypt {
@@ -309,8 +303,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
 			if ok && respErr.Response.StatusCode == http.StatusNotFound {
-				fmtStr := "certificate UUID %q not found; the %q service annotation refers to nonexistent DO Certificate"
-				respErr.Message = fmt.Sprintf(fmtStr, getCertificateID(service), annDOCertificateID)
+				return nil, fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, getCertificateID(service))
 			}
 			return nil, err
 		}
