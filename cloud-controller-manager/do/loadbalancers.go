@@ -229,7 +229,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		// LB existing
 		lb, err = l.updateLoadBalancer(ctx, lb, lbRequest, service)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
+			return nil, err
 		}
 
 	case errLBNotFound:
