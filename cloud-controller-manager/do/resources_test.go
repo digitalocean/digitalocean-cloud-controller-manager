@@ -146,6 +146,7 @@ func TestResourcesController_Run(t *testing.T) {
 				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
+		nil,
 	)
 	fakeResources := newResources(clusterID, "", gclient)
 	kclient := fake.NewSimpleClientset()

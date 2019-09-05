@@ -86,7 +86,7 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 }
 
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
-	return newFakeClient(nil, fakeLB)
+	return newFakeClient(nil, fakeLB, nil)
 }
 
 func createLB() *godo.LoadBalancer {
@@ -3411,6 +3411,16 @@ func Test_GetLoadBalancer(t *testing.T) {
 }
 
 func Test_EnsureLoadBalancer(t *testing.T) {
+	getGetCertFnFn := func(doCertType string) func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
+		f := func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
+			return &godo.Certificate{
+				ID:   certID,
+				Type: doCertType,
+			}, nil, nil
+		}
+		return f
+	}
+	defaultGetCertFn := getGetCertFnFn("custom")
 	testcases := []struct {
 		name              string
 		droplets          []godo.Droplet
@@ -3418,6 +3428,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		listFn            func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		createFn          func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		updateFn          func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
+		getCertFn         func(context.Context, string) (*godo.Certificate, *godo.Response, error)
 		service           *v1.Service
 		newLoadBalancerID string
 		nodes             []*v1.Node
@@ -3789,7 +3800,13 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				createFn: test.createFn,
 				updateFn: test.updateFn,
 			}
-			fakeClient := newFakeClient(fakeDroplet, fakeLB)
+			fakeCert := &fakeCertService{}
+			if test.getCertFn == nil {
+				fakeCert.getFn = defaultGetCertFn
+			} else {
+				fakeCert.getFn = test.getCertFn
+			}
+			fakeClient := newFakeClient(fakeDroplet, fakeLB, fakeCert)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {

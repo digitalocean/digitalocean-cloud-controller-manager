@@ -94,7 +94,7 @@ func (f *fakeDropletService) Neighbors(ctx context.Context, dropletID int) ([]go
 }
 
 func newFakeDropletClient(fakeDroplet *fakeDropletService) *godo.Client {
-	return newFakeClient(fakeDroplet, nil)
+	return newFakeClient(fakeDroplet, nil, nil)
 }
 
 func newFakeDroplet() *godo.Droplet {

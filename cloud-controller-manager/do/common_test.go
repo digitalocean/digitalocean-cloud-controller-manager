@@ -28,8 +28,9 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService) *godo.Client {
+func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService, fakeCert *fakeCertService) *godo.Client {
 	return &godo.Client{
+		Certificates:  fakeCert,
 		Droplets:      fakeDroplet,
 		LoadBalancers: fakeLB,
 	}

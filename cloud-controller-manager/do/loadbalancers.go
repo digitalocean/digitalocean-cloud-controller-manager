@@ -227,7 +227,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	switch err {
 	case nil:
 		// LB existing
-		err := l.updateLoadBalancer(ctx, lb, lbRequest, service)
+		lb, err = l.updateLoadBalancer(ctx, lb, lbRequest, service)
 		if err != nil {
 			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
 		}
@@ -274,7 +274,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}, nil
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) error {
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) (*godo.LoadBalancer, error) {
 	var lbCertID string
 	for _, rule := range lb.ForwardingRules {
 		if rule.TlsPassthrough {
@@ -296,7 +296,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	if lbCertID != "" && lbCertID != serviceCertID {
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
 		if err != nil {
-			return fmt.Errorf("failed to get current certificate for lb")
+			return nil, fmt.Errorf("failed to get current certificate for lb")
 		}
 
 		if lbCert.Type == "lets_encrypt" {
@@ -313,16 +313,16 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 				fmtStr := "certificate UUID %q not found; the %q service annotation refers to nonexistent DO Certificate"
 				respErr.Message = fmt.Sprintf(fmtStr, serviceCertID, annDOCertificateID)
 			}
-			return err
+			return nil, err
 		}
 	}
 
-	_, _, err := l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	lb, _, err := l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	if err != nil {
-		return fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
+		return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
 	}
 
-	return nil
+	return lb, nil
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -340,7 +340,9 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	return l.updateLoadBalancer(ctx, lb, lbRequest, service)
+	_, err = l.updateLoadBalancer(ctx, lb, lbRequest, service)
+
+	return err
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
