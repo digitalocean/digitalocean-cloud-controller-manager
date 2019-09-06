@@ -21,6 +21,7 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"testing"
@@ -56,6 +57,10 @@ func newFakeResponse(statusCode int) *godo.Response {
 func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
 	return &godo.ErrorResponse{
 		Response: &http.Response{
+			Request: &http.Request{
+				Method: "FAKE",
+				URL:    &url.URL{},
+			},
 			StatusCode: http.StatusNotFound,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
 		},
