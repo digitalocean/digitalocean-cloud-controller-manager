@@ -28,46 +28,40 @@ import (
 )
 
 type kvCertService struct {
-	store    map[string]*godo.Certificate
-	getFn    func(context.Context, string) (*godo.Certificate, *godo.Response, error)
-	listFn   func(context.Context, *godo.ListOptions) ([]godo.Certificate, *godo.Response, error)
-	createFn func(context.Context, *godo.CertificateRequest) (*godo.Certificate, *godo.Response, error)
-	deleteFn func(ctx context.Context, lbID string) (*godo.Response, error)
+	store         map[string]*godo.Certificate
+	reflectorMode bool
 }
 
 func (f *kvCertService) Get(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-	return f.getFn(ctx, certID)
+	if f.reflectorMode {
+		return &godo.Certificate{
+			ID:   certID,
+			Type: certTypeLetsEncrypt,
+		}, newFakeOKResponse(), nil
+	}
+	lb, ok := f.store[certID]
+	if ok {
+		return lb, newFakeOKResponse(), nil
+	}
+	return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
 }
 
 func (f *kvCertService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
-	return f.listFn(ctx, listOpts)
+	panic("not implemented")
 }
 
 func (f *kvCertService) Create(ctx context.Context, crtr *godo.CertificateRequest) (*godo.Certificate, *godo.Response, error) {
-	return f.createFn(ctx, crtr)
+	panic("not implemented")
 }
 
 func (f *kvCertService) Delete(ctx context.Context, certID string) (*godo.Response, error) {
-	return f.deleteFn(ctx, certID)
+	panic("not implemented")
 }
 
-func newKVCertService(store map[string]*godo.Certificate) kvCertService {
+func newKVCertService(store map[string]*godo.Certificate, reflectorMode bool) kvCertService {
 	return kvCertService{
-		store: store,
-		getFn: func(ctx context.Context, id string) (*godo.Certificate, *godo.Response, error) {
-			lb, ok := store[id]
-			if ok {
-				return lb, newFakeOKResponse(), nil
-			}
-			return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
-		},
-		listFn: func(context.Context, *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
-			response := make([]godo.Certificate, len(store))
-			for _, cert := range store {
-				response = append(response, *cert)
-			}
-			return response, newFakeOKResponse(), nil
-		},
+		store:         store,
+		reflectorMode: reflectorMode,
 	}
 }
 
@@ -263,7 +257,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lbStore := make(map[string]*godo.LoadBalancer)
 				lbService := newKVLBService(lbStore)
 				certStore := make(map[string]*godo.Certificate)
-				certService := newKVCertService(certStore)
+				certService := newKVCertService(certStore, false)
 				service := tc.setupFn(lbService, certService)
 
 				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)

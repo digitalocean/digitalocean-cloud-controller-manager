@@ -3855,13 +3855,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				updateFn: test.updateFn,
 			}
 			certStore := make(map[string]*godo.Certificate)
-			fakeCert := newKVCertService(certStore)
-			fakeCert.getFn = func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-				return &godo.Certificate{
-					ID:   certID,
-					Type: certTypeCustom,
-				}, nil, nil
-			}
+			fakeCert := newKVCertService(certStore, true)
 			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
