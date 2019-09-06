@@ -39,6 +39,7 @@ import (
 var _ cloudprovider.LoadBalancer = new(loadBalancers)
 
 type fakeLBService struct {
+	store                   map[string]*godo.LoadBalancer
 	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
 	listFn                  func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 	createFn                func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
@@ -85,6 +86,29 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 	return f.removeForwardingRulesFn(ctx, lbID, rules...)
 }
 
+func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
+	return fakeLBService{
+		store: store,
+		createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+		},
+		getFn: func(ctx context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
+			lb, ok := store[lbID]
+			if ok {
+				return lb, newFakeOKResponse(), nil
+			}
+			return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
+		},
+		listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+			return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
+		},
+		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			lb := updateLB(lbr)
+			return lb, newFakeOKResponse(), nil
+		},
+	}
+}
+
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
 	return newFakeClient(nil, fakeLB, nil)
 }
@@ -100,8 +124,8 @@ func createLB() *godo.LoadBalancer {
 	}
 }
 
-func createHTTPSLB(entryPort, targetPort int, lbID, certID string) *godo.LoadBalancer {
-	return &godo.LoadBalancer{
+func createHTTPSLB(entryPort, targetPort int, lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
+	lb := &godo.LoadBalancer{
 		// loadbalancer names are a + service.UID
 		// see cloudprovider.DefaultLoadBalancerName
 		ID:     lbID,
@@ -118,6 +142,11 @@ func createHTTPSLB(entryPort, targetPort int, lbID, certID string) *godo.LoadBal
 			},
 		},
 	}
+	cert := &godo.Certificate{
+		ID:   certID,
+		Type: certType,
+	}
+	return lb, cert
 }
 
 func updateLB(lbr *godo.LoadBalancerRequest) *godo.LoadBalancer {
@@ -3445,16 +3474,6 @@ func Test_GetLoadBalancer(t *testing.T) {
 }
 
 func Test_EnsureLoadBalancer(t *testing.T) {
-	getGetCertFnFn := func(doCertType string) func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-		f := func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-			return &godo.Certificate{
-				ID:   certID,
-				Type: doCertType,
-			}, nil, nil
-		}
-		return f
-	}
-	defaultGetCertFn := getGetCertFnFn(certTypeCustom)
 	testcases := []struct {
 		name              string
 		droplets          []godo.Droplet
@@ -3834,13 +3853,15 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				createFn: test.createFn,
 				updateFn: test.updateFn,
 			}
-			fakeCert := &fakeCertService{}
-			if test.getCertFn == nil {
-				fakeCert.getFn = defaultGetCertFn
-			} else {
-				fakeCert.getFn = test.getCertFn
+			certStore := make(map[string]*godo.Certificate)
+			fakeCert := newKVCertService(certStore)
+			fakeCert.getFn = func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
+				return &godo.Certificate{
+					ID:   certID,
+					Type: certTypeCustom,
+				}, nil, nil
 			}
-			fakeClient := newFakeClient(fakeDroplet, fakeLB, fakeCert)
+			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {

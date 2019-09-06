@@ -217,29 +217,29 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 //
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
-	}
-
 	var lb *godo.LoadBalancer
-	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
+	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	switch err {
 	case nil:
 		// LB existing
-		lb, err = l.updateLoadBalancer(ctx, lb, lbRequest, service)
+		lb, err = l.updateLoadBalancer(ctx, lb, service, nodes)
 		if err != nil {
 			return nil, err
 		}
 
 	case errLBNotFound:
 		// LB missing
+		lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+		}
+
 		lb, _, err = l.resources.gclient.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create load-balancer: %s", err)
 		}
 
-		err := l.ensureLoadBalancerIDAnnot(service, lb.ID)
+		err = l.ensureLoadBalancerIDAnnot(service, lb.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add load-balancer ID annotation to service %s/%s: %s", service.Namespace, service.Name, err)
 		}
@@ -287,9 +287,8 @@ func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
 	return id
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, lbRequest *godo.LoadBalancerRequest, service *v1.Service) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
 	lbCertID := getCertificateIDFromLB(lb)
-
 	checkServiceCertID := true
 	if lbCertID != "" && lbCertID != getCertificateID(service) {
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
@@ -314,9 +313,15 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 		}
 	}
 
-	lb, _, err := l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
+		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+	}
+
+	lbID := lb.ID
+	lb, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
 	}
 
 	return lb, nil
@@ -327,17 +332,12 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 //
 // UpdateLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
-	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
-	if err != nil {
-		return fmt.Errorf("failed to build load-balancer request: %s", err)
-	}
-
 	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		return err
 	}
 
-	_, err = l.updateLoadBalancer(ctx, lb, lbRequest, service)
+	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
 
 	return err
 }

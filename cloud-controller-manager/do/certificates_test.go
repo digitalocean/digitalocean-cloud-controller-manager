@@ -18,7 +18,6 @@ package do
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -29,60 +28,55 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-type fakeCertService struct {
+type kvCertService struct {
+	store    map[string]*godo.Certificate
 	getFn    func(context.Context, string) (*godo.Certificate, *godo.Response, error)
 	listFn   func(context.Context, *godo.ListOptions) ([]godo.Certificate, *godo.Response, error)
 	createFn func(context.Context, *godo.CertificateRequest) (*godo.Certificate, *godo.Response, error)
 	deleteFn func(ctx context.Context, lbID string) (*godo.Response, error)
 }
 
-func (f *fakeCertService) Get(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
+func (f *kvCertService) Get(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
 	return f.getFn(ctx, certID)
 }
 
-func (f *fakeCertService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
+func (f *kvCertService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
 	return f.listFn(ctx, listOpts)
 }
 
-func (f *fakeCertService) Create(ctx context.Context, crtr *godo.CertificateRequest) (*godo.Certificate, *godo.Response, error) {
+func (f *kvCertService) Create(ctx context.Context, crtr *godo.CertificateRequest) (*godo.Certificate, *godo.Response, error) {
 	return f.createFn(ctx, crtr)
 }
 
-func (f *fakeCertService) Delete(ctx context.Context, certID string) (*godo.Response, error) {
+func (f *kvCertService) Delete(ctx context.Context, certID string) (*godo.Response, error) {
 	return f.deleteFn(ctx, certID)
 }
 
+func newKVCertService(store map[string]*godo.Certificate) kvCertService {
+	return kvCertService{
+		store: store,
+		getFn: func(ctx context.Context, id string) (*godo.Certificate, *godo.Response, error) {
+			lb, ok := store[id]
+			if ok {
+				return lb, newFakeOKResponse(), nil
+			}
+			return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
+		},
+		listFn: func(context.Context, *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
+			response := make([]godo.Certificate, len(store))
+			for _, cert := range store {
+				response = append(response, *cert)
+			}
+			return response, newFakeOKResponse(), nil
+		},
+	}
+}
+
 func Test_LBaaSCertificateScenarios(t *testing.T) {
-	defaultLBService := fakeLBService{
-		createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-			return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-		},
-		getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-			return createLB(), newFakeOKResponse(), nil
-		},
-		listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-			return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
-		},
-		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-			lb := updateLB(lbr)
-			return lb, newFakeOKResponse(), nil
-		},
-	}
-
-	defaultCertService := fakeCertService{
-		getFn: func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-			return &godo.Certificate{
-				ID:   certID,
-				Type: certTypeLetsEncrypt,
-			}, nil, nil
-		},
-	}
-
 	testcases := []struct {
 		name                  string
 		droplets              []godo.Droplet
-		fakeLBServiceFn       func() fakeLBService
-		fakeCertServiceFn     func() fakeCertService
+		setupFn               func(fakeLBService, kvCertService)
 		service               *v1.Service
 		expectedServiceCertID string
 		expectedLBCertID      string
@@ -90,6 +84,10 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 	}{
 		{
 			name: "default test values, tls not enabled",
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb := createLB()
+				lbService.store[lb.ID] = lb
+			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -111,14 +109,14 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				},
 			},
 		},
+
+		// lets_encrypt test cases
 		{
 			name: "[letsencrypt] LB cert ID and service cert ID match ",
-			fakeLBServiceFn: func() fakeLBService {
-				s := defaultLBService
-				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-					return createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id"), newFakeOKResponse(), nil
-				}
-				return s
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -146,19 +144,9 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		},
 		{
 			name: "[letsencrypt] LB cert ID and service cert ID match and correspond to non-existent cert",
-			fakeLBServiceFn: func() fakeLBService {
-				s := defaultLBService
-				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-					return createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id"), newFakeOKResponse(), nil
-				}
-				return s
-			},
-			fakeCertServiceFn: func() fakeCertService {
-				s := defaultCertService
-				s.getFn = func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-					return nil, nil, newFakeNotFoundErrorResponse()
-				}
-				return s
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -187,12 +175,10 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		},
 		{
 			name: "[letsencrypt] LB cert ID and service cert ID differ and both certs exist",
-			fakeLBServiceFn: func() fakeLBService {
-				s := defaultLBService
-				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-					return createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id"), newFakeOKResponse(), nil
-				}
-				return s
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +187,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:        "http",
 						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "service-cert",
+						annDOCertificateID:   "service-cert-id",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -220,25 +206,10 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		},
 		{
 			name: "[letsencrypt] LB cert ID exists and service cert ID does not",
-			fakeLBServiceFn: func() fakeLBService {
-				s := defaultLBService
-				s.getFn = func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-					return createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id"), newFakeOKResponse(), nil
-				}
-				return s
-			},
-			fakeCertServiceFn: func() fakeCertService {
-				s := defaultCertService
-				s.getFn = func(ctx context.Context, certID string) (*godo.Certificate, *godo.Response, error) {
-					if certID == "service-cert" {
-						return nil, nil, newFakeNotFoundErrorResponse()
-					}
-					return &godo.Certificate{
-						ID:   certID,
-						Type: certTypeLetsEncrypt,
-					}, nil, nil
-				}
-				return s
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -247,7 +218,137 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:        "http",
 						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "service-cert",
+						annDOCertificateID:   "service-cert-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			expectedServiceCertID: "test-cert-id",
+			expectedLBCertID:      "test-cert-id",
+		},
+
+		// custom test cases
+		{
+			name: "[custom] LB cert ID and service cert ID match ",
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
+				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "test-cert-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			expectedServiceCertID: "test-cert-id",
+			expectedLBCertID:      "test-cert-id",
+		},
+		{
+			name: "[custom] LB cert ID and service cert ID match and correspond to non-existent cert",
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
+				lbService.store[lb.ID] = lb
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "test-cert-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			expectedLBCertID:      "test-cert-id",
+			expectedServiceCertID: "test-cert-id",
+			err:                   fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, "test-cert-id"),
+		},
+		{
+			name: "[custom] LB cert ID and service cert ID differ and both certs exist",
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
+				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
+				certService.store["service-cert-id"] = &godo.Certificate{
+					ID:   "service-cert-id",
+					Type: certTypeCustom,
+				}
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "service-cert-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			expectedServiceCertID: "service-cert-id",
+			expectedLBCertID:      "service-cert-id",
+		},
+		{
+			name: "[custom] LB cert ID exists and service cert ID does not",
+			setupFn: func(lbService fakeLBService, certService kvCertService) {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
+				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "test-lb-id",
+						annDOCertificateID:   "service-cert-id",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -307,15 +408,12 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		tc := tc
 		for _, methodName := range []string{"EnsureLoadBalancer", "UpdateLoadBalancer"} {
 			t.Run(tc.name+"_"+methodName, func(t *testing.T) {
-				lbService := defaultLBService
-				certService := defaultCertService
-
-				if tc.fakeLBServiceFn != nil {
-					lbService = tc.fakeLBServiceFn()
-				}
-
-				if tc.fakeCertServiceFn != nil {
-					certService = tc.fakeCertServiceFn()
+				lbStore := make(map[string]*godo.LoadBalancer)
+				lbService := newKVLBService(lbStore)
+				certStore := make(map[string]*godo.Certificate)
+				certService := newKVCertService(certStore)
+				if tc.setupFn != nil {
+					tc.setupFn(lbService, certService)
 				}
 
 				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)
