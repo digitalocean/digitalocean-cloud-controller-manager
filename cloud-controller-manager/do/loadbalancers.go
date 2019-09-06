@@ -326,13 +326,25 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
 			if ok && respErr.Response.StatusCode == http.StatusNotFound {
-				return nil
+				goto serviceCheck
 			}
 			return fmt.Errorf("failed to get DO certificate for load-balancer: %s", err)
 		}
 
 		if lbCert.Type == certTypeLetsEncrypt {
 			updateServiceAnnotation(service, annDOCertificateID, lbCertID)
+		}
+	}
+
+serviceCheck:
+	if serviceCertID != "" {
+		_, _, err := l.resources.gclient.Certificates.Get(ctx, getCertificateID(service))
+		if err != nil {
+			respErr, ok := err.(*godo.ErrorResponse)
+			if ok && respErr.Response.StatusCode == http.StatusNotFound {
+				return fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, serviceCertID)
+			}
+			return fmt.Errorf("failed to get DO certificate for service: %s", err)
 		}
 	}
 
