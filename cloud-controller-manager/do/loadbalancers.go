@@ -217,8 +217,13 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 //
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
+	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+	}
+
 	var lb *godo.LoadBalancer
-	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
+	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	switch err {
 	case nil:
 		// LB existing
@@ -229,11 +234,6 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	case errLBNotFound:
 		// LB missing
-		lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
-		if err != nil {
-			return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
-		}
-
 		lb, _, err = l.resources.gclient.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create load-balancer: %s", err)
@@ -317,10 +317,17 @@ func (l *loadBalancers) checkAndUpdateLBAndServiceCerts(ctx context.Context, ser
 }
 
 func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+	// call buildLoadBalancerRequest for its error checking; we have to call it
+	// again just before actually updating the loadbalancer in case
+	// checkAndUpdateLBAndServiceCerts modifies the service
+	_, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+	}
+
 	lbCertID := getCertificateIDFromLB(lb)
 	serviceCertID := getCertificateID(service)
-
-	err := l.checkAndUpdateLBAndServiceCerts(ctx, service, lbCertID, serviceCertID)
+	err = l.checkAndUpdateLBAndServiceCerts(ctx, service, lbCertID, serviceCertID)
 	if err != nil {
 		return nil, err
 	}
