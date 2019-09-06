@@ -220,7 +220,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
 
-				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeCustom)
 				certService.store[cert.ID] = cert
 				return service
 			},
@@ -234,7 +234,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
 
-				service, _ := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				service, _ := createServiceAndCert(lb.ID, "service-cert-id", certTypeCustom)
 				return service
 			},
 			expectedServiceCertID: "service-cert-id",
@@ -247,7 +247,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
 
-				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeCustom)
 				certService.store[cert.ID] = cert
 				return service
 			},
