@@ -104,6 +104,7 @@ func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
 		},
 		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 			lb := updateLB(lbr)
+			store[lbID] = lb
 			return lb, newFakeOKResponse(), nil
 		},
 	}
