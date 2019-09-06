@@ -176,6 +176,19 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			expectedServiceCertID: "test-cert-id",
 			expectedLBCertID:      "test-cert-id",
 		},
+		{
+			name: "[lets_encrypt] LB cert ID does not exit and service cert ID does",
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+
+				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				certService.store[cert.ID] = cert
+				return service
+			},
+			expectedServiceCertID: "service-cert-id",
+			expectedLBCertID:      "service-cert-id",
+		},
 
 		// custom test cases
 		{
@@ -227,6 +240,19 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			expectedServiceCertID: "service-cert-id",
 			expectedLBCertID:      "test-cert-id",
 			err:                   fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, "service-cert-id"),
+		},
+		{
+			name: "[custom] LB cert ID does not exit and service cert ID does",
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
+				lbService.store[lb.ID] = lb
+
+				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				certService.store[cert.ID] = cert
+				return service
+			},
+			expectedServiceCertID: "service-cert-id",
+			expectedLBCertID:      "service-cert-id",
 		},
 	}
 

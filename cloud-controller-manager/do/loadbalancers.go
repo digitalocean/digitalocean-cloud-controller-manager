@@ -293,7 +293,7 @@ func (l *loadBalancers) checkAndUpdateLBAndServiceCerts(ctx context.Context, ser
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
 			if ok && respErr.Response.StatusCode == http.StatusNotFound {
-				return fmt.Errorf("the loadbalancer is configured with a nonexistent DO Certificate %q", lbCertID)
+				goto serviceCheck
 			}
 			return fmt.Errorf("failed to get DO certificate for lb: %s", err)
 		}
@@ -302,6 +302,8 @@ func (l *loadBalancers) checkAndUpdateLBAndServiceCerts(ctx context.Context, ser
 			l.ensureCertificateIDAnnot(service, lbCertID)
 		}
 	}
+
+serviceCheck:
 	if serviceCertID != "" {
 		_, _, err := l.resources.gclient.Certificates.Get(ctx, getCertificateID(service))
 		if err != nil {
