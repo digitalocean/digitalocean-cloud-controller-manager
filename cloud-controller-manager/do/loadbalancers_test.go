@@ -103,7 +103,20 @@ func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
 			return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
 		},
 		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-			lb := updateLB(lbr)
+			lb, ok := store[lbID]
+			if !ok {
+				return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
+			}
+
+			lb.ForwardingRules = lbr.ForwardingRules
+			lb.RedirectHttpToHttps = lbr.RedirectHttpToHttps
+			lb.StickySessions = lbr.StickySessions
+			lb.HealthCheck = lbr.HealthCheck
+			lb.EnableProxyProtocol = lbr.EnableProxyProtocol
+			lb.Name = lbr.Name
+			lb.Tags = lbr.Tags
+			lb.Algorithm = lbr.Algorithm
+
 			store[lbID] = lb
 			return lb, newFakeOKResponse(), nil
 		},
@@ -148,20 +161,6 @@ func createHTTPSLB(entryPort, targetPort int, lbID, certID, certType string) (*g
 		Type: certType,
 	}
 	return lb, cert
-}
-
-func updateLB(lbr *godo.LoadBalancerRequest) *godo.LoadBalancer {
-	lb := createLB()
-	lb.ForwardingRules = lbr.ForwardingRules
-	lb.RedirectHttpToHttps = lbr.RedirectHttpToHttps
-	lb.StickySessions = lbr.StickySessions
-	lb.HealthCheck = lbr.HealthCheck
-	lb.EnableProxyProtocol = lbr.EnableProxyProtocol
-	lb.Name = lbr.Name
-	lb.Tags = lbr.Tags
-	lb.Algorithm = lbr.Algorithm
-
-	return lb
 }
 
 func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
