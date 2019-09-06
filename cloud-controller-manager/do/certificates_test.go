@@ -113,9 +113,7 @@ func createService(lbID string) *v1.Service {
 func Test_LBaaSCertificateScenarios(t *testing.T) {
 	testcases := []struct {
 		name                  string
-		droplets              []godo.Droplet
 		setupFn               func(fakeLBService, kvCertService) *v1.Service
-		service               *v1.Service
 		expectedServiceCertID string
 		expectedLBCertID      string
 		err                   error
