@@ -3480,7 +3480,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		listFn            func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 		createFn          func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		updateFn          func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		getCertFn         func(context.Context, string) (*godo.Certificate, *godo.Response, error)
 		service           *v1.Service
 		newLoadBalancerID string
 		nodes             []*v1.Node
