@@ -312,10 +312,11 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					t.Fatalf("failed to get service from fake client: %s", err)
 				}
 
-				if tc.expectedServiceCertID != getCertificateID(service) {
+				serviceCertID := getCertificateID(service)
+				if tc.expectedServiceCertID != serviceCertID {
 					t.Error("unexpected service certificate ID annotation")
 					t.Logf("expected: %s", tc.expectedServiceCertID)
-					t.Logf("actual: %s", getCertificateID(service))
+					t.Logf("actual: %s", serviceCertID)
 				}
 
 				godoLoadBalancer, _, err := lbService.Get(context.TODO(), getLoadBalancerID(service))
