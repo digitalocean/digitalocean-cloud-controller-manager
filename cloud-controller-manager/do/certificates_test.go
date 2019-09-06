@@ -205,6 +205,8 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
+				certService.store[cert.ID] = cert
+
 				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
 				certService.store[cert.ID] = cert
 				return service
@@ -218,11 +220,13 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
+
 				service, _ := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
 				return service
 			},
-			expectedServiceCertID: "test-cert-id",
+			expectedServiceCertID: "service-cert-id",
 			expectedLBCertID:      "test-cert-id",
+			err:                   fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, "service-cert-id"),
 		},
 	}
 
