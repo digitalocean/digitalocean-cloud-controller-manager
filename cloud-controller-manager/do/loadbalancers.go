@@ -287,30 +287,42 @@ func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
 	return id
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
-	lbCertID := getCertificateIDFromLB(lb)
-	checkServiceCertID := true
-	if lbCertID != "" && lbCertID != getCertificateID(service) {
+func (l *loadBalancers) checkAndUpdateLBAndServiceCerts(ctx context.Context, service *v1.Service, lbCertID, serviceCertID string) error {
+	if lbCertID != "" && lbCertID != serviceCertID {
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current certificate for lb: %s", err)
+			respErr, ok := err.(*godo.ErrorResponse)
+			if ok && respErr.Response.StatusCode == http.StatusNotFound {
+				return fmt.Errorf("the loadbalancer is configured with a nonexistent DO Certificate %q", lbCertID)
+			}
+			return fmt.Errorf("failed to get DO certificate for lb: %s", err)
 		}
 
 		if lbCert.Type == certTypeLetsEncrypt {
 			l.ensureCertificateIDAnnot(service, lbCertID)
-			checkServiceCertID = false
 		}
 	}
-
-	if checkServiceCertID && getCertificateID(service) != "" {
+	if serviceCertID != "" {
 		_, _, err := l.resources.gclient.Certificates.Get(ctx, getCertificateID(service))
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
 			if ok && respErr.Response.StatusCode == http.StatusNotFound {
-				return nil, fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, getCertificateID(service))
+				return fmt.Errorf("the %q service annotation refers to nonexistent DO Certificate %q", annDOCertificateID, serviceCertID)
 			}
-			return nil, err
+			return fmt.Errorf("failed to get DO certificate for service: %s", err)
 		}
+	}
+
+	return nil
+}
+
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+	lbCertID := getCertificateIDFromLB(lb)
+	serviceCertID := getCertificateID(service)
+
+	err := l.checkAndUpdateLBAndServiceCerts(ctx, service, lbCertID, serviceCertID)
+	if err != nil {
+		return nil, err
 	}
 
 	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
@@ -424,7 +436,9 @@ func (l *loadBalancers) ensureServiceAnnotation(service *v1.Service, annotName, 
 		updated.ObjectMeta.Annotations = map[string]string{}
 	}
 	updated.ObjectMeta.Annotations[annotName] = annotValue
-	return patchService(l.resources.kclient, service, updated)
+	err := patchService(l.resources.kclient, service, updated)
+	service.ObjectMeta.Annotations[annotName] = annotValue
+	return err
 }
 
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will
