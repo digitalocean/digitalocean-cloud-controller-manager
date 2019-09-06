@@ -72,11 +72,49 @@ func newKVCertService(store map[string]*godo.Certificate) kvCertService {
 	}
 }
 
+func createServiceAndCert(lbID, certID, certType string) (*v1.Service, *godo.Certificate) {
+	c := &godo.Certificate{
+		ID:   certID,
+		Type: certType,
+	}
+	s := createServiceWithCert(lbID, certID)
+	return s, c
+}
+
+func createServiceWithCert(lbID, certID string) *v1.Service {
+	s := createService(lbID)
+	s.Annotations[annDOCertificateID] = certID
+	return s
+}
+
+func createService(lbID string) *v1.Service {
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			UID:  "foobar123",
+			Annotations: map[string]string{
+				annDOProtocol:        "http",
+				annoDOLoadBalancerID: lbID,
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "test",
+					Protocol: "TCP",
+					Port:     int32(443),
+					NodePort: int32(30000),
+				},
+			},
+		},
+	}
+}
+
 func Test_LBaaSCertificateScenarios(t *testing.T) {
 	testcases := []struct {
 		name                  string
 		droplets              []godo.Droplet
-		setupFn               func(fakeLBService, kvCertService)
+		setupFn               func(fakeLBService, kvCertService) *v1.Service
 		service               *v1.Service
 		expectedServiceCertID string
 		expectedLBCertID      string
@@ -84,90 +122,31 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 	}{
 		{
 			name: "default test values, tls not enabled",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb := createLB()
 				lbService.store[lb.ID] = lb
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annoDOLoadBalancerID: "load-balancer-id",
-						annDOProtocol:        "http",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				return createService(lb.ID)
 			},
 		},
 
 		// lets_encrypt test cases
 		{
 			name: "[letsencrypt] LB cert ID and service cert ID match ",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "test-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				return createServiceWithCert(lb.ID, cert.ID)
 			},
 			expectedServiceCertID: "test-cert-id",
 			expectedLBCertID:      "test-cert-id",
 		},
 		{
 			name: "[letsencrypt] LB cert ID and service cert ID match and correspond to non-existent cert",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
-				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
 				lbService.store[lb.ID] = lb
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "test-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				return createServiceWithCert(lb.ID, cert.ID)
 			},
 			expectedLBCertID:      "test-cert-id",
 			expectedServiceCertID: "test-cert-id",
@@ -175,62 +154,26 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		},
 		{
 			name: "[letsencrypt] LB cert ID and service cert ID differ and both certs exist",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "service-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+
+				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				certService.store[cert.ID] = cert
+				return service
 			},
 			expectedServiceCertID: "test-cert-id",
 			expectedLBCertID:      "test-cert-id",
 		},
 		{
 			name: "[letsencrypt] LB cert ID exists and service cert ID does not",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeLetsEncrypt)
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "service-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				service, _ := createServiceAndCert(lb.ID, "meow", certTypeLetsEncrypt)
+				return service
 			},
 			expectedServiceCertID: "test-cert-id",
 			expectedLBCertID:      "test-cert-id",
@@ -239,61 +182,21 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		// custom test cases
 		{
 			name: "[custom] LB cert ID and service cert ID match ",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "test-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				return createServiceWithCert(lb.ID, cert.ID)
 			},
 			expectedServiceCertID: "test-cert-id",
 			expectedLBCertID:      "test-cert-id",
 		},
 		{
 			name: "[custom] LB cert ID and service cert ID match and correspond to non-existent cert",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
-				lb, _ := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "test-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				return createServiceWithCert(lb.ID, cert.ID)
 			},
 			expectedLBCertID:      "test-cert-id",
 			expectedServiceCertID: "test-cert-id",
@@ -301,66 +204,24 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		},
 		{
 			name: "[custom] LB cert ID and service cert ID differ and both certs exist",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
+				service, cert := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
 				certService.store[cert.ID] = cert
-				certService.store["service-cert-id"] = &godo.Certificate{
-					ID:   "service-cert-id",
-					Type: certTypeCustom,
-				}
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "service-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				return service
 			},
 			expectedServiceCertID: "service-cert-id",
 			expectedLBCertID:      "service-cert-id",
 		},
 		{
 			name: "[custom] LB cert ID exists and service cert ID does not",
-			setupFn: func(lbService fakeLBService, certService kvCertService) {
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
 				lb, cert := createHTTPSLB(443, 30000, "test-lb-id", "test-cert-id", certTypeCustom)
 				lbService.store[lb.ID] = lb
 				certService.store[cert.ID] = cert
-			},
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "foobar123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "test-lb-id",
-						annDOCertificateID:   "service-cert-id",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(30000),
-						},
-					},
-				},
+				service, _ := createServiceAndCert(lb.ID, "service-cert-id", certTypeLetsEncrypt)
+				return service
 			},
 			expectedServiceCertID: "test-cert-id",
 			expectedLBCertID:      "test-cert-id",
@@ -412,14 +273,12 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lbService := newKVLBService(lbStore)
 				certStore := make(map[string]*godo.Certificate)
 				certService := newKVCertService(certStore)
-				if tc.setupFn != nil {
-					tc.setupFn(lbService, certService)
-				}
+				service := tc.setupFn(lbService, certService)
 
 				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)
 				fakeResources := newResources("", "", fakeClient)
 				fakeResources.kclient = fake.NewSimpleClientset()
-				if _, err := fakeResources.kclient.CoreV1().Services(tc.service.Namespace).Create(tc.service); err != nil {
+				if _, err := fakeResources.kclient.CoreV1().Services(service.Namespace).Create(service); err != nil {
 					t.Fatalf("failed to add service to fake client: %s", err)
 				}
 
@@ -433,9 +292,9 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				var err error
 				switch methodName {
 				case "EnsureLoadBalancer":
-					_, err = lb.EnsureLoadBalancer(context.TODO(), "test", tc.service, nodes)
+					_, err = lb.EnsureLoadBalancer(context.TODO(), "test", service, nodes)
 				case "UpdateLoadBalancer":
-					err = lb.UpdateLoadBalancer(context.TODO(), "test", tc.service, nodes)
+					err = lb.UpdateLoadBalancer(context.TODO(), "test", service, nodes)
 				default:
 					t.Errorf("unsupported loadbalancer method: %s", methodName)
 				}
@@ -446,7 +305,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					t.Logf("actual: %v", err)
 				}
 
-				service, err := fakeResources.kclient.CoreV1().Services(tc.service.Namespace).Get(tc.service.Name, metav1.GetOptions{})
+				service, err = fakeResources.kclient.CoreV1().Services(service.Namespace).Get(service.Name, metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("failed to get service from fake client: %s", err)
 				}
