@@ -434,6 +434,7 @@ func (l *loadBalancers) ensureServiceAnnotation(service *v1.Service, annotName, 
 	updated := service.DeepCopy()
 	if updated.ObjectMeta.Annotations == nil {
 		updated.ObjectMeta.Annotations = map[string]string{}
+		service.ObjectMeta.Annotations = map[string]string{}
 	}
 	updated.ObjectMeta.Annotations[annotName] = annotValue
 	err := patchService(l.resources.kclient, service, updated)
