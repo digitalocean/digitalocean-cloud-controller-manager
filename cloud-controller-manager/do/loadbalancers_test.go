@@ -117,7 +117,6 @@ func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
 			lb.Tags = lbr.Tags
 			lb.Algorithm = lbr.Algorithm
 
-			store[lbID] = lb
 			return lb, newFakeOKResponse(), nil
 		},
 	}
