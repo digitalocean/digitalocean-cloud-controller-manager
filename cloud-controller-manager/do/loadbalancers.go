@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
 
@@ -171,6 +172,18 @@ type loadBalancers struct {
 	lbActiveCheckTick int
 }
 
+type servicePatcher struct {
+	base *v1.Service
+}
+
+func newServicePatcher(base *v1.Service) servicePatcher {
+	return servicePatcher{base: base.DeepCopy()}
+}
+
+func (sp *servicePatcher) Patch(kclient kubernetes.Interface, updated *v1.Service) error {
+	return patchService(kclient, sp.base, updated)
+}
+
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
 func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
 	return &loadBalancers{
@@ -184,8 +197,19 @@ func newLoadBalancers(resources *resources, client *godo.Client, region string) 
 // GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
 //
 // GetLoadBalancer will not modify service.
-func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
-	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
+func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (lbs *v1.LoadBalancerStatus, truthy bool, err error) {
+	patcher := newServicePatcher(service)
+	defer func() {
+		if err == nil {
+			err = patcher.Patch(l.resources.kclient, service)
+			if err != nil {
+				err = fmt.Errorf("failed to patch service: %s", err)
+			}
+		}
+	}()
+
+	var lb *godo.LoadBalancer
+	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil, false, nil
@@ -216,8 +240,19 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 // service.
 //
 // EnsureLoadBalancer will not modify service or nodes.
-func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (lbs *v1.LoadBalancerStatus, err error) {
+	patcher := newServicePatcher(service)
+	defer func() {
+		if err == nil {
+			err = patcher.Patch(l.resources.kclient, service)
+			if err != nil {
+				err = fmt.Errorf("failed to patch service: %s", err)
+			}
+		}
+	}()
+
+	var lbRequest *godo.LoadBalancerRequest
+	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
 	}
@@ -239,10 +274,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 			return nil, fmt.Errorf("failed to create load-balancer: %s", err)
 		}
 
-		err = l.ensureLoadBalancerIDAnnot(service, lb.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add load-balancer ID annotation to service %s/%s: %s", service.Namespace, service.Name, err)
-		}
+		ensureServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
 
 	default:
 		// unrecoverable LB retrieval error
@@ -299,7 +331,7 @@ func (l *loadBalancers) checkAndUpdateLBAndServiceCerts(ctx context.Context, ser
 		}
 
 		if lbCert.Type == certTypeLetsEncrypt {
-			l.ensureCertificateIDAnnot(service, lbCertID)
+			ensureServiceAnnotation(service, annDOCertificateID, lbCertID)
 		}
 	}
 
@@ -352,14 +384,24 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 // the droplets in nodes.
 //
 // UpdateLoadBalancer will not modify service or nodes.
-func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
-	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
+func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (err error) {
+	patcher := newServicePatcher(service)
+	defer func() {
+		if err == nil {
+			err = patcher.Patch(l.resources.kclient, service)
+			if err != nil {
+				err = fmt.Errorf("failed to patch service: %s", err)
+			}
+		}
+	}()
+
+	var lb *godo.LoadBalancer
+	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		return err
 	}
 
 	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
-
 	return err
 }
 
@@ -398,9 +440,7 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 		return nil, err
 	}
 
-	if err := l.ensureLoadBalancerIDAnnot(service, lb.ID); err != nil {
-		return nil, fmt.Errorf("failed to add load-balancer ID annotation to service %s/%s: %s", service.Namespace, service.Name, err)
-	}
+	ensureServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
 
 	return lb, nil
 }
@@ -425,30 +465,11 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 	return l.lbByName(ctx, lbName)
 }
 
-func (l *loadBalancers) ensureCertificateIDAnnot(service *v1.Service, certID string) error {
-	return l.ensureServiceAnnotation(service, annDOCertificateID, certID)
-}
-
-func (l *loadBalancers) ensureLoadBalancerIDAnnot(service *v1.Service, lbID string) error {
-	if val := getLoadBalancerID(service); val == lbID {
-		return nil
-	}
-
-	return l.ensureServiceAnnotation(service, annoDOLoadBalancerID, lbID)
-}
-
-func (l *loadBalancers) ensureServiceAnnotation(service *v1.Service, annotName, annotValue string) error {
-	// Make a copy so we don't mutate the shared informer cache from the cloud
-	// provider framework.
-	updated := service.DeepCopy()
-	if updated.ObjectMeta.Annotations == nil {
-		updated.ObjectMeta.Annotations = map[string]string{}
+func ensureServiceAnnotation(service *v1.Service, annotName, annotValue string) {
+	if service.ObjectMeta.Annotations == nil {
 		service.ObjectMeta.Annotations = map[string]string{}
 	}
-	updated.ObjectMeta.Annotations[annotName] = annotValue
-	err := patchService(l.resources.kclient, service, updated)
 	service.ObjectMeta.Annotations[annotName] = annotValue
-	return err
 }
 
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will
