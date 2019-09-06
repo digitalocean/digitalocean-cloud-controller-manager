@@ -89,18 +89,12 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
 	return fakeLBService{
 		store: store,
-		createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-			return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-		},
 		getFn: func(ctx context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
 			lb, ok := store[lbID]
 			if ok {
 				return lb, newFakeOKResponse(), nil
 			}
 			return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
-		},
-		listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-			return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
 		},
 		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 			lb, ok := store[lbID]
