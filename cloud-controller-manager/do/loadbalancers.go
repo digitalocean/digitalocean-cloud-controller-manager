@@ -302,7 +302,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 		}
 	}
 
-	if checkServiceCertID {
+	if checkServiceCertID && getCertificateID(service) != "" {
 		_, _, err := l.resources.gclient.Certificates.Get(ctx, getCertificateID(service))
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
