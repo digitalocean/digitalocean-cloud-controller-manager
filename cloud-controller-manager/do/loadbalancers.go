@@ -21,11 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
 
@@ -171,6 +174,31 @@ type loadBalancers struct {
 	lbActiveCheckTick int
 }
 
+type servicePatcher struct {
+	kclient kubernetes.Interface
+	base    *v1.Service
+	updated *v1.Service
+}
+
+func newServicePatcher(kclient kubernetes.Interface, base *v1.Service) servicePatcher {
+	return servicePatcher{
+		kclient: kclient,
+		base:    base.DeepCopy(),
+		updated: base,
+	}
+}
+
+// Patch will submit a patch request for the Service unless the updated service
+// reference contains the same set of annotations as the base copied during
+// servicePatcher initialization.
+func (sp *servicePatcher) Patch(err error) error {
+	if reflect.DeepEqual(sp.base.Annotations, sp.updated.Annotations) {
+		return err
+	}
+	perr := patchService(sp.kclient, sp.base, sp.updated)
+	return utilerrors.NewAggregate([]error{err, perr})
+}
+
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
 func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
 	return &loadBalancers{
@@ -184,8 +212,12 @@ func newLoadBalancers(resources *resources, client *godo.Client, region string) 
 // GetLoadBalancer returns the *v1.LoadBalancerStatus of service.
 //
 // GetLoadBalancer will not modify service.
-func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (*v1.LoadBalancerStatus, bool, error) {
-	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
+func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
+	patcher := newServicePatcher(l.resources.kclient, service)
+	defer func() { err = patcher.Patch(err) }()
+
+	var lb *godo.LoadBalancer
+	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil, false, nil
@@ -216,8 +248,12 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 // service.
 //
 // EnsureLoadBalancer will not modify service or nodes.
-func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (*v1.LoadBalancerStatus, error) {
-	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (lbs *v1.LoadBalancerStatus, err error) {
+	patcher := newServicePatcher(l.resources.kclient, service)
+	defer func() { err = patcher.Patch(err) }()
+
+	var lbRequest *godo.LoadBalancerRequest
+	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
 	}
@@ -227,10 +263,9 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	switch err {
 	case nil:
 		// LB existing
-		lbID := lb.ID
-		lb, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+		lb, err = l.updateLoadBalancer(ctx, lb, service, nodes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
+			return nil, err
 		}
 
 	case errLBNotFound:
@@ -240,10 +275,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 			return nil, fmt.Errorf("failed to create load-balancer: %s", err)
 		}
 
-		err := l.ensureLoadBalancerIDAnnot(service, lb.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add load-balancer ID annotation to service %s/%s: %s", service.Namespace, service.Name, err)
-		}
+		updateServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
 
 	default:
 		// unrecoverable LB retrieval error
@@ -275,27 +307,84 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}, nil
 }
 
+func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
+	for _, rule := range lb.ForwardingRules {
+		if rule.CertificateID != "" {
+			return rule.CertificateID
+		}
+	}
+	return ""
+}
+
+// recordUpdatedLetsEncryptCert ensures that when DO LBaaS updates its
+// lets_encrypt type certificate associated with a Service that the certificate
+// annotation on the Service gets newly-updated certificate ID from the
+// Load Balancer.
+func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, service *v1.Service, lbCertID, serviceCertID string) error {
+	if lbCertID != "" && lbCertID != serviceCertID {
+		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
+		if err != nil {
+			respErr, ok := err.(*godo.ErrorResponse)
+			if ok && respErr.Response.StatusCode == http.StatusNotFound {
+				return nil
+			}
+			return fmt.Errorf("failed to get DO certificate for load-balancer: %s", err)
+		}
+
+		if lbCert.Type == certTypeLetsEncrypt {
+			updateServiceAnnotation(service, annDOCertificateID, lbCertID)
+		}
+	}
+
+	return nil
+}
+
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+	// call buildLoadBalancerRequest for its error checking; we have to call it
+	// again just before actually updating the loadbalancer in case
+	// checkAndUpdateLBAndServiceCerts modifies the service
+	_, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+	}
+
+	lbCertID := getCertificateIDFromLB(lb)
+	serviceCertID := getCertificateID(service)
+	err = l.recordUpdatedLetsEncryptCert(ctx, service, lbCertID, serviceCertID)
+	if err != nil {
+		return nil, err
+	}
+
+	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build load-balancer request (post-certificate update): %s", err)
+	}
+
+	lbID := lb.ID
+	lb, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
+	}
+
+	return lb, nil
+}
+
 // UpdateLoadBalancer updates the load balancer for service to balance across
 // the droplets in nodes.
 //
 // UpdateLoadBalancer will not modify service or nodes.
-func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) error {
-	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
-	if err != nil {
-		return fmt.Errorf("failed to build load-balancer request: %s", err)
-	}
+func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (err error) {
+	patcher := newServicePatcher(l.resources.kclient, service)
+	defer func() { err = patcher.Patch(err) }()
 
-	lb, err := l.retrieveAndAnnotateLoadBalancer(ctx, service)
+	var lb *godo.LoadBalancer
+	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
 	if err != nil {
 		return err
 	}
 
-	_, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
-	if err != nil {
-		return fmt.Errorf("failed to update load-balancer with ID %s: %s", lb.ID, err)
-	}
-
-	return nil
+	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+	return err
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
@@ -333,9 +422,7 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 		return nil, err
 	}
 
-	if err := l.ensureLoadBalancerIDAnnot(service, lb.ID); err != nil {
-		return nil, fmt.Errorf("failed to add load-balancer ID annotation to service %s/%s: %s", service.Namespace, service.Name, err)
-	}
+	updateServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
 
 	return lb, nil
 }
@@ -360,20 +447,11 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 	return l.lbByName(ctx, lbName)
 }
 
-func (l *loadBalancers) ensureLoadBalancerIDAnnot(service *v1.Service, lbID string) error {
-	if val := getLoadBalancerID(service); val == lbID {
-		return nil
+func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) {
+	if service.ObjectMeta.Annotations == nil {
+		service.ObjectMeta.Annotations = map[string]string{}
 	}
-
-	// Make a copy so we don't mutate the shared informer cache from the cloud
-	// provider framework.
-	updated := service.DeepCopy()
-	if updated.ObjectMeta.Annotations == nil {
-		updated.ObjectMeta.Annotations = map[string]string{}
-	}
-	updated.ObjectMeta.Annotations[annoDOLoadBalancerID] = lbID
-
-	return patchService(l.resources.kclient, service, updated)
+	service.ObjectMeta.Annotations[annotName] = annotValue
 }
 
 // lbByName gets a DigitalOcean Load Balancer by name. The returned error will

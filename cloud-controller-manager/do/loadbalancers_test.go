@@ -31,6 +31,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
@@ -39,6 +40,7 @@ import (
 var _ cloudprovider.LoadBalancer = new(loadBalancers)
 
 type fakeLBService struct {
+	store                   map[string]*godo.LoadBalancer
 	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
 	listFn                  func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 	createFn                func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
@@ -85,8 +87,38 @@ func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, 
 	return f.removeForwardingRulesFn(ctx, lbID, rules...)
 }
 
+func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
+	return fakeLBService{
+		store: store,
+		getFn: func(ctx context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
+			lb, ok := store[lbID]
+			if ok {
+				return lb, newFakeOKResponse(), nil
+			}
+			return nil, newFakeNotFoundResponse(), newFakeNotFoundErrorResponse()
+		},
+		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			lb, ok := store[lbID]
+			if !ok {
+				return nil, newFakeNotFoundResponse(), newFakeNotFoundErrorResponse()
+			}
+
+			lb.ForwardingRules = lbr.ForwardingRules
+			lb.RedirectHttpToHttps = lbr.RedirectHttpToHttps
+			lb.StickySessions = lbr.StickySessions
+			lb.HealthCheck = lbr.HealthCheck
+			lb.EnableProxyProtocol = lbr.EnableProxyProtocol
+			lb.Name = lbr.Name
+			lb.Tags = lbr.Tags
+			lb.Algorithm = lbr.Algorithm
+
+			return lb, newFakeOKResponse(), nil
+		},
+	}
+}
+
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
-	return newFakeClient(nil, fakeLB)
+	return newFakeClient(nil, fakeLB, nil)
 }
 
 func createLB() *godo.LoadBalancer {
@@ -98,6 +130,31 @@ func createLB() *godo.LoadBalancer {
 		IP:     "10.0.0.1",
 		Status: lbStatusActive,
 	}
+}
+
+func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
+	lb := &godo.LoadBalancer{
+		// loadbalancer names are a + service.UID
+		// see cloudprovider.DefaultLoadBalancerName
+		ID:     lbID,
+		Name:   "afoobar123",
+		IP:     "10.0.0.1",
+		Status: lbStatusActive,
+		ForwardingRules: []godo.ForwardingRule{
+			{
+				EntryProtocol:  protocolHTTPS,
+				EntryPort:      443,
+				TargetProtocol: protocolHTTP,
+				TargetPort:     30000,
+				CertificateID:  certID,
+			},
+		},
+	}
+	cert := &godo.Certificate{
+		ID:   certID,
+		Type: certType,
+	}
+	return lb, cert
 }
 
 func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
@@ -3772,7 +3829,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			lbStatus: nil,
-			err:      fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew),
+			err:      utilerrors.NewAggregate([]error{fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew)}),
 		},
 	}
 
@@ -3789,7 +3846,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				createFn: test.createFn,
 				updateFn: test.updateFn,
 			}
-			fakeClient := newFakeClient(fakeDroplet, fakeLB)
+			certStore := make(map[string]*godo.Certificate)
+			fakeCert := newKVCertService(certStore, true)
+			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {

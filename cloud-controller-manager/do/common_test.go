@@ -21,6 +21,7 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"testing"
@@ -28,8 +29,9 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService) *godo.Client {
+func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService, fakeCert *kvCertService) *godo.Client {
 	return &godo.Client{
+		Certificates:  fakeCert,
 		Droplets:      fakeDroplet,
 		LoadBalancers: fakeLB,
 	}
@@ -43,10 +45,27 @@ func newFakeNotOKResponse() *godo.Response {
 	return newFakeResponse(http.StatusInternalServerError)
 }
 
+func newFakeNotFoundResponse() *godo.Response {
+	return newFakeResponse(http.StatusNotFound)
+}
+
 func newFakeResponse(statusCode int) *godo.Response {
 	return &godo.Response{
 		Response: &http.Response{
 			StatusCode: statusCode,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+		},
+	}
+}
+
+func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
+	return &godo.ErrorResponse{
+		Response: &http.Response{
+			Request: &http.Request{
+				Method: "FAKE",
+				URL:    &url.URL{},
+			},
+			StatusCode: http.StatusNotFound,
 			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
 		},
 	}
