@@ -31,6 +31,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
@@ -3828,7 +3829,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			lbStatus: nil,
-			err:      fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew),
+			err:      utilerrors.NewAggregate([]error{fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew)}),
 		},
 	}
 

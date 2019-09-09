@@ -188,8 +188,8 @@ func newServicePatcher(kclient kubernetes.Interface, base *v1.Service) servicePa
 	}
 }
 
-// Patch will submit a patch request for the Service if the updated service
-// reference contains the same set of annoations as the base copied during
+// Patch will submit a patch request for the Service unless the updated service
+// reference contains the same set of annotations as the base copied during
 // servicePatcher initialization.
 func (sp *servicePatcher) Patch(err error) error {
 	if reflect.DeepEqual(sp.base.Annotations, sp.updated.Annotations) {

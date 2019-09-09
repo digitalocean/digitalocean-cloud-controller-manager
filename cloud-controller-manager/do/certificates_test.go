@@ -276,9 +276,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				}
 
 				if !reflect.DeepEqual(err, test.err) {
-					t.Error("error does not match test case expectation")
-					t.Logf("expected: %v", test.err)
-					t.Logf("actual: %v", err)
+					t.Errorf("got error %q, want: %q", err, test.err)
 				}
 
 				service, err = fakeResources.kclient.CoreV1().Services(service.Namespace).Get(service.Name, metav1.GetOptions{})
@@ -288,7 +286,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 
 				serviceCertID := getCertificateID(service)
 				if test.expectedServiceCertID != serviceCertID {
-					t.Errorf("got service certificate ID: %s, wanted: %s", test.expectedServiceCertID, serviceCertID)
+					t.Errorf("got service certificate ID: %s, want: %s", test.expectedServiceCertID, serviceCertID)
 				}
 
 				godoLoadBalancer, _, err := lbService.Get(context.Background(), getLoadBalancerID(service))
@@ -297,7 +295,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				}
 				lbCertID := getCertificateIDFromLB(godoLoadBalancer)
 				if test.expectedLBCertID != lbCertID {
-					t.Errorf("got load-balancer certificate ID: %s, wanted: %s", test.expectedLBCertID, lbCertID)
+					t.Errorf("got load-balancer certificate ID: %s, want: %s", test.expectedLBCertID, lbCertID)
 				}
 			})
 		}
