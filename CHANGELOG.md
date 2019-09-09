@@ -2,6 +2,12 @@
 
 ## unreleased
 
+## v0.1.20 (beta) - Sept 9th 2019
+
+### Fixed
+
+* loadbalancers: improve handling of DigitalOcean Let's Encrypt certificates that have been automatically rotated by DigitalOcean's LBaaS (@waynr)
+
 ## v0.1.19 (beta) - Aug 28th 2019
 
 ### Changed
