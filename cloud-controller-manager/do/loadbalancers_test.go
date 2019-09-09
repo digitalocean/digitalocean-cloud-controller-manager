@@ -94,12 +94,12 @@ func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
 			if ok {
 				return lb, newFakeOKResponse(), nil
 			}
-			return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
+			return nil, newFakeNotFoundResponse(), newFakeNotFoundErrorResponse()
 		},
 		updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 			lb, ok := store[lbID]
 			if !ok {
-				return nil, newFakeNotOKResponse(), newFakeNotFoundErrorResponse()
+				return nil, newFakeNotFoundResponse(), newFakeNotFoundErrorResponse()
 			}
 
 			lb.ForwardingRules = lbr.ForwardingRules
@@ -131,7 +131,7 @@ func createLB() *godo.LoadBalancer {
 	}
 }
 
-func createHTTPSLB(entryPort, targetPort int, lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
+func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
 	lb := &godo.LoadBalancer{
 		// loadbalancer names are a + service.UID
 		// see cloudprovider.DefaultLoadBalancerName
@@ -141,10 +141,10 @@ func createHTTPSLB(entryPort, targetPort int, lbID, certID, certType string) (*g
 		Status: lbStatusActive,
 		ForwardingRules: []godo.ForwardingRule{
 			{
-				EntryProtocol:  "https",
-				EntryPort:      entryPort,
-				TargetProtocol: "https",
-				TargetPort:     targetPort,
+				EntryProtocol:  protocolHTTPS,
+				EntryPort:      443,
+				TargetProtocol: protocolHTTP,
+				TargetPort:     30000,
 				CertificateID:  certID,
 			},
 		},

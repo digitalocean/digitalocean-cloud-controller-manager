@@ -45,6 +45,10 @@ func newFakeNotOKResponse() *godo.Response {
 	return newFakeResponse(http.StatusInternalServerError)
 }
 
+func newFakeNotFoundResponse() *godo.Response {
+	return newFakeResponse(http.StatusNotFound)
+}
+
 func newFakeResponse(statusCode int) *godo.Response {
 	return &godo.Response{
 		Response: &http.Response{
