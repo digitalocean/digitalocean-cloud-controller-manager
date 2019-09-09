@@ -196,7 +196,7 @@ func (sp *servicePatcher) Patch(err error) error {
 		return err
 	}
 	perr := patchService(sp.kclient, sp.base, sp.updated)
-	return utilerrors.NewAggregate([]err{err, perr})
+	return utilerrors.NewAggregate([]error{err, perr})
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
