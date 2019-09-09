@@ -191,11 +191,12 @@ func newServicePatcher(kclient kubernetes.Interface, base *v1.Service) servicePa
 // Patch will submit a patch request for the Service if the updated service
 // reference contains the same set of annoations as the base copied during
 // servicePatcher initialization.
-func (sp *servicePatcher) Patch() error {
+func (sp *servicePatcher) Patch(err error) error {
 	if reflect.DeepEqual(sp.base.Annotations, sp.updated.Annotations) {
-		return nil
+		return err
 	}
-	return patchService(sp.kclient, sp.base, sp.updated)
+	perr := patchService(sp.kclient, sp.base, sp.updated)
+	return utilerrors.NewAggregate([]err{err, perr})
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
@@ -213,11 +214,7 @@ func newLoadBalancers(resources *resources, client *godo.Client, region string) 
 // GetLoadBalancer will not modify service.
 func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
 	patcher := newServicePatcher(l.resources.kclient, service)
-	defer func() {
-		perr := patcher.Patch()
-		errlist := []error{err, perr}
-		err = utilerrors.NewAggregate(errlist)
-	}()
+	defer func() { err = patcher.Patch(err) }()
 
 	var lb *godo.LoadBalancer
 	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
@@ -253,11 +250,7 @@ func getDefaultLoadBalancerName(service *v1.Service) string {
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (lbs *v1.LoadBalancerStatus, err error) {
 	patcher := newServicePatcher(l.resources.kclient, service)
-	defer func() {
-		perr := patcher.Patch()
-		errlist := []error{err, perr}
-		err = utilerrors.NewAggregate(errlist)
-	}()
+	defer func() { err = patcher.Patch(err) }()
 
 	var lbRequest *godo.LoadBalancerRequest
 	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
@@ -382,11 +375,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 // UpdateLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (err error) {
 	patcher := newServicePatcher(l.resources.kclient, service)
-	defer func() {
-		perr := patcher.Patch()
-		errlist := []error{err, perr}
-		err = utilerrors.NewAggregate(errlist)
-	}()
+	defer func() { err = patcher.Patch(err) }()
 
 	var lb *godo.LoadBalancer
 	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
