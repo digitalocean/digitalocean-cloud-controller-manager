@@ -55,6 +55,7 @@ bump-version:
 	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' README.md
 	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' docs/example-manifests/cloud-controller-manager.yml
 	git add --intent-to-add releases/${NEW_VERSION}.yml
+	@rm -f docs/example-manifests/cloud-controller-manager.yml-e README.md-e docs/getting-started.md-e releases/${NEW_VERSION}.yml-e
 
 .PHONY: clean
 clean:
