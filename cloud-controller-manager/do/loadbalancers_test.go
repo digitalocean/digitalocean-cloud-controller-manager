@@ -1582,6 +1582,31 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 			fmt.Errorf("%q and %q cannot share values but found: 443", annDOTLSPorts, annDOHTTP2Ports),
 		},
+		{
+			"HTTP to HTTPS redirect requested but no HTTPS port defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http",
+						annDORedirectHTTPToHTTPS: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nil,
+			errors.New("redirect from HTTP to HTTPS requested but no HTTPS port defined"),
+		},
 	}
 
 	for _, test := range testcases {
