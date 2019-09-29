@@ -3579,7 +3579,8 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 	}{
 		{
 			name: "retrieval failed",
-			fakeLBSvc: newFakeLoadBalancerServiceWithFailure(0, errors.New("API failed")).
+			fakeLBSvc: newFakeLoadBalancerService().
+				withAction(newFailureAction(0, errors.New("API failed"))).
 				expectDeletes(0),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3602,11 +3603,12 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 		},
 		{
 			name: "delete failed",
-			fakeLBSvc: newFakeLoadBalancerServiceWithFailure(1, errors.New("API failed"), *createLBWithOpts(
+			fakeLBSvc: newFakeLoadBalancerService(*createLBWithOpts(
 				&lbOpts{
 					status: lbStatusActive,
-				},
-			)).expectGets(1).
+				})).
+				withAction(newFailureAction(1, errors.New("API failed"))).
+				expectGets(1).
 				expectDeletes(1),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{

@@ -29,9 +29,19 @@ import (
 
 const lbIngressIP = "10.0.0.1"
 
+type methodKind string
+
+const (
+	methodKindGet    methodKind = "Get"
+	methodKindList   methodKind = "List"
+	methodKindCreate methodKind = "Create"
+	methodKindUpdate methodKind = "Update"
+	methodKindDelete methodKind = "Delete"
+)
+
 type fakeLoadBalancerService struct {
-	*fakeService
 	lbs                     []godo.LoadBalancer
+	actions                 []fakeAction
 	wantGets, gotGets       int
 	wantLists, gotLists     int
 	wantCreates, gotCreates int
@@ -41,10 +51,6 @@ type fakeLoadBalancerService struct {
 }
 
 func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
-	return newFakeLoadBalancerServiceWithFailure(-1, nil, lbs...)
-}
-
-func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
 	for i, lb := range lbs {
 		if lb.Status == "" {
 			lbs[i].Status = lbStatusActive
@@ -53,8 +59,8 @@ func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...
 			lbs[i].IP = lbIngressIP
 		}
 	}
+
 	return &fakeLoadBalancerService{
-		fakeService:     newFakeService(failOnReq, failErr),
 		lbs:             lbs,
 		wantGets:        -1,
 		wantLists:       -1,
@@ -63,6 +69,11 @@ func newFakeLoadBalancerServiceWithFailure(failOnReq int, failErr error, lbs ...
 		wantDeletes:     -1,
 		createdActiveOn: 2,
 	}
+}
+
+func (f *fakeLoadBalancerService) withAction(action fakeAction) *fakeLoadBalancerService {
+	f.actions = append(f.actions, action)
+	return f
 }
 
 func (f *fakeLoadBalancerService) expectGets(i int) *fakeLoadBalancerService {
@@ -128,8 +139,22 @@ func (f *fakeLoadBalancerService) deepCopy(lb godo.LoadBalancer) godo.LoadBalanc
 
 func (f *fakeLoadBalancerService) Get(_ context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
 	f.gotGets++
-	if f.shouldFail() {
-		return nil, newFakeNotOKResponse(), f.failError
+
+	for _, action := range f.actions {
+		handled, res, err := action.react(methodKindGet)
+		if !handled {
+			continue
+		}
+
+		var lbResp *godo.LoadBalancer
+		if res != nil {
+			lbResp = res.(*godo.LoadBalancer)
+		}
+		godoResp := newFakeOKResponse()
+		if err != nil {
+			godoResp = newFakeNotOKResponse()
+		}
+		return lbResp, godoResp, err
 	}
 
 	for _, lb := range f.lbs {
@@ -143,8 +168,22 @@ func (f *fakeLoadBalancerService) Get(_ context.Context, lbID string) (*godo.Loa
 
 func (f *fakeLoadBalancerService) List(_ context.Context, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 	f.gotLists++
-	if f.shouldFail() {
-		return nil, newFakeNotOKResponse(), f.failError
+
+	for _, action := range f.actions {
+		handled, res, err := action.react(methodKindList)
+		if !handled {
+			continue
+		}
+
+		var lbResp []godo.LoadBalancer
+		if res != nil {
+			lbResp = res.([]godo.LoadBalancer)
+		}
+		godoResp := newFakeOKResponse()
+		if err != nil {
+			godoResp = newFakeNotOKResponse()
+		}
+		return lbResp, godoResp, err
 	}
 
 	lbs := make([]godo.LoadBalancer, 0, len(f.lbs))
@@ -157,8 +196,22 @@ func (f *fakeLoadBalancerService) List(_ context.Context, listOpts *godo.ListOpt
 
 func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 	f.gotCreates++
-	if f.shouldFail() {
-		return nil, newFakeNotOKResponse(), f.failError
+
+	for _, action := range f.actions {
+		handled, res, err := action.react(methodKindCreate)
+		if !handled {
+			continue
+		}
+
+		var lbResp *godo.LoadBalancer
+		if res != nil {
+			lbResp = res.(*godo.LoadBalancer)
+		}
+		godoResp := newFakeOKResponse()
+		if err != nil {
+			godoResp = newFakeNotOKResponse()
+		}
+		return lbResp, godoResp, err
 	}
 
 	lb := &godo.LoadBalancer{
@@ -173,8 +226,22 @@ func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBala
 
 func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 	f.gotUpdates++
-	if f.shouldFail() {
-		return nil, newFakeNotOKResponse(), f.failError
+
+	for _, action := range f.actions {
+		handled, res, err := action.react(methodKindUpdate)
+		if !handled {
+			continue
+		}
+
+		var lbResp *godo.LoadBalancer
+		if res != nil {
+			lbResp = res.(*godo.LoadBalancer)
+		}
+		godoResp := newFakeOKResponse()
+		if err != nil {
+			godoResp = newFakeNotOKResponse()
+		}
+		return lbResp, godoResp, err
 	}
 
 	for _, lb := range f.lbs {
@@ -189,8 +256,18 @@ func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *go
 
 func (f *fakeLoadBalancerService) Delete(_ context.Context, lbID string) (*godo.Response, error) {
 	f.gotDeletes++
-	if f.shouldFail() {
-		return newFakeNotOKResponse(), f.failError
+
+	for _, action := range f.actions {
+		handled, _, err := action.react(methodKindDelete)
+		if !handled {
+			continue
+		}
+
+		godoResp := newFakeOKResponse()
+		if err != nil {
+			godoResp = newFakeNotOKResponse()
+		}
+		return godoResp, err
 	}
 
 	for i, lb := range f.lbs {
