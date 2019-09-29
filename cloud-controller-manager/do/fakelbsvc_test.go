@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"testing"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -76,52 +75,9 @@ func (f *fakeLoadBalancerService) withAction(action fakeAction) *fakeLoadBalance
 	return f
 }
 
-func (f *fakeLoadBalancerService) expectGets(i int) *fakeLoadBalancerService {
-	f.wantGets = i
-	return f
-}
-
-func (f *fakeLoadBalancerService) expectLists(i int) *fakeLoadBalancerService {
-	f.wantLists = i
-	return f
-}
-
-func (f *fakeLoadBalancerService) expectCreates(i int) *fakeLoadBalancerService {
-	f.wantCreates = i
-	return f
-}
-
-func (f *fakeLoadBalancerService) expectUpdates(i int) *fakeLoadBalancerService {
-	f.wantUpdates = i
-	return f
-}
-
-func (f *fakeLoadBalancerService) expectDeletes(i int) *fakeLoadBalancerService {
-	f.wantDeletes = i
-	return f
-}
-
 func (f *fakeLoadBalancerService) setCreatedActiveOn(i int) *fakeLoadBalancerService {
 	f.createdActiveOn = i
 	return f
-}
-
-func (f *fakeLoadBalancerService) assertCalls(t *testing.T) {
-	if f.wantGets >= 0 && f.gotGets != f.wantGets {
-		t.Errorf("got %d get(s), want %d", f.gotGets, f.wantGets)
-	}
-	if f.wantLists >= 0 && f.gotLists != f.wantLists {
-		t.Errorf("got %d lists(s), want %d", f.gotLists, f.wantLists)
-	}
-	if f.wantCreates >= 0 && f.gotCreates != f.wantCreates {
-		t.Errorf("got %d create(s), want %d", f.gotCreates, f.wantCreates)
-	}
-	if f.wantUpdates >= 0 && f.gotUpdates != f.wantUpdates {
-		t.Errorf("got %d update(s), want %d", f.gotUpdates, f.wantUpdates)
-	}
-	if f.wantDeletes >= 0 && f.gotDeletes != f.wantDeletes {
-		t.Errorf("got %d delete(s), want %d", f.gotDeletes, f.wantDeletes)
-	}
 }
 
 func (f *fakeLoadBalancerService) deepCopyP(lb godo.LoadBalancer) *godo.LoadBalancer {
