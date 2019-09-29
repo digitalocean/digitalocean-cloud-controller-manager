@@ -33,6 +33,7 @@ require (
 	github.com/onsi/ginkgo v1.8.0 // indirect
 	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
+	github.com/pborman/uuid v1.2.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829 // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spf13/afero v1.2.2 // indirect
