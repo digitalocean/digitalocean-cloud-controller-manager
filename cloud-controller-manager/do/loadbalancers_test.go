@@ -1486,7 +1486,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("either certificate id should be set or tls pass through enabled, not both"),
+			errors.New("failed to build TLS part(s) of forwarding rule: either certificate id should be set or tls pass through enabled, not both"),
 		},
 		{
 			"invalid TLS config, neither certificate ID is set or tls pass through enabled",
@@ -1517,7 +1517,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("must set certificate id or enable tls pass through"),
+			errors.New("failed to build TLS part(s) of forwarding rule: must set certificate id or enable tls pass through"),
 		},
 		{
 			"invalid HTTP2 config, neither certificate ID is set or tls pass through enabled",
@@ -1548,7 +1548,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("must set certificate id or enable tls pass through"),
+			errors.New("failed to build TLS part(s) of forwarding rule: must set certificate id or enable tls pass through"),
 		},
 		{
 			"secure ports shared",

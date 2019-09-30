@@ -705,7 +705,7 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	if protocol == protocolHTTPS || protocol == protocolHTTP2 {
 		err := buildTLSForwardingRule(&forwardingRule, service, port.Port, certificateID, tlsPassThrough)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to build TLS part(s) of forwarding rule: %s", err)
 		}
 	}
 
