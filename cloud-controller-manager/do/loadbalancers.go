@@ -660,8 +660,8 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		httpsPorts = append(httpsPorts, defaultSecurePort)
 	}
 
-	if getRedirectHTTPToHTTPS(service) && len(httpsPorts) == 0 {
-		return nil, errors.New("redirect from HTTP to HTTPS requested but no HTTPS port defined")
+	if getRedirectHTTPToHTTPS(service) && len(httpsPorts) == 0 && len(http2Ports) == 0 {
+		return nil, errors.New("redirect from HTTP to HTTPS requested but no HTTPS/HTTP2 port defined")
 	}
 
 	httpsPortMap := map[int32]bool{}

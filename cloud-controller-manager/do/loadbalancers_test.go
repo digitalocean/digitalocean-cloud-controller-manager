@@ -1583,7 +1583,7 @@ func Test_buildForwardingRules(t *testing.T) {
 			fmt.Errorf("%q and %q cannot share values but found: 443", annDOTLSPorts, annDOHTTP2Ports),
 		},
 		{
-			"HTTP to HTTPS redirect requested but no HTTPS port defined",
+			"HTTP to HTTPS redirect requested and no HTTPS/HTTP2 port defined",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1605,7 +1605,107 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("redirect from HTTP to HTTPS requested but no HTTPS port defined"),
+			errors.New("redirect from HTTP to HTTPS requested but no HTTPS/HTTP2 port defined"),
+		},
+		{
+			"HTTP to HTTPS redirect requested and HTTPS port defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http",
+						annDORedirectHTTPToHTTPS: "true",
+						annDOTLSPorts:            "443",
+						annDOTLSPassThrough:      "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(40000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http",
+					EntryPort:      80,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "https",
+					EntryPort:      443,
+					TargetProtocol: "https",
+					TargetPort:     40000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+			},
+			nil,
+		},
+		{
+			"HTTP to HTTPS redirect requested and HTTP/2 port defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http",
+						annDORedirectHTTPToHTTPS: "true",
+						annDOHTTP2Ports:          "443",
+						annDOTLSPassThrough:      "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-http2",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(40000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http",
+					EntryPort:      80,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "http2",
+					TargetPort:     40000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+			},
+			nil,
 		},
 	}
 
