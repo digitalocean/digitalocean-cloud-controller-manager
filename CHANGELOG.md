@@ -2,6 +2,10 @@
 
 ## unreleased
 
+### Added
+
+* Error when HTTP to HTTPS redirect requested without HTTPS/HTTP2 port defined (@timoreimann)
+
 ## v0.1.20 (beta) - Sept 9th 2019
 
 ### Fixed

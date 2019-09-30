@@ -93,6 +93,8 @@ Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotat
 
 Indicates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
 
+If `true`, then at least one HTTPS or HTTP/2 port must be defined.
+
 ## service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol
 
 Indicates whether PROXY protocol should be enabled. Options are `true` or `false`. Defaults to `false`.
