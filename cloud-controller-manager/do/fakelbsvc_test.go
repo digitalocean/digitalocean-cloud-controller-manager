@@ -28,16 +28,6 @@ import (
 
 const lbIngressIP = "10.0.0.1"
 
-type methodKind string
-
-const (
-	methodKindGet    methodKind = "Get"
-	methodKindList   methodKind = "List"
-	methodKindCreate methodKind = "Create"
-	methodKindUpdate methodKind = "Update"
-	methodKindDelete methodKind = "Delete"
-)
-
 type fakeLoadBalancerService struct {
 	lbs                     []godo.LoadBalancer
 	actions                 []fakeAction
