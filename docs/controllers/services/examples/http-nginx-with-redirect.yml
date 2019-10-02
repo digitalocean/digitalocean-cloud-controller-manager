@@ -5,9 +5,8 @@ metadata:
   name: https-with-redirect
   annotations:
     service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
-    service.beta.kubernetes.io/do-loadbalancer-algorithm: "round_robin"
     service.beta.kubernetes.io/do-loadbalancer-tls-ports: "443"
-    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "abd8a259-1631-4e8f-8366-b170408ee33f"
     service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https: "true"
 spec:
   type: LoadBalancer

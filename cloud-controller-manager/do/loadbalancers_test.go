@@ -1582,131 +1582,6 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 			fmt.Errorf("%q and %q cannot share values but found: 443", annDOTLSPorts, annDOHTTP2Ports),
 		},
-		{
-			"HTTP to HTTPS redirect requested and no HTTPS/HTTP2 port defined",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "http",
-						annDORedirectHTTPToHTTPS: "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			nil,
-			errors.New("redirect from HTTP to HTTPS requested but no HTTPS/HTTP2 port defined"),
-		},
-		{
-			"HTTP to HTTPS redirect requested and HTTPS port defined",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "http",
-						annDORedirectHTTPToHTTPS: "true",
-						annDOTLSPorts:            "443",
-						annDOTLSPassThrough:      "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-						{
-							Name:     "test-https",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(40000),
-						},
-					},
-				},
-			},
-			[]godo.ForwardingRule{
-				{
-					EntryProtocol:  "http",
-					EntryPort:      80,
-					TargetProtocol: "http",
-					TargetPort:     30000,
-					CertificateID:  "",
-					TlsPassthrough: false,
-				},
-				{
-					EntryProtocol:  "https",
-					EntryPort:      443,
-					TargetProtocol: "https",
-					TargetPort:     40000,
-					CertificateID:  "",
-					TlsPassthrough: true,
-				},
-			},
-			nil,
-		},
-		{
-			"HTTP to HTTPS redirect requested and HTTP/2 port defined",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "http",
-						annDORedirectHTTPToHTTPS: "true",
-						annDOHTTP2Ports:          "443",
-						annDOTLSPassThrough:      "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-						{
-							Name:     "test-http2",
-							Protocol: "TCP",
-							Port:     int32(443),
-							NodePort: int32(40000),
-						},
-					},
-				},
-			},
-			[]godo.ForwardingRule{
-				{
-					EntryProtocol:  "http",
-					EntryPort:      80,
-					TargetProtocol: "http",
-					TargetPort:     30000,
-					CertificateID:  "",
-					TlsPassthrough: false,
-				},
-				{
-					EntryProtocol:  "http2",
-					EntryPort:      443,
-					TargetProtocol: "http2",
-					TargetPort:     40000,
-					CertificateID:  "",
-					TlsPassthrough: true,
-				},
-			},
-			nil,
-		},
 	}
 
 	for _, test := range testcases {
@@ -2974,7 +2849,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			nil,
 		},
 		{
-			"successful load balancer request with redirect_http_to_https",
+			"successful load balancer request with redirect from HTTP to HTTPS",
 			[]godo.Droplet{
 				{
 					ID:   100,
@@ -3064,6 +2939,157 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			nil,
+		},
+		{
+			"successful load balancer request with redirect from HTTP to HTTP/2",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http",
+						annDOAlgorithm:           "round_robin",
+						annDORedirectHTTPToHTTPS: "true",
+						annDOHTTP2Ports:          "443",
+						annDOCertificateID:       "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
+				// as loadbalancer name
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+					},
+					{
+						EntryProtocol:  "http2",
+						EntryPort:      443,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
+					},
+				},
+				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
+				Algorithm:           "round_robin",
+				RedirectHttpToHttps: true,
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+			},
+			nil,
+		},
+		{
+			"failed load balancer request with redirect from HTTP to HTTPS but no service on port 443 defined",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:            "http",
+						annDOAlgorithm:           "round_robin",
+						annDORedirectHTTPToHTTPS: "true",
+						annDOTLSPorts:            "443",
+						annDOCertificateID:       "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			nil,
+			errors.New("redirect from HTTP to HTTPS requested but no HTTPS/HTTP2 service on port 443 defined"),
 		},
 	}
 

@@ -2,15 +2,21 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: http2-with-cert-minimal
+  name: http2-with-cert
   annotations:
-    service.beta.kubernetes.io/do-loadbalancer-protocol: "http2"
-    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "c019bbf4-cad2-4884-8a20-410ddad7f54a"
+    service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
+    service.beta.kubernetes.io/do-loadbalancer-http2-ports: "443"
+    service.beta.kubernetes.io/do-loadbalancer-certificate-id: "abd8a259-1631-4e8f-8366-b170408ee33f"
+    service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https: "true"
 spec:
   type: LoadBalancer
   selector:
-    app: nginx-example
+    app: nginx-example2
   ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
     - name: http2
       protocol: TCP
       port: 443
@@ -20,13 +26,13 @@ spec:
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: nginx-example
+  name: nginx-example2
 spec:
   replicas: 2
   template:
     metadata:
       labels:
-        app: nginx-example
+        app: nginx-example2
     spec:
       containers:
       - name: nginx

@@ -93,7 +93,7 @@ Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotat
 
 Indicates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
 
-If `true`, then at least one HTTPS or HTTP/2 port must be defined.
+Note that [redirecting only works to HTTPS and HTTP/2 on port 443](https://www.digitalocean.com/docs/networking/load-balancers/overview/#https-and-http-2). Therefore, setting the annotation to `true` also means that a service on port 443 must be defined.
 
 ## service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol
 

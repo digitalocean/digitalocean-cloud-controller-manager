@@ -561,6 +561,10 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 	algorithm := getAlgorithm(service)
 
 	redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(service)
+	if redirectHTTPToHTTPS && !defaultSecureServiceExists(forwardingRules) {
+		return nil, fmt.Errorf("redirect from HTTP to HTTPS requested but no HTTPS/HTTP2 service on port %d defined", defaultSecurePort)
+	}
+
 	enableProxyProtocol, err := getEnableProxyProtocol(service)
 	if err != nil {
 		return nil, err
@@ -658,10 +662,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	if needSecureProto && len(httpsPorts) == 0 && !contains(http2Ports, defaultSecurePort) {
 		httpsPorts = append(httpsPorts, defaultSecurePort)
-	}
-
-	if getRedirectHTTPToHTTPS(service) && len(httpsPorts) == 0 && len(http2Ports) == 0 {
-		return nil, errors.New("redirect from HTTP to HTTPS requested but no HTTPS/HTTP2 port defined")
 	}
 
 	httpsPortMap := map[int32]bool{}
@@ -1013,6 +1013,16 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 
 func getLoadBalancerID(service *v1.Service) string {
 	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
+}
+
+func defaultSecureServiceExists(rules []godo.ForwardingRule) bool {
+	for _, rule := range rules {
+		if rule.EntryPort == defaultSecurePort && (rule.EntryProtocol == protocolHTTPS || rule.EntryProtocol == protocolHTTP2) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func findDups(vals []int) []string {
