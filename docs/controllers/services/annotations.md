@@ -20,6 +20,8 @@ The path used to check if a backend droplet is healthy. Defaults to "/".
 
 The health check protocol to use to check if a backend droplet is healthy. Defaults to `tcp` if not specified. Options are `tcp` and `http`.
 
+The first node port on the service is used as health check port.
+
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds
 
 The number of seconds between between two consecutive health checks. The value must be between 3 and 300. If not specified, the default value is 3.
