@@ -3564,8 +3564,6 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 	tests := []struct {
 		name      string
 		fakeLBSvc *fakeLoadBalancerService
-		listFn    func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		deleteFn  func(ctx context.Context, lbID string) (*godo.Response, error)
 		service   *v1.Service
 		err       error
 	}{
@@ -3628,16 +3626,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var fakeLB godo.LoadBalancersService
-			if test.fakeLBSvc != nil {
-				fakeLB = test.fakeLBSvc
-			} else {
-				fakeLB = &fakeLBService{
-					listFn:   test.listFn,
-					deleteFn: test.deleteFn,
-				}
-			}
-			fakeClient := newFakeLBClient(fakeLB)
+			fakeClient := newFakeLBClient(test.fakeLBSvc)
 			fakeResources := newResources("", "", fakeClient)
 
 			lb := &loadBalancers{
