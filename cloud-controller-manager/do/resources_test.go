@@ -177,7 +177,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 	testcases := []struct {
 		name        string
 		services    []*corev1.Service
-		lbSvcListFn func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+		lbSvc       *fakeLoadBalancerService
 		tagSvc      *fakeTagsService
 		errMsg      string
 		tagRequests []*godo.TagResourcesRequest
@@ -185,40 +185,42 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		{
 			name:     "no matching services",
 			services: []*corev1.Service{createLBSvc(1)},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{ID: "1", Name: lbName(2)},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					ID:   "1",
+					Name: lbName(2),
+				},
+			),
 		},
 		{
 			name: "service without LoadBalancer type",
 			services: []*corev1.Service{
 				newSvcBuilderWithIdx(1).setTypeLoadBalancer(false).build(),
 			},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
-			},
+			lbSvc: newFakeLoadBalancerService().
+				appendAction(newUnexpectedCallFailureAction(methodKindList)),
 		},
 		{
 			name:     "unrecoverable resource tagging error",
 			services: []*corev1.Service{createLBSvc(1)},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{ID: "1", Name: lbName(1)},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					ID:   "1",
+					Name: lbName(1),
+				},
+			),
 			tagSvc: newFakeTagsServiceWithFailure(0, errors.New("no tagging for you")),
 			errMsg: "no tagging for you",
 		},
 		{
 			name:     "unrecoverable resource creation error",
 			services: []*corev1.Service{createLBSvc(1)},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{ID: "1", Name: lbName(1)},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					ID:   "1",
+					Name: lbName(1),
+				},
+			),
 			tagSvc: newFakeTagsServiceWithFailure(1, errors.New("no tag creating for you")),
 			errMsg: "no tag creating for you",
 		},
@@ -227,11 +229,11 @@ func TestResourcesController_SyncTags(t *testing.T) {
 			services: []*corev1.Service{
 				createLBSvc(1),
 			},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: lbName(1)},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					Name: lbName(1),
+				},
+			),
 			tagSvc: newFakeTagsService(clusterIDTag),
 		},
 		{
@@ -240,12 +242,16 @@ func TestResourcesController_SyncTags(t *testing.T) {
 				createLBSvc(1),
 				createLBSvc(2),
 			},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{ID: "1", Name: lbName(1)},
-					{ID: "2", Name: lbName(2)},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					ID:   "1",
+					Name: lbName(1),
+				},
+				godo.LoadBalancer{
+					ID:   "2",
+					Name: lbName(2),
+				},
+			),
 			tagSvc: newFakeTagsService(clusterIDTag),
 			tagRequests: []*godo.TagResourcesRequest{
 				{
@@ -267,11 +273,12 @@ func TestResourcesController_SyncTags(t *testing.T) {
 			services: []*corev1.Service{
 				createLBSvc(1),
 			},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{ID: "1", Name: lbName(1)},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					ID:   "1",
+					Name: lbName(1),
+				},
+			),
 			tagSvc: newFakeTagsService(),
 		},
 		{
@@ -279,11 +286,11 @@ func TestResourcesController_SyncTags(t *testing.T) {
 			services: []*corev1.Service{
 				newSvcBuilderWithIdx(1).setTypeLoadBalancer(true).setLoadBalancerID("f7968b52-4ed9-4a16-af8b-304253f04e20").build(),
 			},
-			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{Name: "renamed-lb"},
-				}, newFakeOKResponse(), nil
-			},
+			lbSvc: newFakeLoadBalancerService(
+				godo.LoadBalancer{
+					Name: "renamed-lb",
+				},
+			),
 			tagSvc: newFakeTagsService(clusterIDTag),
 			tagRequests: []*godo.TagResourcesRequest{
 				{
@@ -303,11 +310,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			gclient := newFakeLBClient(
-				&fakeLBService{
-					listFn: test.lbSvcListFn,
-				},
-			)
+			gclient := newFakeLBClient(test.lbSvc)
 
 			fakeResources := newResources("", "", gclient)
 			fakeTagsService := test.tagSvc
