@@ -145,11 +145,9 @@ func TestResourcesController_Run(t *testing.T) {
 				return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
-		&fakeLBService{
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
-			},
-		},
+		newFakeLoadBalancerService(
+			godo.LoadBalancer{ID: "2", Name: "two"},
+		),
 	)
 	fakeResources := newResources(clusterID, "", gclient)
 	kclient := fake.NewSimpleClientset()
