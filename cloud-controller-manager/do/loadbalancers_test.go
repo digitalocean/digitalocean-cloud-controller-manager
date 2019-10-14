@@ -37,53 +37,6 @@ import (
 
 var _ cloudprovider.LoadBalancer = new(loadBalancers)
 
-type fakeLBService struct {
-	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
-	listFn                  func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-	createFn                func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-	updateFn                func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-	deleteFn                func(ctx context.Context, lbID string) (*godo.Response, error)
-	addDropletsFn           func(ctx context.Context, lbID string, dropletIDs ...int) (*godo.Response, error)
-	removeDropletsFn        func(ctx context.Context, lbID string, dropletIDs ...int) (*godo.Response, error)
-	addForwardingRulesFn    func(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error)
-	removeForwardingRulesFn func(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error)
-}
-
-func (f *fakeLBService) Get(ctx context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
-	return f.getFn(ctx, lbID)
-}
-
-func (f *fakeLBService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-	return f.listFn(ctx, listOpts)
-}
-
-func (f *fakeLBService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-	return f.createFn(ctx, lbr)
-}
-
-func (f *fakeLBService) Update(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-	return f.updateFn(ctx, lbID, lbr)
-}
-
-func (f *fakeLBService) Delete(ctx context.Context, lbID string) (*godo.Response, error) {
-	return f.deleteFn(ctx, lbID)
-}
-
-func (f *fakeLBService) AddDroplets(ctx context.Context, lbID string, dropletIDs ...int) (*godo.Response, error) {
-	return f.addDropletsFn(ctx, lbID, dropletIDs...)
-}
-
-func (f *fakeLBService) RemoveDroplets(ctx context.Context, lbID string, dropletIDs ...int) (*godo.Response, error) {
-	return f.removeDropletsFn(ctx, lbID, dropletIDs...)
-}
-func (f *fakeLBService) AddForwardingRules(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error) {
-	return f.addForwardingRulesFn(ctx, lbID, rules...)
-}
-
-func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error) {
-	return f.removeForwardingRulesFn(ctx, lbID, rules...)
-}
-
 func newFakeLBClient(lbService godo.LoadBalancersService) *godo.Client {
 	return newFakeClient(nil, lbService)
 }

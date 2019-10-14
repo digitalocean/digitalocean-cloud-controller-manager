@@ -117,7 +117,7 @@ func TestAllDropletList(t *testing.T) {
 
 func TestAllLoadBalancerList(t *testing.T) {
 	client := newFakeLBClient(
-		&fakeLBService{
+		&stubLBService{
 			listFn: func(ctx context.Context, opt *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				// Simulate pagination
 				lbs := []godo.LoadBalancer{
