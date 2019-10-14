@@ -3670,11 +3670,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 				IP:   "10.0.0.1",
 				// Status: lbStatusActive,
 			}
-			fakeLB := &fakeLBService{
-				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{lb}, newFakeOKResponse(), nil
-				},
-			}
+			fakeLB := newFakeLoadBalancerService(lb)
 			fakeClient := newFakeLBClient(fakeLB)
 			fakeResources := newResources("", "", fakeClient)
 			// fakeResources.kclient = fake.NewSimpleClientset(svc)
