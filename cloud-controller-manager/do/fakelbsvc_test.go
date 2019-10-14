@@ -29,13 +29,8 @@ import (
 const lbIngressIP = "10.0.0.1"
 
 type fakeLoadBalancerService struct {
-	lbs                     []godo.LoadBalancer
-	actions                 []fakeAction
-	wantGets, gotGets       int
-	wantLists, gotLists     int
-	wantCreates, gotCreates int
-	wantUpdates, gotUpdates int
-	wantDeletes, gotDeletes int
+	lbs     []godo.LoadBalancer
+	actions []fakeAction
 }
 
 func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
@@ -49,12 +44,7 @@ func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerServi
 	}
 
 	return &fakeLoadBalancerService{
-		lbs:         lbs,
-		wantGets:    -1,
-		wantLists:   -1,
-		wantCreates: -1,
-		wantUpdates: -1,
-		wantDeletes: -1,
+		lbs: lbs,
 	}
 }
 
@@ -73,8 +63,6 @@ func (f *fakeLoadBalancerService) deepCopy(lb godo.LoadBalancer) godo.LoadBalanc
 }
 
 func (f *fakeLoadBalancerService) Get(_ context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
-	f.gotGets++
-
 	for _, action := range f.actions {
 		handled, res, err := action.react(methodKindGet)
 		if !handled {
@@ -102,8 +90,6 @@ func (f *fakeLoadBalancerService) Get(_ context.Context, lbID string) (*godo.Loa
 }
 
 func (f *fakeLoadBalancerService) List(_ context.Context, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-	f.gotLists++
-
 	for _, action := range f.actions {
 		handled, res, err := action.react(methodKindList)
 		if !handled {
@@ -130,8 +116,6 @@ func (f *fakeLoadBalancerService) List(_ context.Context, listOpts *godo.ListOpt
 }
 
 func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-	f.gotCreates++
-
 	for _, action := range f.actions {
 		handled, res, err := action.react(methodKindCreate)
 		if !handled {
@@ -163,8 +147,6 @@ func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBala
 }
 
 func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-	f.gotUpdates++
-
 	for _, action := range f.actions {
 		handled, res, err := action.react(methodKindUpdate)
 		if !handled {
@@ -193,8 +175,6 @@ func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *go
 }
 
 func (f *fakeLoadBalancerService) Delete(_ context.Context, lbID string) (*godo.Response, error) {
-	f.gotDeletes++
-
 	for _, action := range f.actions {
 		handled, _, err := action.react(methodKindDelete)
 		if !handled {
