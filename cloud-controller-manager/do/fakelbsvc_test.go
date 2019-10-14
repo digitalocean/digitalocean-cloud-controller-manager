@@ -36,7 +36,6 @@ type fakeLoadBalancerService struct {
 	wantCreates, gotCreates int
 	wantUpdates, gotUpdates int
 	wantDeletes, gotDeletes int
-	createdActiveOn         int
 }
 
 func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerService {
@@ -50,23 +49,17 @@ func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerServi
 	}
 
 	return &fakeLoadBalancerService{
-		lbs:             lbs,
-		wantGets:        -1,
-		wantLists:       -1,
-		wantCreates:     -1,
-		wantUpdates:     -1,
-		wantDeletes:     -1,
-		createdActiveOn: 2,
+		lbs:         lbs,
+		wantGets:    -1,
+		wantLists:   -1,
+		wantCreates: -1,
+		wantUpdates: -1,
+		wantDeletes: -1,
 	}
 }
 
 func (f *fakeLoadBalancerService) appendAction(action fakeAction) *fakeLoadBalancerService {
 	f.actions = append(f.actions, action)
-	return f
-}
-
-func (f *fakeLoadBalancerService) setCreatedActiveOn(i int) *fakeLoadBalancerService {
-	f.createdActiveOn = i
 	return f
 }
 
@@ -76,10 +69,6 @@ func (f *fakeLoadBalancerService) deepCopyP(lb godo.LoadBalancer) *godo.LoadBala
 }
 
 func (f *fakeLoadBalancerService) deepCopy(lb godo.LoadBalancer) godo.LoadBalancer {
-	if f.createdActiveOn >= 0 && f.gotGets+f.gotLists+f.gotUpdates >= f.createdActiveOn {
-		lb.Status = lbStatusActive
-		lb.IP = lbIngressIP
-	}
 	return mustCopy(lb).(godo.LoadBalancer)
 }
 
@@ -161,8 +150,11 @@ func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBala
 	}
 
 	lb := &godo.LoadBalancer{
-		ID:     uuid.New(),
-		Status: lbStatusNew,
+		ID: uuid.New(),
+		// Create LB that's active right from the start. Although not realistic,
+		// this is the use case we test predominantly.
+		Status: lbStatusActive,
+		IP:     lbIngressIP,
 	}
 
 	setLBFromReq(lb, lbr)
