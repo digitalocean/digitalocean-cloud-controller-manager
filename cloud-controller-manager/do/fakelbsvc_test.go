@@ -60,7 +60,7 @@ func newFakeLoadBalancerService(lbs ...godo.LoadBalancer) *fakeLoadBalancerServi
 	}
 }
 
-func (f *fakeLoadBalancerService) withAction(action fakeAction) *fakeLoadBalancerService {
+func (f *fakeLoadBalancerService) appendAction(action fakeAction) *fakeLoadBalancerService {
 	f.actions = append(f.actions, action)
 	return f
 }

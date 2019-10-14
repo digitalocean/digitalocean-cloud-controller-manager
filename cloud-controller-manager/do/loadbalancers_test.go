@@ -3257,7 +3257,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Name: "afoobar123",
 					IP:   "10.0.0.1",
 				},
-			).withAction(newUnexpectedCallFailureAction(methodKindGet)),
+			).appendAction(newUnexpectedCallFailureAction(methodKindGet)),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
@@ -3298,7 +3298,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Name: "afoobar123",
 					IP:   "10.0.0.1",
 				},
-			).withAction(newUnexpectedCallFailureAction(methodKindList)),
+			).appendAction(newUnexpectedCallFailureAction(methodKindList)),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
@@ -3421,25 +3421,25 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			name: "successfully ensured loadbalancer by name, already exists",
 			fakeLBSvc: newFakeLoadBalancerService(
 				*createLB(),
-			).withAction(newUnexpectedCallFailureAction(methodKindGet, methodKindCreate)),
+			).appendAction(newUnexpectedCallFailureAction(methodKindGet, methodKindCreate)),
 		},
 		{
 			name: "successfully ensured loadbalancer by ID, already exists",
 			fakeLBSvc: newFakeLoadBalancerService(
 				*createLBWithOpts(&lbOpts{id: "load-balancer-id"}),
-			).withAction(newUnexpectedCallFailureAction(methodKindList, methodKindCreate)),
+			).appendAction(newUnexpectedCallFailureAction(methodKindList, methodKindCreate)),
 			svcLoadBalancerID: "load-balancer-id",
 		},
 		{
 			name: "successfully ensured loadbalancer by name that didn't exist",
 			fakeLBSvc: newFakeLoadBalancerService().
-				withAction(newUnexpectedCallFailureAction(methodKindGet, methodKindUpdate)).
+				appendAction(newUnexpectedCallFailureAction(methodKindGet, methodKindUpdate)).
 				setCreatedActiveOn(1),
 		},
 		{
 			name: "successfully ensured loadbalancer by ID that didn't exist",
 			fakeLBSvc: newFakeLoadBalancerService().
-				withAction(newUnexpectedCallFailureAction(methodKindList, methodKindUpdate)).
+				appendAction(newUnexpectedCallFailureAction(methodKindList, methodKindUpdate)).
 				setCreatedActiveOn(1),
 			svcLoadBalancerID: "load-balancer-id",
 		},
@@ -3574,8 +3574,8 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 		{
 			name: "retrieval failed",
 			fakeLBSvc: newFakeLoadBalancerService().
-				withAction(newUnexpectedCallFailureAction(methodKindDelete)).
-				withAction(newFailureAction(0, errors.New("API failed"))),
+				appendAction(newUnexpectedCallFailureAction(methodKindDelete)).
+				appendAction(newFailureAction(0, errors.New("API failed"))),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3587,7 +3587,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 		{
 			name: "load-balancer resource not found",
 			fakeLBSvc: newFakeLoadBalancerService().
-				withAction(newUnexpectedCallFailureAction(methodKindDelete)),
+				appendAction(newUnexpectedCallFailureAction(methodKindDelete)),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -3602,7 +3602,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 				&lbOpts{
 					status: lbStatusActive,
 				})).
-				withAction(newFailureAction(0, errors.New("API failed"), methodKindDelete)),
+				appendAction(newFailureAction(0, errors.New("API failed"), methodKindDelete)),
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
