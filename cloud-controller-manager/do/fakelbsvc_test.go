@@ -53,6 +53,23 @@ func (f *fakeLoadBalancerService) appendAction(action fakeAction) *fakeLoadBalan
 	return f
 }
 
+func (f *fakeLoadBalancerService) processActions(methodKind methodKind) (handled bool, lbResp interface{}, godResp *godo.Response, err error) {
+	for _, action := range f.actions {
+		handled, res, err := action.react(methodKind)
+		if !handled {
+			continue
+		}
+
+		godoResp := newFakeOKResponse()
+		if err != nil {
+			godoResp = newFakeNotOKResponse()
+		}
+		return true, res, godoResp, err
+	}
+
+	return false, nil, nil, nil
+}
+
 func (f *fakeLoadBalancerService) deepCopyP(lb godo.LoadBalancer) *godo.LoadBalancer {
 	copy := f.deepCopy(lb)
 	return &copy
@@ -63,19 +80,11 @@ func (f *fakeLoadBalancerService) deepCopy(lb godo.LoadBalancer) godo.LoadBalanc
 }
 
 func (f *fakeLoadBalancerService) Get(_ context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
-	for _, action := range f.actions {
-		handled, res, err := action.react(methodKindGet)
-		if !handled {
-			continue
-		}
-
+	handled, res, godoResp, err := f.processActions(methodKindGet)
+	if handled {
 		var lbResp *godo.LoadBalancer
 		if res != nil {
 			lbResp = res.(*godo.LoadBalancer)
-		}
-		godoResp := newFakeOKResponse()
-		if err != nil {
-			godoResp = newFakeNotOKResponse()
 		}
 		return lbResp, godoResp, err
 	}
@@ -90,19 +99,11 @@ func (f *fakeLoadBalancerService) Get(_ context.Context, lbID string) (*godo.Loa
 }
 
 func (f *fakeLoadBalancerService) List(_ context.Context, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-	for _, action := range f.actions {
-		handled, res, err := action.react(methodKindList)
-		if !handled {
-			continue
-		}
-
+	handled, res, godoResp, err := f.processActions(methodKindList)
+	if handled {
 		var lbResp []godo.LoadBalancer
 		if res != nil {
 			lbResp = res.([]godo.LoadBalancer)
-		}
-		godoResp := newFakeOKResponse()
-		if err != nil {
-			godoResp = newFakeNotOKResponse()
 		}
 		return lbResp, godoResp, err
 	}
@@ -116,19 +117,11 @@ func (f *fakeLoadBalancerService) List(_ context.Context, listOpts *godo.ListOpt
 }
 
 func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-	for _, action := range f.actions {
-		handled, res, err := action.react(methodKindCreate)
-		if !handled {
-			continue
-		}
-
+	handled, res, godoResp, err := f.processActions(methodKindCreate)
+	if handled {
 		var lbResp *godo.LoadBalancer
 		if res != nil {
 			lbResp = res.(*godo.LoadBalancer)
-		}
-		godoResp := newFakeOKResponse()
-		if err != nil {
-			godoResp = newFakeNotOKResponse()
 		}
 		return lbResp, godoResp, err
 	}
@@ -147,19 +140,11 @@ func (f *fakeLoadBalancerService) Create(ctx context.Context, lbr *godo.LoadBala
 }
 
 func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-	for _, action := range f.actions {
-		handled, res, err := action.react(methodKindUpdate)
-		if !handled {
-			continue
-		}
-
+	handled, res, godoResp, err := f.processActions(methodKindUpdate)
+	if handled {
 		var lbResp *godo.LoadBalancer
 		if res != nil {
 			lbResp = res.(*godo.LoadBalancer)
-		}
-		godoResp := newFakeOKResponse()
-		if err != nil {
-			godoResp = newFakeNotOKResponse()
 		}
 		return lbResp, godoResp, err
 	}
@@ -175,16 +160,8 @@ func (f *fakeLoadBalancerService) Update(_ context.Context, lbID string, lbr *go
 }
 
 func (f *fakeLoadBalancerService) Delete(_ context.Context, lbID string) (*godo.Response, error) {
-	for _, action := range f.actions {
-		handled, _, err := action.react(methodKindDelete)
-		if !handled {
-			continue
-		}
-
-		godoResp := newFakeOKResponse()
-		if err != nil {
-			godoResp = newFakeNotOKResponse()
-		}
+	handled, _, godoResp, err := f.processActions(methodKindDelete)
+	if handled {
 		return godoResp, err
 	}
 
