@@ -35,6 +35,25 @@ type fakeAction interface {
 	react(methodKind) (handled bool, result interface{}, err error)
 }
 
+type genericAction struct {
+	methodKinds []methodKind
+	reactFunc   func(methodKind) (handled bool, result interface{}, err error)
+}
+
+func (ga *genericAction) react(mk methodKind) (handled bool, result interface{}, err error) {
+	if !isMethodKind(ga.methodKinds, mk) {
+		return false, nil, nil
+	}
+	return ga.reactFunc(mk)
+}
+
+func newGenericAction(reactFunc func(methodKind) (bool, interface{}, error), methodKinds ...methodKind) *genericAction {
+	return &genericAction{
+		methodKinds: methodKinds,
+		reactFunc:   reactFunc,
+	}
+}
+
 type failureAction struct {
 	failOnReq         int
 	failOnMethodKinds []methodKind
