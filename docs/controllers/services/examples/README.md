@@ -134,12 +134,15 @@ spec:
       port: 443
       targetPort: 80
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hello
 spec:
   replicas: 3
+  selector:
+    matchLabels:
+      app: hello
   template:
     metadata:
       labels:
