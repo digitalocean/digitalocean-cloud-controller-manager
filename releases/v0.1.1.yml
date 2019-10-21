@@ -1,7 +1,7 @@
 # NOTE: this release is only compatible with Kubernetes versions v1.7.X
 
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: digitalocean-cloud-controller-manager
