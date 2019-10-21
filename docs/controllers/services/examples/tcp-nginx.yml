@@ -14,12 +14,15 @@ spec:
       targetPort: 80
 
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx-example
 spec:
   replicas: 2
+  selector:
+    matchLabels:
+      app: nginx-example
   template:
     metadata:
       labels:
