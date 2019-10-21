@@ -11,7 +11,8 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: nginx-example
+    matchLabels:
+      app: nginx-example
   ports:
     - name: http2
       protocol: TCP
