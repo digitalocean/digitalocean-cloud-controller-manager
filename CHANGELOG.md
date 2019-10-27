@@ -2,8 +2,11 @@
 
 ## unreleased
 
+## v0.1.21 (beta) - Oct 27th 2019
+
 ### Changed
 
+* Update Deployment release manifest API version from removed extensions/v1beta1 to apps/v1 (@timoreimann)
 * Update Kubernetes dependencies to 1.16.2 (@timoreimann)
 
 ## v0.1.20 (beta) - Sept 9th 2019
