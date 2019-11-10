@@ -60,7 +60,11 @@ Ports must not be shared between this annotation and `service.beta.kubernetes.io
 
 ## service.beta.kubernetes.io/do-loadbalancer-tls-passthrough
 
-Specify whether the DigitalOcean Load Balancer should pass encrypted data to backend droplets. This is optional. Options are `true` or `false`. Defaults to `false`.
+Specify whether the DigitalOcean Load Balancer should pass encrypted data to backend droplets. This is optional. Options are `"true"` or `"false"`. Defaults to `"false"`.
+
+**Note**
+
+You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
 
 ## service.beta.kubernetes.io/do-loadbalancer-certificate-id
 
@@ -93,8 +97,16 @@ Specifies the TTL of cookies used for loadbalancer sticky sessions. This annotat
 
 ## service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https
 
-Indicates whether or not http traffic should be redirected to https. Options are `true` or `false`. Defaults to `false`.
+Indicates whether or not http traffic should be redirected to https. Options are `"true"` or `"false"`. Defaults to `"false"`. 
+
+**Note**
+
+You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
 
 ## service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol
 
-Indicates whether PROXY protocol should be enabled. Options are `true` or `false`. Defaults to `false`.
+Indicates whether PROXY protocol should be enabled. Options are `"true"` or `"false"`. Defaults to `"false"`.
+
+**Note**
+
+You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
