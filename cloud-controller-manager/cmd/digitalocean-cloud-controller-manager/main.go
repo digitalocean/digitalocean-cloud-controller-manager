@@ -18,10 +18,8 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 
-	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/component-base/logs"
 	"k8s.io/kubernetes/cmd/cloud-controller-manager/app"
 	_ "k8s.io/kubernetes/pkg/client/metrics/prometheus" // for client metric registration
@@ -30,10 +28,6 @@ import (
 	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	"github.com/spf13/pflag"
 )
-
-func init() {
-	healthz.InstallHandler(http.DefaultServeMux)
-}
 
 func main() {
 	command := app.NewCloudControllerManagerCommand()
@@ -59,7 +53,6 @@ func main() {
 			// for.
 			err = fl.Value.Set(do.ProviderName)
 		}
-
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to set flag %q: %s\n", fl.Name, err)
 			os.Exit(1)

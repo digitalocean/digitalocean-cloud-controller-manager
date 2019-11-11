@@ -17,25 +17,36 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 
 	"github.com/digitalocean/godo"
 
 	"golang.org/x/oauth2"
 
+	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/informers"
 	cloudprovider "k8s.io/cloud-provider"
 )
 
 const (
 	// ProviderName specifies the name for the DigitalOcean provider
-	ProviderName        string = "digitalocean"
+	ProviderName string = "digitalocean"
+
+	// At some point we should revisit how we start up our CCM implementation.
+	// Having to look at env vars here instead of in the cmd itself is not ideal.
+	// One option is to construct our own command that's specific to us.
+	// Alibaba's ccm is an example how this is done.
+	// https://github.com/kubernetes/cloud-provider-alibaba-cloud/blob/master/cmd/cloudprovider/app/ccm.go
 	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
 	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
 	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
+	debugAddrEnv        string = "DEBUG_ADDR"
+	defaultDebugAddr    string = "127.0.0.1:12301"
 )
 
 var version string
@@ -58,6 +69,8 @@ type cloud struct {
 	loadbalancers cloudprovider.LoadBalancer
 
 	resources *resources
+
+	httpServer http.Server
 }
 
 func newCloud() (cloudprovider.Interface, error) {
@@ -97,6 +110,12 @@ func newCloud() (cloudprovider.Interface, error) {
 	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
 	resources := newResources(clusterID, clusterVPCID, doClient)
 
+	debugMux := http.NewServeMux()
+	healthz.InstallHandler(debugMux, &godoHealthChecker{client: doClient})
+	debugAddr := defaultDebugAddr
+	if os.Getenv(debugAddrEnv) != "" {
+	}
+
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(resources, region),
@@ -104,6 +123,11 @@ func newCloud() (cloudprovider.Interface, error) {
 		loadbalancers: newLoadBalancers(resources, doClient, region),
 
 		resources: resources,
+
+		httpServer: http.Server{
+			Addr:    debugAddr,
+			Handler: debugMux,
+		},
 	}, nil
 }
 
@@ -122,6 +146,14 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)
 	go res.Run(stop)
+	go c.serveDebug(stop)
+}
+
+func (c *cloud) serveDebug(stop <-chan struct{}) {
+	go c.httpServer.ListenAndServe()
+
+	<-stop
+	c.httpServer.Shutdown(context.Background())
 }
 
 func (c *cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
