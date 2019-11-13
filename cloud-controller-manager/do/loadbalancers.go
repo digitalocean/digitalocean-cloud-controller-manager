@@ -326,6 +326,21 @@ func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
 // Load Balancer.
 func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, service *v1.Service, lbCertID, serviceCertID string) error {
 	if lbCertID != "" && lbCertID != serviceCertID {
+		if serviceCertID != "" {
+			svcCert, _, err := l.resources.gclient.Certificates.Get(ctx, serviceCertID)
+			if err != nil {
+				respErr, ok := err.(*godo.ErrorResponse)
+				if !ok || respErr.Response.StatusCode != http.StatusNotFound {
+					return fmt.Errorf("failed to get DO certificate for service: %s", err)
+				}
+			}
+
+			// The given certificate on the service exists, pass through so the LB is updated
+			if svcCert != nil {
+				return nil
+			}
+		}
+
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)

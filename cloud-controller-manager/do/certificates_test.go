@@ -134,8 +134,8 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				certService.store[cert.ID] = cert
 				return service
 			},
-			expectedServiceCertID: "lb-cert-id",
-			expectedLBCertID:      "lb-cert-id",
+			expectedServiceCertID: "service-cert-id",
+			expectedLBCertID:      "service-cert-id",
 		},
 		{
 			name: "[letsencrypt] LB cert ID exists and service cert ID does not",
