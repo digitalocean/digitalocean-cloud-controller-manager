@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/net/publicsuffix"
 	v1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
@@ -96,6 +97,9 @@ const (
 	// used for https protocol. This annotation is required if annDOTLSPorts
 	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
+
+	// annDODomain is the domain in front of the loadbalancer
+	annDODomain = "service.beta.kubernetes.io/do-loadbalancer-domain"
 
 	// annDOHostname is the annotation specifying the hostname to use for the LB.
 	annDOHostname = "service.beta.kubernetes.io/do-loadbalancer-hostname"
@@ -1009,6 +1013,48 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 
 func getLoadBalancerID(service *v1.Service) string {
 	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
+}
+
+type domain struct {
+	eTLD string
+	root string
+	sub  string
+	full string
+}
+
+func getDomain(service *v1.Service) (*domain, error) {
+	rawDomain := service.ObjectMeta.Annotations[annDODomain]
+
+	if rawDomain == "" {
+		return nil, nil
+	}
+
+	eTLD, _ := publicsuffix.PublicSuffix(rawDomain)
+	root, err := publicsuffix.EffectiveTLDPlusOne(rawDomain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse root domain from [%s]: %s", rawDomain, err)
+	}
+
+	sub := strings.TrimSuffix(rawDomain, fmt.Sprintf(".%s", root))
+	full := root
+
+	// TrimSuffix returns string if suffix not found
+	if sub == rawDomain {
+		sub = ""
+	} else {
+		sub = strings.TrimPrefix(sub, ".")
+	}
+
+	if sub != "" {
+		full = fmt.Sprintf("%s.%s", sub, full)
+	}
+
+	return &domain{
+		eTLD: eTLD,
+		root: root,
+		sub:  sub,
+		full: full,
+	}, nil
 }
 
 func findDups(vals []int) []string {

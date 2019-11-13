@@ -638,6 +638,126 @@ func Test_getStickySessionsType(t *testing.T) {
 	}
 }
 
+func Test_getDomain(t *testing.T) {
+	testcases := []struct {
+		name    string
+		service *v1.Service
+		domain  *domain
+		err     error
+	}{
+		{
+			"domain name annotation empty",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDODomain: "",
+					},
+				},
+			},
+			nil,
+			nil,
+		},
+		{
+			"only tld",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDODomain: "co.uk",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("failed to parse root domain from [co.uk]: publicsuffix: cannot derive eTLD+1 for domain \"co.uk\""),
+		},
+		{
+			"only root domain",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDODomain: "sample.co.uk",
+					},
+				},
+			},
+			&domain{
+				eTLD: "co.uk",
+				root: "sample.co.uk",
+				sub:  "",
+				full: "sample.co.uk",
+			},
+			nil,
+		},
+		{
+			"only root domain prefixed with .",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDODomain: ".sample.co.uk",
+					},
+				},
+			},
+			&domain{
+				eTLD: "co.uk",
+				root: "sample.co.uk",
+				sub:  "",
+				full: "sample.co.uk",
+			},
+			nil,
+		},
+		{
+			"subdomain",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDODomain: "subdomain.sample.co.uk",
+					},
+				},
+			},
+			&domain{
+				eTLD: "co.uk",
+				root: "sample.co.uk",
+				sub:  "subdomain",
+				full: "subdomain.sample.co.uk",
+			},
+			nil,
+		},
+		{
+			"subdomain prefixed with dot",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDODomain: ".subdomain.sample.co.uk",
+					},
+				},
+			},
+			&domain{
+				eTLD: "co.uk",
+				root: "sample.co.uk",
+				sub:  "subdomain",
+				full: "subdomain.sample.co.uk",
+			},
+			nil,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			domain, err := getDomain(test.service)
+
+			if !reflect.DeepEqual(domain, test.domain) {
+				t.Error("unexpected domain")
+				t.Logf("expected: %q", test.domain)
+				t.Logf("actual: %q", domain)
+			}
+
+			if !reflect.DeepEqual(err, test.err) {
+				t.Error("unexpected error")
+				t.Logf("expected: %v", test.err)
+				t.Logf("actual: %v", err)
+			}
+		})
+	}
+}
+
 func Test_getStickySessionsCookieName(t *testing.T) {
 	testcases := []struct {
 		name    string
