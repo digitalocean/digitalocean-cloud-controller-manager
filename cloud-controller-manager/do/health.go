@@ -18,7 +18,6 @@ package do
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -39,8 +38,5 @@ func (c *godoHealthChecker) Check(r *http.Request) error {
 	ctx, cancel := context.WithTimeout(r.Context(), godoHealthTimeout)
 	defer cancel()
 	_, _, err := c.client.Account.Get(ctx)
-	if err != nil {
-		return fmt.Errorf("checking godo health: %w", err)
-	}
-	return nil
+	return err
 }
