@@ -118,7 +118,9 @@ func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {
 }
 
 func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
-	return newFakeClient(nil, fakeLB, nil)
+	return newFakeClient(fakeClientOpts{
+		fakeLB: fakeLB,
+	})
 }
 
 func createLB() *godo.LoadBalancer {
@@ -3848,7 +3850,11 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			}
 			certStore := make(map[string]*godo.Certificate)
 			fakeCert := newKVCertService(certStore, true)
-			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
+			fakeClient := newFakeClient(fakeClientOpts{
+				fakeDroplet: fakeDroplet,
+				fakeLB:      fakeLB,
+				fakeCert:    &fakeCert,
+			})
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {

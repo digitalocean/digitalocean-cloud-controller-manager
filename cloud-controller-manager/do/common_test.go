@@ -29,12 +29,49 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService, fakeCert *kvCertService) *godo.Client {
+type fakeClientOpts struct {
+	fakeDroplet *fakeDropletService
+	fakeLB      *fakeLBService
+	fakeCert    *kvCertService
+}
+
+func newFakeClient(opts fakeClientOpts) *godo.Client {
 	return &godo.Client{
-		Certificates:  fakeCert,
-		Droplets:      fakeDroplet,
-		LoadBalancers: fakeLB,
+		Certificates:  opts.fakeCert,
+		Droplets:      opts.fakeDroplet,
+		LoadBalancers: opts.fakeLB,
 	}
+}
+
+func newFakeHTTPResponse(statusCode int) *http.Response {
+	return &http.Response{
+		Request: &http.Request{
+			Method: "FAKE",
+			URL:    &url.URL{},
+		},
+		StatusCode: statusCode,
+		Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+	}
+}
+
+func newFakeResponse(statusCode int) *godo.Response {
+	return &godo.Response{
+		Response: newFakeHTTPResponse(statusCode),
+	}
+}
+
+func newFakeErrorResponse(statusCode int) *godo.ErrorResponse {
+	return &godo.ErrorResponse{
+		Response: newFakeHTTPResponse(statusCode),
+	}
+}
+
+func newFakeNotFoundResponse() *godo.Response {
+	return newFakeResponse(http.StatusNotFound)
+}
+
+func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
+	return newFakeErrorResponse(http.StatusNotFound)
 }
 
 func newFakeOKResponse() *godo.Response {
@@ -45,30 +82,8 @@ func newFakeNotOKResponse() *godo.Response {
 	return newFakeResponse(http.StatusInternalServerError)
 }
 
-func newFakeNotFoundResponse() *godo.Response {
-	return newFakeResponse(http.StatusNotFound)
-}
-
-func newFakeResponse(statusCode int) *godo.Response {
-	return &godo.Response{
-		Response: &http.Response{
-			StatusCode: statusCode,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
-		},
-	}
-}
-
-func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
-	return &godo.ErrorResponse{
-		Response: &http.Response{
-			Request: &http.Request{
-				Method: "FAKE",
-				URL:    &url.URL{},
-			},
-			StatusCode: http.StatusNotFound,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
-		},
-	}
+func newFakeBadRequestResponse() *godo.Response {
+	return newFakeResponse(http.StatusBadRequest)
 }
 
 func linksForPage(page int) *godo.Links {

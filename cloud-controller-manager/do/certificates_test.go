@@ -251,7 +251,11 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				certService := newKVCertService(certStore, false)
 				service := test.setupFn(lbService, certService)
 
-				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)
+				fakeClient := newFakeClient(fakeClientOpts{
+					fakeDroplet: &fakeDroplet,
+					fakeLB:      &lbService,
+					fakeCert:    &certService,
+				})
 				fakeResources := newResources("", "", fakeClient)
 				fakeResources.kclient = fake.NewSimpleClientset()
 				if _, err := fakeResources.kclient.CoreV1().Services(service.Namespace).Create(service); err != nil {
