@@ -114,6 +114,7 @@ func newCloud() (cloudprovider.Interface, error) {
 	healthz.InstallHandler(debugMux, &godoHealthChecker{client: doClient})
 	debugAddr := defaultDebugAddr
 	if os.Getenv(debugAddrEnv) != "" {
+		debugAddr = os.Getenv(debugAddrEnv)
 	}
 
 	return &cloud{
