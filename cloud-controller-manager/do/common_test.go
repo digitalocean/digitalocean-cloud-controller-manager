@@ -32,7 +32,8 @@ import (
 type fakeClientOpts struct {
 	fakeDroplet *fakeDropletService
 	fakeLB      *fakeLBService
-	fakeCert    *kvCertService
+	fakeCert    *fakeCertService
+	fakeDomain  *fakeDomainService
 }
 
 func newFakeClient(opts fakeClientOpts) *godo.Client {
@@ -40,6 +41,7 @@ func newFakeClient(opts fakeClientOpts) *godo.Client {
 		Certificates:  opts.fakeCert,
 		Droplets:      opts.fakeDroplet,
 		LoadBalancers: opts.fakeLB,
+		Domains:       opts.fakeDomain,
 	}
 }
 
@@ -84,6 +86,10 @@ func newFakeNotOKResponse() *godo.Response {
 
 func newFakeBadRequestResponse() *godo.Response {
 	return newFakeResponse(http.StatusBadRequest)
+}
+
+func newFakeBadRequestErrorResponse() *godo.ErrorResponse {
+	return newFakeErrorResponse(http.StatusBadRequest)
 }
 
 func linksForPage(page int) *godo.Links {

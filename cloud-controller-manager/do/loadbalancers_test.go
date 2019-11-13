@@ -134,6 +134,17 @@ func createLB() *godo.LoadBalancer {
 	}
 }
 
+func createLBWithIP(ip string) *godo.LoadBalancer {
+	return &godo.LoadBalancer{
+		// loadbalancer names are a + service.UID
+		// see cloudprovider.DefaultLoadBalancerName
+		ID:     "load-balancer-id",
+		Name:   "afoobar123",
+		IP:     ip,
+		Status: lbStatusActive,
+	}
+}
+
 func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
 	lb := &godo.LoadBalancer{
 		// loadbalancer names are a + service.UID
@@ -3593,10 +3604,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
 		name              string
 		droplets          []godo.Droplet
-		getFn             func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
-		listFn            func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		createFn          func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		updateFn          func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
+		fakeLBService     *fakeLBService
+		fakeCertService   kvCertService
+		fakeDomainService func() *fakeDomainService
 		service           *v1.Service
 		newLoadBalancerID string
 		nodes             []*v1.Node
@@ -3619,17 +3629,19 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3692,17 +3704,19 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3751,6 +3765,310 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "failed to ensure loadbalancer with domain annotation, root domain does not",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			},
+			fakeDomainService: func() *fakeDomainService {
+				return &fakeDomainService{
+					getFunc: func(context.Context, string) (*godo.Domain, *godo.Response, error) {
+						return nil, newFakeNotFoundResponse(), errors.New("404")
+					},
+				}
+			},
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+						annDODomain:          "sample.digitalocean.com",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+			},
+			lbStatus: nil,
+			err:      utilerrors.NewAggregate([]error{errors.New("failed to retrieve root domain digitalocean.com: 404")}),
+		},
+		{
+			name: "failed to ensure loadbalancer with domain annotation, domain exists but already has A records pointing to another LB",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			},
+			fakeDomainService: func() *fakeDomainService {
+				return &fakeDomainService{
+					getFunc: func(context.Context, string) (*godo.Domain, *godo.Response, error) {
+						return &godo.Domain{
+							Name: "digitalocean.com",
+						}, newFakeOKResponse(), nil
+					},
+					recordsFunc: func(context.Context, string, *godo.ListOptions) ([]godo.DomainRecord, *godo.Response, error) {
+						return []godo.DomainRecord{
+							{
+								Type: "A",
+								Name: "@",
+								Data: "not-the-lb",
+							},
+						}, newFakeOKResponse(), nil
+					},
+				}
+			},
+			fakeCertService: newKVCertService(
+				map[string]*godo.Certificate{
+					"cert": {
+						Name:     "cert",
+						Type:     certTypeLetsEncrypt,
+						DNSNames: []string{"sample.digitalocean.com", "digitalocean.com"},
+					},
+				}, false,
+			),
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+						annDODomain:          "sample.digitalocean.com",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+			},
+			lbStatus: nil,
+			err:      utilerrors.NewAggregate([]error{errors.New("the A record(@) is already in use with another IP(not-the-lb)")}),
+		},
+		{
+			name: "successfully ensure loadbalancer with domain annotation, certificate and A records exist",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			},
+			fakeDomainService: func() *fakeDomainService {
+				return &fakeDomainService{
+					getFunc: func(context.Context, string) (*godo.Domain, *godo.Response, error) {
+						return &godo.Domain{
+							Name: "digitalocean.com",
+						}, newFakeOKResponse(), nil
+					},
+					recordsFunc: func(context.Context, string, *godo.ListOptions) ([]godo.DomainRecord, *godo.Response, error) {
+						return []godo.DomainRecord{
+							{
+								Type: "A",
+								Name: "@",
+								Data: "10.0.0.1",
+							},
+							{
+								Type: "A",
+								Name: "sample",
+								Data: "10.0.0.1",
+							},
+						}, newFakeOKResponse(), nil
+					},
+				}
+			},
+			fakeCertService: newKVCertService(
+				map[string]*godo.Certificate{
+					"cert": {
+						Name:     "cert",
+						Type:     certTypeLetsEncrypt,
+						DNSNames: []string{"sample.digitalocean.com", "digitalocean.com"},
+					},
+				}, false,
+			),
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+						annDODomain:          "sample.digitalocean.com",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						Hostname: "sample.digitalocean.com",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "successfully ensure loadbalancer with domain annotation, certificate and A records do not exist",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+			},
+			fakeDomainService: func() *fakeDomainService {
+				domainService := newKVDomainService(map[string]*godo.Domain{
+					"digitalocean.com": {
+						Name: "digitalocean.com",
+					},
+				}, map[string]map[int]*godo.DomainRecord{
+					"digitalocean.com": {},
+				})
+
+				return &domainService
+			},
+			fakeCertService: newKVCertService(
+				map[string]*godo.Certificate{}, false,
+			),
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annoDOLoadBalancerID: "load-balancer-id",
+						annDODomain:          "sample.digitalocean.com",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						Hostname: "sample.digitalocean.com",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
 			name: "successfully ensured loadbalancer by name that didn't exist",
 			droplets: []godo.Droplet{
 				{
@@ -3766,17 +4084,19 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return createLB(), newFakeOKResponse(), nil
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("get should not have been invoked")
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return createLB(), newFakeOKResponse(), nil
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3839,19 +4159,21 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "node-3",
 				},
 			},
-			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeResponse(http.StatusNotFound), errors.New("LB not found")
-			},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				lb := createLB()
-				lb.ID = "other-load-balancer-id"
-				return lb, newFakeOKResponse(), nil
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+			fakeLBService: &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeResponse(http.StatusNotFound), errors.New("LB not found")
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					lb := createLB()
+					lb.ID = "other-load-balancer-id"
+					return lb, newFakeOKResponse(), nil
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3903,16 +4225,18 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		{
 			name:     "failed to ensure existing load-balancer, state is non-active",
 			droplets: []godo.Droplet{},
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
-			},
-			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
-			},
-			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				lb := createLB()
-				lb.Status = lbStatusNew
-				return lb, newFakeOKResponse(), nil
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{*createLB()}, newFakeOKResponse(), nil
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					lb := createLB()
+					lb.Status = lbStatusNew
+					return lb, newFakeOKResponse(), nil
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3962,18 +4286,17 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					return test.droplets, newFakeOKResponse(), nil
 				},
 			}
-			fakeLB := &fakeLBService{
-				getFn:    test.getFn,
-				listFn:   test.listFn,
-				createFn: test.createFn,
-				updateFn: test.updateFn,
+
+			var fakeDomainService *fakeDomainService
+			if test.fakeDomainService != nil {
+				fakeDomainService = test.fakeDomainService()
 			}
-			certStore := make(map[string]*godo.Certificate)
-			fakeCert := newKVCertService(certStore, true)
+
 			fakeClient := newFakeClient(fakeClientOpts{
 				fakeDroplet: fakeDroplet,
-				fakeLB:      fakeLB,
-				fakeCert:    &fakeCert,
+				fakeLB:      test.fakeLBService,
+				fakeCert:    &test.fakeCertService.fakeCertService,
+				fakeDomain:  fakeDomainService,
 			})
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
@@ -4024,19 +4347,24 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 	lbName := "afoobar123"
 	tests := []struct {
-		name     string
-		listFn   func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		deleteFn func(ctx context.Context, lbID string) (*godo.Response, error)
-		service  *v1.Service
-		err      error
+		name              string
+		fakeLBService     *fakeLBService
+		fakeCertService   func() *kvCertService
+		fakeDomainService func() *fakeDomainService
+		service           *v1.Service
+		expectedCerts     []godo.Certificate
+		expectedARecords  []godo.DomainRecord
+		err               error
 	}{
 		{
 			name: "retrieval failed",
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return nil, newFakeNotOKResponse(), errors.New("API failed")
-			},
-			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
-				return newFakeNotOKResponse(), errors.New("delete should not have been invoked")
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("API failed")
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeNotOKResponse(), errors.New("delete should not have been invoked")
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -4048,11 +4376,13 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 		},
 		{
 			name: "load-balancer resource not found",
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
-			},
-			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
-				return newFakeNotOKResponse(), errors.New("delete should not have been called")
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeNotOKResponse(), errors.New("delete should not have been called")
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -4064,19 +4394,21 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 		},
 		{
 			name: "delete failed",
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{
-						// loadbalancer names are a + service.UID
-						// see cloudprovider.DefaultLoadBalancerName
-						Name:   lbName,
-						IP:     "10.0.0.1",
-						Status: lbStatusActive,
-					},
-				}, newFakeOKResponse(), nil
-			},
-			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
-				return newFakeNotOKResponse(), errors.New("API failed")
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{
+						{
+							// loadbalancer names are a + service.UID
+							// see cloudprovider.DefaultLoadBalancerName
+							Name:   lbName,
+							IP:     "10.0.0.1",
+							Status: lbStatusActive,
+						},
+					}, newFakeOKResponse(), nil
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeNotOKResponse(), errors.New("API failed")
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -4088,19 +4420,21 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 		},
 		{
 			name: "delete succeeded",
-			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-				return []godo.LoadBalancer{
-					{
-						// loadbalancer names are a + service.UID
-						// see cloudprovider.DefaultLoadBalancerName
-						Name:   lbName,
-						IP:     "10.0.0.1",
-						Status: lbStatusActive,
-					},
-				}, newFakeOKResponse(), nil
-			},
-			deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
-				return newFakeOKResponse(), nil
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{
+						{
+							// loadbalancer names are a + service.UID
+							// see cloudprovider.DefaultLoadBalancerName
+							Name:   lbName,
+							IP:     "10.0.0.1",
+							Status: lbStatusActive,
+						},
+					}, newFakeOKResponse(), nil
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeOKResponse(), nil
+				},
 			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -4110,15 +4444,203 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "delete succeeded, non-generated certificate not deleted",
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{
+						{
+							// loadbalancer names are a + service.UID
+							// see cloudprovider.DefaultLoadBalancerName
+							Name:   lbName,
+							IP:     "10.0.0.1",
+							Status: lbStatusActive,
+							ForwardingRules: []godo.ForwardingRule{
+								{
+									CertificateID: "non-generated-certificate",
+								},
+							},
+						},
+					}, newFakeOKResponse(), nil
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeOKResponse(), nil
+				},
+			},
+			fakeCertService: func() *kvCertService {
+				kvCertService := newKVCertService(
+					map[string]*godo.Certificate{
+						"non-generated-certificate": {
+							ID:       "non-generated-certificate",
+							Name:     "non-generated-certificate",
+							DNSNames: []string{"sample.digitalocean.com"},
+						},
+					}, false)
+
+				kvCertService.deleteFunc = func(ctx context.Context, id string) (*godo.Response, error) {
+					return newFakeNotOKResponse(), errors.New("Should not delete non-generated certificate")
+				}
+
+				return &kvCertService
+			},
+			expectedCerts: []godo.Certificate{
+				{
+					ID:       "non-generated-certificate",
+					Name:     "non-generated-certificate",
+					DNSNames: []string{"sample.digitalocean.com"},
+				},
+			},
+			fakeDomainService: func() *fakeDomainService {
+				return &fakeDomainService{
+					recordsFunc: func(ctx context.Context, domain string, opts *godo.ListOptions) ([]godo.DomainRecord, *godo.Response, error) {
+						return []godo.DomainRecord{}, newFakeOKResponse(), nil
+					},
+				}
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDODomain: "sample.digitalocean.com",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "delete succeeded, generated certificate deleted",
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{
+						{
+							// loadbalancer names are a + service.UID
+							// see cloudprovider.DefaultLoadBalancerName
+							Name:   lbName,
+							IP:     "10.0.0.1",
+							Status: lbStatusActive,
+							ForwardingRules: []godo.ForwardingRule{
+								{
+									CertificateID: "do-ccm-sample-digitalocean-com",
+								},
+							},
+						},
+					}, newFakeOKResponse(), nil
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeOKResponse(), nil
+				},
+			},
+			fakeCertService: func() *kvCertService {
+				kvCertService := newKVCertService(
+					map[string]*godo.Certificate{
+						"do-ccm-sample-digitalocean-com": {
+							ID:       "do-ccm-sample-digitalocean-com",
+							Name:     "do-ccm-sample-digitalocean-com",
+							DNSNames: []string{"sample.digitalocean.com"},
+						},
+					}, false)
+
+				return &kvCertService
+			},
+			fakeDomainService: func() *fakeDomainService {
+				return &fakeDomainService{
+					recordsFunc: func(ctx context.Context, domain string, opts *godo.ListOptions) ([]godo.DomainRecord, *godo.Response, error) {
+						return []godo.DomainRecord{}, newFakeOKResponse(), nil
+					},
+				}
+			},
+			expectedCerts: []godo.Certificate{},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDODomain: "sample.digitalocean.com",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "delete succeeded, generated A records deleted",
+			fakeLBService: &fakeLBService{
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return []godo.LoadBalancer{
+						{
+							// loadbalancer names are a + service.UID
+							// see cloudprovider.DefaultLoadBalancerName
+							Name:   lbName,
+							IP:     "10.0.0.1",
+							Status: lbStatusActive,
+							ForwardingRules: []godo.ForwardingRule{
+								{
+									CertificateID: "do-ccm-sample-digitalocean-com",
+								},
+							},
+						},
+					}, newFakeOKResponse(), nil
+				},
+				deleteFn: func(ctx context.Context, lbID string) (*godo.Response, error) {
+					return newFakeOKResponse(), nil
+				},
+			},
+			fakeCertService: func() *kvCertService {
+				kvCertService := newKVCertService(map[string]*godo.Certificate{}, false)
+				return &kvCertService
+			},
+			fakeDomainService: func() *fakeDomainService {
+				fakeDomainService := newKVDomainService(map[string]*godo.Domain{
+					"digitalocean.com": {Name: "digitalocean.com"},
+				}, map[string]map[int]*godo.DomainRecord{
+					"digitalocean.com": {
+						1: &godo.DomainRecord{
+							ID:   1,
+							Type: "A",
+							Name: "@",
+							Data: "10.0.0.1",
+						},
+						2: &godo.DomainRecord{
+							ID:   2,
+							Type: "A",
+							Name: "sample",
+							Data: "10.0.0.1",
+						},
+					},
+				})
+
+				return &fakeDomainService
+			},
+			expectedARecords: []godo.DomainRecord{},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDODomain: "sample.digitalocean.com",
+					},
+				},
+			},
+			err: nil,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fakeLB := &fakeLBService{
-				listFn:   test.listFn,
-				deleteFn: test.deleteFn,
+			var fakeCertService *fakeCertService
+			if test.fakeCertService != nil {
+				fakeCertService = &test.fakeCertService().fakeCertService
 			}
-			fakeClient := newFakeLBClient(fakeLB)
+			var fakeDomainService *fakeDomainService
+			if test.fakeDomainService != nil {
+				fakeDomainService = test.fakeDomainService()
+			}
+
+			fakeClient := newFakeClient(fakeClientOpts{
+				fakeLB:     test.fakeLBService,
+				fakeDomain: fakeDomainService,
+				fakeCert:   fakeCertService,
+			})
 			fakeResources := newResources("", "", fakeClient)
 
 			lb := &loadBalancers{
@@ -4132,6 +4654,61 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			err := lb.EnsureLoadBalancerDeleted(context.Background(), "clusterName", test.service)
 			if !reflect.DeepEqual(err, test.err) {
 				t.Errorf("got error %q, want %q", err, test.err)
+			}
+
+			// if we initialized a certificate service, verify it matches expected certificates
+			if fakeCertService != nil {
+				actualCerts, _, _ := fakeCertService.List(context.TODO(), &godo.ListOptions{})
+
+				if len(actualCerts) != len(test.expectedCerts) {
+					t.Errorf("unexpected certificates after EnsureLoadBalancerDeleted")
+					t.Logf("expected: %v", test.expectedCerts)
+					t.Logf("actual: %v", actualCerts)
+				}
+
+				for _, actual := range actualCerts {
+					found := false
+					for _, expected := range test.expectedCerts {
+						if reflect.DeepEqual(actual, expected) {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						t.Errorf("unexpected certificates after EnsureLoadBalancerDeleted")
+						t.Logf("expected: %v", test.expectedCerts)
+						t.Logf("actual: %v", actualCerts)
+					}
+				}
+			}
+
+			// if we initialized a certificate service, verify it matches expected certificates
+			domain, _ := getDomain(test.service)
+			if fakeDomainService != nil && domain != nil {
+				actualRecords, _, _ := fakeDomainService.Records(context.TODO(), domain.root, &godo.ListOptions{})
+
+				if len(actualRecords) != len(test.expectedARecords) {
+					t.Errorf("unexpected A records after EnsureLoadBalancerDeleted")
+					t.Logf("expected: %v", test.expectedARecords)
+					t.Logf("actual: %v", actualRecords)
+				}
+
+				for _, actual := range actualRecords {
+					found := false
+					for _, expected := range test.expectedARecords {
+						if reflect.DeepEqual(actual, expected) {
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						t.Errorf("unexpected A records after EnsureLoadBalancerDeleted")
+						t.Logf("expected: %v", test.expectedARecords)
+						t.Logf("actual: %v", actualRecords)
+					}
+				}
 			}
 		})
 	}
