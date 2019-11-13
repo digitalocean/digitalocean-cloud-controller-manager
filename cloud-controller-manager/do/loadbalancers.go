@@ -263,7 +263,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	switch err {
 	case nil:
 		// LB existing
-		lb, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+		lb, err = l.updateLoadBalancer(ctx, service, lb, nodes)
 		if err != nil {
 			return nil, err
 		}
@@ -339,7 +339,7 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 	return nil
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, service *v1.Service, lb *godo.LoadBalancer, nodes []*v1.Node) (*godo.LoadBalancer, error) {
 	// call buildLoadBalancerRequest for its error checking; we have to call it
 	// again just before actually updating the loadbalancer in case
 	// checkAndUpdateLBAndServiceCerts modifies the service
@@ -383,7 +383,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+	_, err = l.updateLoadBalancer(ctx, service, lb, nodes)
 	return err
 }
 
