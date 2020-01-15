@@ -14,7 +14,7 @@ These are the recommended versions to run the cloud controller manager based on 
 * Use CCM versions >= v0.1.5 if you're running Kubernetes version >= v1.10
 * Use CCM versions >= v0.1.8 if you're running Kubernetes version >= v1.11
 
-### Command-line parameters
+### Parameters
 
 This section outlines parameters that can be passed to the cloud controller manager binary.
 
@@ -35,6 +35,12 @@ For DigitalOcean accounts with small to medium numbers of droplets, iteration sh
 A solution to the problem is to pass the provider ID (aka droplet ID) via the kubelet on bootstrap through the `--provider-id=digitalocean://<droplet ID>` parameter. The droplet ID can be retrieved from the metadata service available on each droplet at the `http://169.254.169.254/metadata/v1/id` address. Passing the provider ID like this causes the node annotation to be available right from the start, thereby enabling fast API lookups for droplets at all times.
 
 DigitalOcean's managed Kubernetes offering DOKS sets the provider ID on each worker node kubelet instance.
+
+### DEBUG_ADDR environment variable
+
+If the `DEBUG_ADDR` environment variable is specified, then an HTTP server is started on the given address (e.g., `:12301`). It serves on `/healthz` and queries the `/v2/account` path of the DigitalOcean API on request.
+
+The purpose of this endpoint is to check the availability of the DigitalOcean API on demand from the perspective of the cloud controller manager.
 
 ### Kubernetes node name overriding
 

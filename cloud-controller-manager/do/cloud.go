@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/digitalocean/godo"
 
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/informers"
 	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/klog"
 )
 
 const (
@@ -46,7 +48,6 @@ const (
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
 	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
 	debugAddrEnv        string = "DEBUG_ADDR"
-	defaultDebugAddr    string = "127.0.0.1:12301"
 )
 
 var version string
@@ -70,7 +71,7 @@ type cloud struct {
 
 	resources *resources
 
-	httpServer http.Server
+	httpServer *http.Server
 }
 
 func newCloud() (cloudprovider.Interface, error) {
@@ -110,11 +111,14 @@ func newCloud() (cloudprovider.Interface, error) {
 	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
 	resources := newResources(clusterID, clusterVPCID, doClient)
 
-	debugMux := http.NewServeMux()
-	healthz.InstallHandler(debugMux, &godoHealthChecker{client: doClient})
-	debugAddr := defaultDebugAddr
-	if os.Getenv(debugAddrEnv) != "" {
-		debugAddr = os.Getenv(debugAddrEnv)
+	var httpServer *http.Server
+	if debugAddr := os.Getenv(debugAddrEnv); debugAddr != "" {
+		debugMux := http.NewServeMux()
+		healthz.InstallHandler(debugMux, &godoHealthChecker{client: doClient})
+		httpServer = &http.Server{
+			Addr:    debugAddr,
+			Handler: debugMux,
+		}
 	}
 
 	return &cloud{
@@ -125,10 +129,7 @@ func newCloud() (cloudprovider.Interface, error) {
 
 		resources: resources,
 
-		httpServer: http.Server{
-			Addr:    debugAddr,
-			Handler: debugMux,
-		},
+		httpServer: httpServer,
 	}, nil
 }
 
@@ -151,10 +152,22 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 }
 
 func (c *cloud) serveDebug(stop <-chan struct{}) {
-	go c.httpServer.ListenAndServe()
+	if c.httpServer == nil {
+		return
+	}
+
+	go func() {
+		if err := c.httpServer.ListenAndServe(); err != http.ErrServerClosed {
+			klog.Errorf("Debug server failed: %s", err)
+		}
+	}()
 
 	<-stop
-	c.httpServer.Shutdown(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := c.httpServer.Shutdown(ctx); err != nil {
+		klog.Errorf("Failed to shut down debug server: %s", err)
+	}
 }
 
 func (c *cloud) LoadBalancer() (cloudprovider.LoadBalancer, bool) {
