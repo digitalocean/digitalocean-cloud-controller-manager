@@ -2,7 +2,9 @@
 
 ## unreleased
 
-* Add `DEBUG_ADDR` env var for configuring the address of a http server serving a `/healthz` health endpoint (@nanzhong)
+## v0.1.22 (beta) - Jan 15th 2020
+
+* Add `DEBUG_ADDR` environment variable for configuring the address of an HTTP server serving a `/healthz` health endpoint (@nanzhong)
 
 ## v0.1.21 (beta) - Oct 27th 2019
 
