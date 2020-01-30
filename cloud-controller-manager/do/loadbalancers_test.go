@@ -1307,6 +1307,55 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
+			"default protocol is maintained",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "http",
+						annDOTLSPassThrough: "true",
+						annDOHTTP2Ports:     "443",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http2",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(40000),
+						},
+						{
+							Name:     "test-http",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "http2",
+					TargetPort:     40000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+				{
+					EntryProtocol:  "http",
+					EntryPort:      80,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
 			"default forwarding rules with sticky sessions no protocol specified",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{

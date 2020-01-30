@@ -2,6 +2,10 @@
 
 ## unreleased
 
+### Fixed
+
+* Maintain default protocol when secure protocol override is applied (@timoreimann)
+
 ## v0.1.22 (beta) - Jan 15th 2020
 
 * Add `DEBUG_ADDR` environment variable for configuring the address of an HTTP server serving a `/healthz` health endpoint (@nanzhong)

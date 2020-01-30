@@ -632,7 +632,7 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	var forwardingRules []godo.ForwardingRule
 
-	protocol, err := getProtocol(service)
+	defaultProtocol, err := getProtocol(service)
 	if err != nil {
 		return nil, err
 	}
@@ -670,6 +670,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	}
 
 	for _, port := range service.Spec.Ports {
+		protocol := defaultProtocol
 		// Set secure protocols explicitly if correspondingly configured ports
 		// are found.
 		if httpsPortMap[port.Port] {
