@@ -2,10 +2,15 @@
 
 ## unreleased
 
+## v0.1.23 (beta) - Jan 31th 2020
+
+### Added
+
+* Add `service.beta.kubernetes.io/do-loadbalancer-healthcheck-port` annotation to customize DO LB health-check port (@ntate)
+
 ### Fixed
 
 * Maintain default protocol when secure protocol override is applied (@timoreimann)
-* Add `service.beta.kubernetes.io/do-loadbalancer-healthcheck-port` annotation to customize DO LB health-check port (@ntate)
 
 ## v0.1.22 (beta) - Jan 15th 2020
 
