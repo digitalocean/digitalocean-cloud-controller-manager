@@ -1992,6 +1992,125 @@ func Test_buildHealthCheck(t *testing.T) {
 			errMsgPrefix: fmt.Sprintf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
 		},
 		{
+			name: "health check with custom port",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http",
+						annDOHealthCheckPath: "/health",
+						annDOHealthCheckPort: "636",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("http", 32000, "/health"),
+		},
+		{
+			name: "invalid health check using port override with non-existent port",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort: "9999",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(332),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("specified health check port %d does not exist on service default/test", 9999),
+		},
+		{
+			name: "invalid health check using port override with non-numeric port",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort: "invalid",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(332),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: "failed to get health check port: strconv.Atoi: parsing \"invalid\": invalid syntax",
+		},
+		{
+			name: "invalid health check using port override with multiple ports",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort: "636,332",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(332),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("annotation %s only supports a single port, but found multiple: [636 332]", annDOHealthCheckPort),
+		},
+		{
 			name: "default numeric parameters",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{

@@ -12,6 +12,10 @@ Certain annotations may override the default protocol. See the more specific des
 
 If `https` or `http2` is specified, then either `service.beta.kubernetes.io/do-loadbalancer-certificate-id` or `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` must be specified as well.
 
+## service.beta.kubernetes.io/do-loadbalancer-healthcheck-port
+
+The port used to check if a backend droplet is healthy. Defaults to the first port in a service.
+
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-path
 
 The path used to check if a backend droplet is healthy. Defaults to "/".

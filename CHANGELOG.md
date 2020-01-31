@@ -5,6 +5,7 @@
 ### Fixed
 
 * Maintain default protocol when secure protocol override is applied (@timoreimann)
+* Add `service.beta.kubernetes.io/do-loadbalancer-healthcheck-port` annotation to customize DO LB health-check port (@ntate)
 
 ## v0.1.22 (beta) - Jan 15th 2020
 

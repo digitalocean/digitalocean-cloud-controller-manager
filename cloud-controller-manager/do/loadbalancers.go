@@ -49,6 +49,10 @@ const (
 	// for DO load balancers. Defaults to '/'.
 	annDOHealthCheckPath = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-path"
 
+	// annDOHealthCheckPort is the annotation used to specify the health check port
+	// for DO load balancers. Defaults to the first Service Port
+	annDOHealthCheckPort = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-port"
+
 	// annDOHealthCheckProtocol is the annotation used to specify the health check protocol
 	// for DO load balancers. Defaults to the protocol used in
 	// 'service.beta.kubernetes.io/do-loadbalancer-protocol'.
@@ -587,11 +591,12 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 }
 
 // buildHealthChecks returns a godo.HealthCheck for service.
-//
-// Although a Kubernetes Service can have many node ports, DigitalOcean Load
-// Balancers can only take one node port so we choose the first node port for
-// health checking.
 func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
+	healthCheckPort, err := healthCheckPort(service)
+	if err != nil {
+		return nil, err
+	}
+
 	healthCheckProtocol, err := healthCheckProtocol(service)
 	if err != nil {
 		return nil, err
@@ -618,7 +623,7 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 
 	return &godo.HealthCheck{
 		Protocol:               healthCheckProtocol,
-		Port:                   int(service.Spec.Ports[0].NodePort),
+		Port:                   healthCheckPort,
 		Path:                   healthCheckPath,
 		CheckIntervalSeconds:   checkIntervalSecs,
 		ResponseTimeoutSeconds: responseTimeoutSecs,
@@ -779,6 +784,30 @@ func getProtocol(service *v1.Service) (string, error) {
 // getHostname returns the desired hostname for the LB service.
 func getHostname(service *v1.Service) string {
 	return strings.ToLower(service.Annotations[annDOHostname])
+}
+
+// healthCheckPort returns the health check port specified, defaulting
+// to the first port in the service otherwise.
+func healthCheckPort(service *v1.Service) (int, error) {
+	ports, err := getPorts(service, annDOHealthCheckPort)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get health check port: %v", err)
+	}
+
+	if len(ports) > 1 {
+		return 0, fmt.Errorf("annotation %s only supports a single port, but found multiple: %v", annDOHealthCheckPort, ports)
+	}
+
+	if len(ports) == 1 {
+		for _, servicePort := range service.Spec.Ports {
+			if int(servicePort.Port) == ports[0] {
+				return int(servicePort.NodePort), nil
+			}
+		}
+		return 0, fmt.Errorf("specified health check port %d does not exist on service %s/%s", ports[0], service.Namespace, service.Name)
+	}
+
+	return int(service.Spec.Ports[0].NodePort), nil
 }
 
 // healthCheckProtocol returns the health check protocol as specified in the service,
