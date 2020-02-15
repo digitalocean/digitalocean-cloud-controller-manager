@@ -40,6 +40,10 @@ const (
 	// used to enable fast retrievals of load-balancers from the API by UUID.
 	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
+	// annoDOLoadBalancerName is the annotation used to specify a name of the
+	// load balancer that is going to be created by the controller.
+	annoDOLoadBalancerName = "kubernetes.digitalocean.com/load-balancer-name"
+
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
@@ -245,6 +249,13 @@ func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName strin
 }
 
 func getDefaultLoadBalancerName(service *v1.Service) string {
+	name := service.Annotations[annoDOLoadBalancerName]
+
+	// TODO do we need to slugify this?
+	if len(name) > 0 {
+		return name
+	}
+
 	return cloudprovider.DefaultLoadBalancerName(service)
 }
 
