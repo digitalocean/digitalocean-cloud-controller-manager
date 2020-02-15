@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,7 +169,13 @@ const (
 	defaultSecurePort = 443
 )
 
-var errLBNotFound = errors.New("loadbalancer not found")
+var (
+	errLBNotFound = errors.New("loadbalancer not found")
+
+	// Expressions used to slugify a Load Balancer name
+	regexpNonSlugChars   = regexp.MustCompile("[^a-zA-Z0-9-]")
+	regexpMultipleDashes = regexp.MustCompile("-+")
+)
 
 func buildK8sTag(val string) string {
 	return fmt.Sprintf("%s:%s", tagPrefixClusterID, val)
@@ -251,8 +258,10 @@ func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName strin
 func getDefaultLoadBalancerName(service *v1.Service) string {
 	name := service.Annotations[annoDOLoadBalancerName]
 
-	// TODO do we need to slugify this?
 	if len(name) > 0 {
+		name = regexpNonSlugChars.ReplaceAllString(name, "-")
+		name = regexpMultipleDashes.ReplaceAllString(name, "-")
+
 		return name
 	}
 
