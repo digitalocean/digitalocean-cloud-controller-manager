@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+
+	"k8s.io/klog"
 )
 
 const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
@@ -29,6 +31,7 @@ const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
 func dropletRegion() (string, error) {
 	// FAKE_REGION can be specified for local testing.
 	if region := os.Getenv("FAKE_REGION"); region != "" {
+		klog.Warningf("Using fake region %q from environment variable FAKE_REGION -- this should only be set for testing purposes!", region)
 		return region, nil
 	}
 	return httpGet(dropletRegionMetadataURL)
