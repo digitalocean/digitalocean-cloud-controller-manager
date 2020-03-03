@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,9 +40,9 @@ const (
 	// used to enable fast retrievals of load-balancers from the API by UUID.
 	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
-	// annoDOLoadBalancerName is the annotation used to specify a name of the
+	// annDOLoadBalancerName is the annotation used to specify a name of the
 	// load balancer that is going to be created by the controller.
-	annoDOLoadBalancerName = "kubernetes.digitalocean.com/load-balancer-name"
+	annDOLoadBalancerName = "service.beta.kubernetes.io/do-load-balancer-name"
 
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
@@ -171,10 +170,6 @@ const (
 
 var (
 	errLBNotFound = errors.New("loadbalancer not found")
-
-	// Expressions used to slugify a Load Balancer name
-	regexpNonSlugChars   = regexp.MustCompile("[^a-zA-Z0-9-]")
-	regexpMultipleDashes = regexp.MustCompile("-+")
 )
 
 func buildK8sTag(val string) string {
@@ -256,12 +251,9 @@ func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName strin
 }
 
 func getDefaultLoadBalancerName(service *v1.Service) string {
-	name := service.Annotations[annoDOLoadBalancerName]
+	name := service.Annotations[annDOLoadBalancerName]
 
 	if len(name) > 0 {
-		name = regexpNonSlugChars.ReplaceAllString(name, "-")
-		name = regexpMultipleDashes.ReplaceAllString(name, "-")
-
 		return name
 	}
 

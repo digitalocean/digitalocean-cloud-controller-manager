@@ -3504,12 +3504,12 @@ func Test_GetLoadBalancer(t *testing.T) {
 			err:    nil,
 		},
 		{
-			name: "got loadbalancer by annotation name",
+			name: "get loadbalancer by annotation name",
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{
 					{
 						ID:     "load-balancer-id",
-						Name:   "my-awesome-load-balancer",
+						Name:   "my-load-balancer-123",
 						IP:     "10.0.0.1",
 						Status: lbStatusActive,
 					},
@@ -3521,8 +3521,8 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Namespace: v1.NamespaceDefault,
 					UID:       "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:          "http",
-						annoDOLoadBalancerName: "my awesome/load-balancer",
+						annDOProtocol:         "http",
+						annDOLoadBalancerName: "my-load-balancer-123",
 					},
 				},
 				Spec: v1.ServiceSpec{
