@@ -51,7 +51,7 @@ The solution is to change the service port to a different, non-conlicting one.
 
 ## Development
 
-Requirements:
+### Basics
 
 * Go: min `v1.12.x`
 
@@ -63,16 +63,35 @@ After making your code changes, run the tests and CI checks:
 make ci
 ```
 
-If you want to test your changes, create a new image with the version set to `dev`:
+### Run Locally
+
+If you want to run `digitalocean-cloud-controller-manager` locally against a
+particular cluster, keep your kubeconfig ready and start the binary in the main
+package-hosted directory like this:
+
+```bash
+cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
+FAKE_REGION=fra1 go run main.go --kubeconfig <path to your kubeconfig file> --leader-elect=false --v=5 --cloud-provider=digitalocean
+```
+
+The `FAKE_REGION` environment variable takes a (valid) DigitalOcean region. It
+is needed to keep `digitalocean-cloud-controller-manager` from trying to access
+the DigitalOcean metadata service which is only available on droplets. Overall,
+which region you choose should not matter a lot as long as you pick one.
+
+### Run Containerized
+
+If you want to test your changes in a containerized environment, create a new
+image with the version set to `dev`:
 
 ```bash
 VERSION=dev make publish
 ```
 
 This will create a binary with version `dev` and docker image pushed to
-`digitalocean/digitalocean-cloud-controller-manager:dev`
+`digitalocean/digitalocean-cloud-controller-manager:dev`.
 
-### Release a new version
+## Release a new version
 
 To release a new version first bump the version:
 
