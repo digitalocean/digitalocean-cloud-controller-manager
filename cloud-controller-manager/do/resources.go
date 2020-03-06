@@ -169,7 +169,7 @@ func (r *ResourcesController) syncTags() error {
 	for _, svc := range lbSvcs {
 		id := getLoadBalancerID(svc)
 		if id == "" {
-			name := getDefaultLoadBalancerName(svc)
+			name := getLoadBalancerName(svc)
 			id = loadBalancerIDsByName[name]
 		}
 

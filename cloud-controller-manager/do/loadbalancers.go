@@ -247,10 +247,10 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 // GetLoadBalancerName returns the name of the load balancer. Implementations must treat the
 // *v1.Service parameter as read-only and not modify it.
 func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName string, service *v1.Service) string {
-	return getDefaultLoadBalancerName(service)
+	return getLoadBalancerName(service)
 }
 
-func getDefaultLoadBalancerName(service *v1.Service) string {
+func getLoadBalancerName(service *v1.Service) string {
 	name := service.Annotations[annDOLoadBalancerName]
 
 	if len(name) > 0 {
@@ -458,7 +458,7 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 	}
 
 	// Retrieve by exhaustive iteration.
-	lbName := getDefaultLoadBalancerName(service)
+	lbName := getLoadBalancerName(service)
 	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name %s", service.Namespace, service.Name, lbName)
 	return l.lbByName(ctx, lbName)
 }
@@ -552,7 +552,7 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	lbName := getDefaultLoadBalancerName(service)
+	lbName := getLoadBalancerName(service)
 
 	dropletIDs, err := l.nodesToDropletIDs(ctx, nodes)
 	if err != nil {

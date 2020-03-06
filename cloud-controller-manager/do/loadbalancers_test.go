@@ -4240,10 +4240,11 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			svc := createLBSvc(1)
 			lb := godo.LoadBalancer{
-				// loadbalancer names are a + service.UID
-				// see cloudprovider.DefaultLoadBalancerName
+				// LoadBalancer names are a + service.UID unless defined in the
+				// do-loadbalancer-name service annotation.
+				// See cloudprovider.DefaultLoadBalancerName.
 				ID:   "f7968b52-4ed9-4a16-af8b-304253f04e20",
-				Name: getDefaultLoadBalancerName(svc),
+				Name: getLoadBalancerName(svc),
 				IP:   "10.0.0.1",
 				// Status: lbStatusActive,
 			}

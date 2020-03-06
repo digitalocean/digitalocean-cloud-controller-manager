@@ -96,7 +96,8 @@ func (sb *serviceBuilder) build() *v1.Service {
 
 func lbName(idx int) string {
 	svc := newSvcBuilder(idx).build()
-	return getDefaultLoadBalancerName(svc)
+
+	return getLoadBalancerName(svc)
 }
 
 func createLBSvc(idx int) *corev1.Service {
