@@ -1,6 +1,9 @@
 # Load Balancers
 
-DigitalOcean cloud controller manager runs service controller, which is responsible for watching services of type `LoadBalancer` and creating DO loadbalancers to satify its requirements. Here are some examples of how it's used.
+DigitalOcean cloud controller manager runs service controller, which is
+responsible for watching services of type `LoadBalancer` and creating DO
+loadbalancers to satify its requirements. Here are some examples of how it's
+used.
 
 ## TCP Load Balancer
 
@@ -154,5 +157,30 @@ spec:
         ports:
         - containerPort: 80
           protocol: TCP
+```
 
+## Surfacing errors related to provisioning a load balancer
+
+Cloud Controller Manager is using DigitalOcean API internally to provision a
+DigitalOcean load balancer. It might happen that provisioning will be
+unsuccessful, because of various reasons.
+
+You can find provisioning status and all the reconciliation errors that Cloud
+Controller Manager encountered during the LoadBalancer service life-cycle in
+the service's event stream.
+
+Provided that your load balancer service name is `my-load-balancer`, you can use
+following commands to access events attached to this object:
+
+```bash
+$ kubectl describe service my-load-balancer
+```
+
+In the above case, events should be available at the bottom of the description,
+if present.
+
+To get only events for a given service, you can use following command:
+
+```bash
+$ kubectl get events --field-selector involvedObject.name=my-load-balancer
 ```
