@@ -4196,6 +4196,53 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 	}
 }
 
+func TestGetLoadBalancerName(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected string
+		service  *v1.Service
+	}{
+		{
+			name:     "when do-load-balancer-name is empty",
+			expected: "aservice123",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					UID:       "service123",
+					Namespace: v1.NamespaceDefault,
+				},
+			},
+		},
+		{
+			name:     "when do-load-balancer-name has been set",
+			expected: "my-load-balancer-name-123",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					Annotations: map[string]string{
+						annDOLoadBalancerName: "my-load-balancer-name-123",
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lb := &loadBalancers{
+				resources: newResources("", "", newFakeLBClient(&fakeLBService{})),
+			}
+
+			name := lb.GetLoadBalancerName(context.Background(), "cluster", test.service)
+
+			if test.expected != name {
+				t.Errorf("load balancer name invalid, is %q, should be %q", name, test.expected)
+			}
+		})
+	}
+}
+
 func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 	tests := []struct {
 		name string
