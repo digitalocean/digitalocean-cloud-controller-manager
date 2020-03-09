@@ -169,11 +169,11 @@ You can find provisioning status and all the reconciliation errors that Cloud
 Controller Manager encountered during the LoadBalancer service life-cycle in
 the service's event stream.
 
-Provided that your load balancer service name is `my-load-balancer`, you can use
-following commands to access events attached to this object:
+Provided that your kubernetes service name is `my-svc`, you can use following
+commands to access events attached to this object:
 
 ```bash
-$ kubectl describe service my-load-balancer
+$ kubectl describe service my-svc
 ```
 
 In the above case, events should be available at the bottom of the description,
@@ -182,5 +182,5 @@ if present.
 To get only events for a given service, you can use following command:
 
 ```bash
-$ kubectl get events --field-selector involvedObject.name=my-load-balancer
+$ kubectl get events --field-selector involvedObject.name=my-svc
 ```
