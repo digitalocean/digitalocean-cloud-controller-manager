@@ -4230,9 +4230,7 @@ func TestGetLoadBalancerName(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			lb := &loadBalancers{
-				resources: newResources("", "", newFakeLBClient(&fakeLBService{})),
-			}
+			lb := &loadBalancers{}
 
 			name := lb.GetLoadBalancerName(context.Background(), "cluster", test.service)
 
