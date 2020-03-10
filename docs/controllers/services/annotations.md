@@ -114,3 +114,15 @@ Indicates whether PROXY protocol should be enabled. Options are `"true"` or `"fa
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+Indicates whether PROXY protocol should be enabled. Options are `true` or `false`. Defaults to `false`.
+
+## service.beta.kubernetes.io/do-loadbalancer-domain
+
+Specifies the full Domain name for your service. It will automatically attempt to generate a `LetsEncrypt` certificate for your domain. Setting this annotation will automatically update your service with the corresponding `service.beta.kubernetes.io/do-loadbalancer-certificate-id` and `service.beta.kubernetes.io/do-loadbalancer-hostname` annotations corresponding to your domain as well.
+
+**Note**
+ - You are **required** to have already created a [DigitalOcean Domain](https://www.digitalocean.com/docs/networking/dns/) for the root domain specified in your annotation.
+ - It will attempt to use an existing certicicate that is valid for the domain name or autogenerate if one is not found
+ - If your domain has any existing A-records for the `root` or `subdomain` they **must** be referencing the LBs IP.
+ - Cleanup of generated resources is *best effort*. If you modify the `domain` for a service after creation, we may not be able to succesfully garbage collect lost resources after the new domain is ensured.

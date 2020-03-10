@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/net/publicsuffix"
 	v1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
@@ -101,6 +102,9 @@ const (
 	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
 
+	// annDODomain is the domain in front of the loadbalancer
+	annDODomain = "service.beta.kubernetes.io/do-loadbalancer-domain"
+
 	// annDOHostname is the annotation specifying the hostname to use for the LB.
 	annDOHostname = "service.beta.kubernetes.io/do-loadbalancer-hostname"
 
@@ -162,6 +166,8 @@ const (
 	portProtocolTCP = "TCP"
 
 	defaultSecurePort = 443
+
+	defaultDomainRecordTTL = 3600
 )
 
 var errLBNotFound = errors.New("loadbalancer not found")
@@ -256,6 +262,28 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	patcher := newServicePatcher(l.resources.kclient, service)
 	defer func() { err = patcher.Patch(err) }()
 
+	serviceCertificate, err := l.validateServiceCertificate(ctx, service)
+	if err != nil {
+		return nil, err
+	}
+
+	// If a domain annotation exists, verify that a corresponding DO domain exists for the root domain
+	var domain *domain
+	domain, err = l.ensureDomain(ctx, service)
+	if err != nil {
+		return nil, err
+	}
+
+	// If a domain annotation exists, we validate the current serviceCertificate is valid or generate one if
+	// it does not exist or is not valid for the specified domain.
+	if domain != nil {
+		serviceCertificate, err = l.ensureCertificateForDomain(ctx, serviceCertificate, domain)
+		if err != nil {
+			return nil, err
+		}
+		updateServiceAnnotation(service, annDOCertificateID, serviceCertificate.ID)
+	}
+
 	var lbRequest *godo.LoadBalancerRequest
 	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
@@ -267,7 +295,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	switch err {
 	case nil:
 		// LB existing
-		lb, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+		lb, err = l.updateLoadBalancer(ctx, service, lb, nodes)
 		if err != nil {
 			return nil, err
 		}
@@ -288,6 +316,16 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	if lb.Status != lbStatusActive {
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+	}
+
+	// If a domain exists, ensure that the domain has an A record pointing to the LB IP
+	if domain != nil {
+		err = l.ensureDomainARecords(ctx, domain, lb)
+		if err != nil {
+			return nil, err
+		}
+
+		updateServiceAnnotation(service, annDOHostname, domain.full)
 	}
 
 	// If a LB hostname annotation is specified, return with it instead of the IP.
@@ -324,26 +362,31 @@ func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
 // lets_encrypt type certificate associated with a Service that the certificate
 // annotation on the Service gets newly-updated certificate ID from the
 // Load Balancer.
-func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, service *v1.Service, lbCertID, serviceCertID string) error {
-	if lbCertID != "" && lbCertID != serviceCertID {
-		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
-		if err != nil {
-			respErr, ok := err.(*godo.ErrorResponse)
-			if ok && respErr.Response.StatusCode == http.StatusNotFound {
-				return nil
-			}
-			return fmt.Errorf("failed to get DO certificate for load-balancer: %s", err)
-		}
+func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, service *v1.Service, lbCertID string) error {
+	certificate, err := l.validateServiceCertificate(ctx, service)
+	if err != nil {
+		return err
+	}
 
-		if lbCert.Type == certTypeLetsEncrypt {
-			updateServiceAnnotation(service, annDOCertificateID, lbCertID)
-		}
+	// If the existing service certificate is valid, do not attempt to overwrite
+	// the existing LB certificate. We might be attempting to change the certificate.
+	if certificate != nil || lbCertID == "" {
+		return nil
+	}
+
+	certificate, err = l.validateCertificateExistence(ctx, lbCertID)
+	if err != nil {
+		return err
+	}
+
+	if certificate != nil && certificate.Type == certTypeLetsEncrypt {
+		updateServiceAnnotation(service, annDOCertificateID, lbCertID)
 	}
 
 	return nil
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, service *v1.Service, lb *godo.LoadBalancer, nodes []*v1.Node) (*godo.LoadBalancer, error) {
 	// call buildLoadBalancerRequest for its error checking; we have to call it
 	// again just before actually updating the loadbalancer in case
 	// checkAndUpdateLBAndServiceCerts modifies the service
@@ -353,8 +396,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	}
 
 	lbCertID := getCertificateIDFromLB(lb)
-	serviceCertID := getCertificateID(service)
-	err = l.recordUpdatedLetsEncryptCert(ctx, service, lbCertID, serviceCertID)
+	err = l.recordUpdatedLetsEncryptCert(ctx, service, lbCertID)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +429,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+	_, err = l.updateLoadBalancer(ctx, service, lb, nodes)
 	return err
 }
 
@@ -407,12 +449,79 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 		return err
 	}
 
+	klog.V(2).Infof("Deleting load-balancer %s for service %s/%s", lb.ID, service.Namespace, service.Name)
 	resp, err := l.resources.gclient.LoadBalancers.Delete(ctx, lb.ID)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			return nil
 		}
 		return fmt.Errorf("failed to delete load-balancer: %s", err)
+	}
+
+	domain, err := getDomain(service)
+	if err != nil {
+		klog.Errorf("Failed to parse domain from service %s/%s: %s", service.Namespace, service.Name, err)
+		return err
+	} else if domain == nil {
+		return nil
+	}
+
+	// Attempt to clean up any managed A records or certificates related to LB
+	certID := getCertificateIDFromLB(lb)
+	cert, resp, err := l.resources.gclient.Certificates.Get(ctx, certID)
+	if err != nil && resp.StatusCode != http.StatusNotFound {
+		// fall-through so that we attempt to clean up A records on domain later on
+		klog.Errorf("Failed to fetch certificate for service %s/%s: %s", service.Namespace, service.Name, err)
+		return err
+	}
+
+	// If this certificate name matches the autogenerated cert format then cleanup
+	if cert != nil && cert.Name == getCertificateName(domain.full) {
+		klog.V(2).Infof("Deleting certificate %s for service %s/%s", certID, service.Namespace, service.Name)
+
+		resp, err := l.resources.gclient.Certificates.Delete(ctx, certID)
+		if err != nil && resp.StatusCode != http.StatusNotFound {
+			// fall-through so that we attempt to clean up A records on domain later on
+			klog.Errorf("Failed to delete certificate %s for service %s/%s during cleanup: %s", certID, service.Namespace, service.Name, err)
+			return err
+		}
+	}
+
+	records, _, err := l.resources.gclient.Domains.Records(ctx, domain.root, &godo.ListOptions{})
+	if err != nil {
+		klog.Errorf("Failed to fetch records for domain %s of service %s/%s: %s", domain.root, service.Namespace, service.Name, err)
+		return err
+	}
+
+	// Attempt to clean up root domain record
+	record, err := findARecordForNameAndIP(records, "@", lb.IP)
+	if err != nil {
+		klog.Errorf("Failed to find A-record(%s) with IP %s for service %s/%s: %s", "@", lb.IP, service.Namespace, service.Name, err)
+		return err
+	}
+	if record != nil {
+		klog.V(2).Infof("Deleting A-record %s with IP %s for service %s/%s", "@", lb.IP, service.Namespace, service.Name)
+		_, err := l.resources.gclient.Domains.DeleteRecord(ctx, domain.root, record.ID)
+		if err != nil {
+			klog.Errorf("Failed to delete A-record(%s) with IP %s for service %s/%s: %s", "@", lb.IP, service.Namespace, service.Name, err)
+			return err
+		}
+	}
+
+	if domain.sub != "" {
+		record, err := findARecordForNameAndIP(records, domain.sub, lb.IP)
+		if err != nil {
+			klog.Errorf("Failed to find A-record(%s) with IP %s for service %s/%s: %s", domain.sub, lb.IP, service.Namespace, service.Name, err)
+			return err
+		}
+		if record != nil {
+			klog.V(2).Infof("Deleting A-record %s with IP %s for service %s/%s", domain.sub, lb.IP, service.Namespace, service.Name)
+			_, err := l.resources.gclient.Domains.DeleteRecord(ctx, domain.root, record.ID)
+			if err != nil {
+				klog.Errorf("Failed to delete A-record(%s) with IP %s for service %s/%s: %s", domain.sub, lb.IP, service.Namespace, service.Name, err)
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -1039,6 +1148,48 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 
 func getLoadBalancerID(service *v1.Service) string {
 	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
+}
+
+type domain struct {
+	eTLD string
+	root string
+	sub  string
+	full string
+}
+
+func getDomain(service *v1.Service) (*domain, error) {
+	rawDomain := service.ObjectMeta.Annotations[annDODomain]
+
+	if rawDomain == "" {
+		return nil, nil
+	}
+
+	eTLD, _ := publicsuffix.PublicSuffix(rawDomain)
+	root, err := publicsuffix.EffectiveTLDPlusOne(rawDomain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse root domain from [%s]: %s", rawDomain, err)
+	}
+
+	sub := strings.TrimSuffix(rawDomain, fmt.Sprintf(".%s", root))
+	full := root
+
+	// TrimSuffix returns string if suffix not found
+	if sub == rawDomain {
+		sub = ""
+	} else {
+		sub = strings.TrimPrefix(sub, ".")
+	}
+
+	if sub != "" {
+		full = fmt.Sprintf("%s.%s", sub, full)
+	}
+
+	return &domain{
+		eTLD: eTLD,
+		root: root,
+		sub:  sub,
+		full: full,
+	}, nil
 }
 
 func findDups(vals []int) []string {

@@ -143,19 +143,18 @@ var (
 )
 
 func TestResourcesController_Run(t *testing.T) {
-	gclient := newFakeClient(
-		&fakeDropletService{
+	gclient := newFakeClient(fakeClientOpts{
+		fakeDroplet: &fakeDropletService{
 			listFunc: func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 				return []godo.Droplet{{ID: 2, Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
-		&fakeLBService{
+		fakeLB: &fakeLBService{
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
 			},
 		},
-		nil,
-	)
+	})
 	fakeResources := newResources(clusterID, "", gclient)
 	kclient := fake.NewSimpleClientset()
 	inf := informers.NewSharedInformerFactory(kclient, 0)
