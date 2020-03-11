@@ -53,7 +53,7 @@ type resources struct {
 }
 
 // newResources initializes a new resources instance.
-
+//
 // kclient can only be set during the cloud.Initialize call since that is when
 // the cloud provider framework provides us with a clientset. Fortunately, the
 // initialization order guarantees that kclient won't be consumed prior to it
@@ -106,12 +106,9 @@ type ResourcesController struct {
 }
 
 // NewResourcesController returns a new resource controller.
-func NewResourcesController(
-	r *resources,
-	inf v1informers.ServiceInformer,
-	client kubernetes.Interface,
-) *ResourcesController {
+func NewResourcesController(r *resources, inf v1informers.ServiceInformer, client kubernetes.Interface) *ResourcesController {
 	r.kclient = client
+
 	return &ResourcesController{
 		resources: r,
 		kclient:   client,

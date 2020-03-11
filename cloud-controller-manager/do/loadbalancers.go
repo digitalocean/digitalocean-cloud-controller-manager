@@ -458,6 +458,7 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
 	if id := getLoadBalancerID(service); id != "" {
 		klog.V(2).Infof("Looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
+
 		lb, resp, err := l.resources.gclient.LoadBalancers.Get(ctx, id)
 		if err != nil {
 			if resp != nil && resp.StatusCode == http.StatusNotFound {
