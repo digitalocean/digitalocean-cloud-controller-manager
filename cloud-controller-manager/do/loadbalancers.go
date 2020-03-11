@@ -423,7 +423,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
 	// Not calling retrieveAndAnnotateLoadBalancer to save a potential PATCH API
 	// call: the load-balancer is destined to be removed anyway.
-	lb, err := l.retrieveLoadBalancer(ctx, service)
+	lb, err := l.resources.retrieveLoadBalancer(ctx, service)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil
@@ -443,7 +443,7 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 }
 
 func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
-	lb, err := l.retrieveLoadBalancer(ctx, service)
+	lb, err := l.resources.retrieveLoadBalancer(ctx, service)
 	if err != nil {
 		// Return bare error to easily compare for errLBNotFound. Converting to
 		// a full error type doesn't seem worth it.
@@ -455,49 +455,11 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 	return lb, nil
 }
 
-func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
-	if id := getLoadBalancerID(service); id != "" {
-		klog.V(2).Infof("Looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
-
-		lb, resp, err := l.resources.gclient.LoadBalancers.Get(ctx, id)
-		if err != nil {
-			if resp != nil && resp.StatusCode == http.StatusNotFound {
-				return nil, errLBNotFound
-			}
-			return nil, fmt.Errorf("failed to get load-balancer by ID %s: %s", id, err)
-		}
-
-		return lb, nil
-	}
-
-	// Retrieve by exhaustive iteration.
-	lbName := getLoadBalancerName(service)
-	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name %s", service.Namespace, service.Name, lbName)
-	return l.lbByName(ctx, lbName)
-}
-
 func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) {
 	if service.ObjectMeta.Annotations == nil {
 		service.ObjectMeta.Annotations = map[string]string{}
 	}
 	service.ObjectMeta.Annotations[annotName] = annotValue
-}
-
-// lbByName gets a DigitalOcean Load Balancer by name. The returned error will
-// be lbNotFound if the load balancer does not exist.
-func (l *loadBalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
-	lbs, err := allLoadBalancerList(ctx, l.resources.gclient)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, lb := range lbs {
-		if lb.Name == name {
-			return &lb, nil
-		}
-	}
-
-	return nil, errLBNotFound
 }
 
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
