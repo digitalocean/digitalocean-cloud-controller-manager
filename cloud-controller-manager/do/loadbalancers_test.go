@@ -3484,7 +3484,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 			err:    nil,
 		},
 		{
-			name: "get loadbalancer by annotation name",
+			name: "get loadbalancer by annotated name",
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{
 					{
@@ -3513,6 +3513,38 @@ func Test_GetLoadBalancer(t *testing.T) {
 							Port:     int32(80),
 							NodePort: int32(30000),
 						},
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			exists: true,
+			err:    nil,
+		},
+		{
+			name: "get loadbalancer by a legacy name",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						ID:     "load-balancer-id",
+						Name:   "afoobar123",
+						IP:     "10.0.0.1",
+						Status: lbStatusActive,
+					},
+				}, newFakeOKResponse(), nil
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					UID:       "foobar123",
+					Annotations: map[string]string{
+						annDOLoadBalancerName: "my-load-balancer-123",
 					},
 				},
 			},
