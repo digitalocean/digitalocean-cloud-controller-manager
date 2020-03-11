@@ -30,7 +30,6 @@ import (
 	v1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	v1lister "k8s.io/client-go/listers/core/v1"
-	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
 )
 
@@ -265,7 +264,7 @@ func (r *resources) findLoadBalancerByID(ctx context.Context, id string) (*godo.
 
 func (r *resources) findLoadBalancerByName(service *corev1.Service, allLBs []godo.LoadBalancer) (*godo.LoadBalancer, error) {
 	newName := getLoadBalancerName(service)
-	legacyName := cloudprovider.DefaultLoadBalancerName(service) // TODO: extract to `getLegacyLoadBalancerName`
+	legacyName := getLoadBalancerLegacyName(service)
 
 	klog.V(2).Infof("Looking up load-balancer for service %s/%s by either %s or %s name", service.Namespace, service.Name, newName, legacyName)
 

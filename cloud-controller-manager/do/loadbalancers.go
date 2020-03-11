@@ -269,6 +269,10 @@ func getLoadBalancerName(service *v1.Service) string {
 		return name
 	}
 
+	return getLoadBalancerLegacyName(service)
+}
+
+func getLoadBalancerLegacyName(service *v1.Service) string {
 	return cloudprovider.DefaultLoadBalancerName(service)
 }
 
