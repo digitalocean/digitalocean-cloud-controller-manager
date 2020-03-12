@@ -53,8 +53,7 @@ type resources struct {
 }
 
 // newResources initializes a new resources instance.
-//
-// kclient can only be set during the cloud.Initialize call since that is when
+// kclient can only be set during the cloud. Initialize call since that is when
 // the cloud provider framework provides us with a clientset. Fortunately, the
 // initialization order guarantees that kclient won't be consumed prior to it
 // being set.
@@ -164,7 +163,7 @@ func (r *ResourcesController) syncTags() error {
 			return fmt.Errorf("error occurred when searching for a load balancer: %s", err)
 		}
 
-		if len(id) > 0 {
+		if id != "" {
 			res = append(res, godo.Resource{
 				ID:   id,
 				Type: godo.ResourceType(godo.LoadBalancerResourceType),
