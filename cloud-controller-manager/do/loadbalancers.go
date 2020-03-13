@@ -426,7 +426,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
 	// Not calling retrieveAndAnnotateLoadBalancer to save a potential PATCH API
 	// call: the load-balancer is destined to be removed anyway.
-	lb, err := l.resources.retrieveLoadBalancer(ctx, service)
+	lb, err := l.retrieveLoadBalancer(ctx, service)
 	if err != nil {
 		if err == errLBNotFound {
 			return nil
@@ -446,7 +446,7 @@ func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterNa
 }
 
 func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
-	lb, err := l.resources.retrieveLoadBalancer(ctx, service)
+	lb, err := l.retrieveLoadBalancer(ctx, service)
 	if err != nil {
 		// Return bare error to easily compare for errLBNotFound. Converting to
 		// a full error type doesn't seem worth it.
@@ -456,6 +456,64 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 	updateServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
 
 	return lb, nil
+}
+
+func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
+	id := getLoadBalancerID(service)
+	if len(id) > 0 {
+		klog.V(2).Infof("looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
+
+		return l.findLoadBalancerByID(ctx, id)
+	}
+
+	allLBs, err := allLoadBalancerList(ctx, l.resources.gclient)
+	if err != nil {
+		return nil, err
+	}
+
+	return findLoadBalancerByName(service, allLBs)
+}
+
+func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*godo.LoadBalancer, error) {
+	lb, resp, err := l.resources.gclient.LoadBalancers.Get(ctx, id)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, errLBNotFound
+		}
+
+		return nil, fmt.Errorf("failed to get load-balancer by ID %s: %s", id, err)
+	}
+
+	return lb, nil
+}
+
+func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) (*godo.LoadBalancer, error) {
+	newName := getLoadBalancerName(service)
+	legacyName := getLoadBalancerLegacyName(service)
+
+	klog.V(2).Infof("Looking up load-balancer for service %s/%s by either %s or %s name", service.Namespace, service.Name, newName, legacyName)
+
+	for _, lb := range allLBs {
+		if lb.Name == newName || lb.Name == legacyName {
+			return &lb, nil
+		}
+	}
+
+	return nil, errLBNotFound
+}
+
+func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) (string, error) {
+	id := getLoadBalancerID(service)
+	if len(id) > 0 {
+		return id, nil
+	}
+
+	lb, err := findLoadBalancerByName(service, allLBs)
+	if err != nil {
+		return "", err
+	}
+
+	return lb.ID, nil
 }
 
 func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) {

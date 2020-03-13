@@ -158,7 +158,7 @@ func (r *ResourcesController) syncTags() error {
 	// a matching name).
 	var res []godo.Resource
 	for _, svc := range lbSvcs {
-		id, err := r.resources.findLoadBalancerID(svc, lbs)
+		id, err := findLoadBalancerID(svc, lbs)
 		if err != nil && err != errLBNotFound {
 			return fmt.Errorf("error occurred when searching for a load balancer: %s", err)
 		}
@@ -216,62 +216,4 @@ func (r *ResourcesController) tagResources(res []godo.Resource) error {
 	}
 
 	return err
-}
-
-func (r *resources) retrieveLoadBalancer(ctx context.Context, service *corev1.Service) (*godo.LoadBalancer, error) {
-	id := getLoadBalancerID(service)
-	if len(id) > 0 {
-		klog.V(2).Infof("looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
-
-		return r.findLoadBalancerByID(ctx, id)
-	}
-
-	allLBs, err := allLoadBalancerList(ctx, r.gclient)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.findLoadBalancerByName(service, allLBs)
-}
-
-func (r *resources) findLoadBalancerID(service *corev1.Service, allLBs []godo.LoadBalancer) (string, error) {
-	id := getLoadBalancerID(service)
-	if len(id) > 0 {
-		return id, nil
-	}
-
-	lb, err := r.findLoadBalancerByName(service, allLBs)
-	if err != nil {
-		return "", err
-	}
-
-	return lb.ID, nil
-}
-
-func (r *resources) findLoadBalancerByID(ctx context.Context, id string) (*godo.LoadBalancer, error) {
-	lb, resp, err := r.gclient.LoadBalancers.Get(ctx, id)
-	if err != nil {
-		if resp != nil && resp.StatusCode == http.StatusNotFound {
-			return nil, errLBNotFound
-		}
-
-		return nil, fmt.Errorf("failed to get load-balancer by ID %s: %s", id, err)
-	}
-
-	return lb, nil
-}
-
-func (r *resources) findLoadBalancerByName(service *corev1.Service, allLBs []godo.LoadBalancer) (*godo.LoadBalancer, error) {
-	newName := getLoadBalancerName(service)
-	legacyName := getLoadBalancerLegacyName(service)
-
-	klog.V(2).Infof("Looking up load-balancer for service %s/%s by either %s or %s name", service.Namespace, service.Name, newName, legacyName)
-
-	for _, lb := range allLBs {
-		if lb.Name == newName || lb.Name == legacyName {
-			return &lb, nil
-		}
-	}
-
-	return nil, errLBNotFound
 }
