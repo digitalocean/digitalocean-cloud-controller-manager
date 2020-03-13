@@ -471,7 +471,12 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 		return nil, err
 	}
 
-	return findLoadBalancerByName(service, allLBs)
+	lb := findLoadBalancerByName(service, allLBs)
+	if lb == nil {
+		return nil, errLBNotFound
+	}
+
+	return lb, nil
 }
 
 func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*godo.LoadBalancer, error) {
@@ -487,7 +492,7 @@ func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*g
 	return lb, nil
 }
 
-func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) (*godo.LoadBalancer, error) {
+func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) *godo.LoadBalancer {
 	customName := getLoadBalancerName(service)
 	legacyName := getLoadBalancerLegacyName(service)
 	candidates := []string{customName}
@@ -500,26 +505,26 @@ func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) (*g
 	for _, lb := range allLBs {
 		for _, cand := range candidates {
 			if lb.Name == cand {
-				return &lb, nil
+				return &lb
 			}
 		}
 	}
 
-	return nil, errLBNotFound
+	return nil
 }
 
-func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) (string, error) {
+func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) string {
 	id := getLoadBalancerID(service)
 	if len(id) > 0 {
-		return id, nil
+		return id
 	}
 
-	lb, err := findLoadBalancerByName(service, allLBs)
-	if err != nil {
-		return "", err
+	lb := findLoadBalancerByName(service, allLBs)
+	if lb == nil {
+		return ""
 	}
 
-	return lb.ID, nil
+	return lb.ID
 }
 
 func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) {

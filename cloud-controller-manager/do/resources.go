@@ -158,10 +158,7 @@ func (r *ResourcesController) syncTags() error {
 	// a matching name).
 	var res []godo.Resource
 	for _, svc := range lbSvcs {
-		id, err := findLoadBalancerID(svc, lbs)
-		if err != nil && err != errLBNotFound {
-			return fmt.Errorf("error occurred when searching for a load balancer: %s", err)
-		}
+		id := findLoadBalancerID(svc, lbs)
 
 		// Load-balancers that have no LB ID set yet and were renamed directly
 		// (e.g., via the cloud control panel) would still be missed, so check
