@@ -3501,8 +3501,8 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Namespace: v1.NamespaceDefault,
 					UID:       "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:         "http",
-						annDOLoadBalancerName: "my-load-balancer-123",
+						annDOProtocol:          "http",
+						annoDOLoadBalancerName: "my-load-balancer-123",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3544,7 +3544,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Namespace: v1.NamespaceDefault,
 					UID:       "foobar123",
 					Annotations: map[string]string{
-						annDOLoadBalancerName: "my-load-balancer-123",
+						annoDOLoadBalancerName: "my-load-balancer-123",
 					},
 				},
 			},
@@ -4253,7 +4253,7 @@ func TestGetLoadBalancerName(t *testing.T) {
 					Name:      "test",
 					Namespace: v1.NamespaceDefault,
 					Annotations: map[string]string{
-						annDOLoadBalancerName: "my-load-balancer-name-123",
+						annoDOLoadBalancerName: "my-load-balancer-name-123",
 					},
 				},
 			},

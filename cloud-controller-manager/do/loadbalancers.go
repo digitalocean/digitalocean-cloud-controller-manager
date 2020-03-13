@@ -40,7 +40,7 @@ const (
 	// used to enable fast retrievals of load-balancers from the API by UUID.
 	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
-	// annDOLoadBalancerName is the annotation used to specify a name of the load
+	// annoDOLoadBalancerName is the annotation used to specify a name of the load
 	// balancer that is going to be created by the controller. Adding this
 	// annotation to an existing service might also result in renaming an
 	// existing LoadBalancer associated with it.
@@ -53,7 +53,7 @@ const (
 	// (dash). Violations to any of these rules will lead to reconciliation
 	// errors. If no custom name is given, a default name is chosen consisting of
 	// the character 'a' appended by the Service UID.
-	annDOLoadBalancerName = "service.beta.kubernetes.io/do-load-balancer-name"
+	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-load-balancer-name"
 
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
@@ -262,7 +262,7 @@ func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName strin
 }
 
 func getLoadBalancerName(service *v1.Service) string {
-	name := service.Annotations[annDOLoadBalancerName]
+	name := service.Annotations[annoDOLoadBalancerName]
 
 	if len(name) > 0 {
 		return name
