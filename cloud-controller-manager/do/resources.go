@@ -163,6 +163,9 @@ func (r *ResourcesController) syncTags() error {
 			return fmt.Errorf("error occurred when searching for a load balancer: %s", err)
 		}
 
+		// Load-balancers that have no LB ID set yet and were renamed directly
+		// (e.g., via the cloud control panel) would still be missed, so check
+		// again if we have found an ID.
 		if id != "" {
 			res = append(res, godo.Resource{
 				ID:   id,
