@@ -40,19 +40,8 @@ const (
 	// used to enable fast retrievals of load-balancers from the API by UUID.
 	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
-	// annoDOLoadBalancerName is the annotation used to specify a name of the load
-	// balancer that is going to be created by the controller. Adding this
-	// annotation to an existing service might also result in renaming an
-	// existing LoadBalancer associated with it.
-	//
-	// The name must not be longer than 255 characters and must adhere to the
-	// following naming convention:
-	// * it must start with an alphanumeric character;
-	// * it must consist of alphanumeric characters or the '.' (dot) or '-'
-	// (dash) characters; except for the final character which must not be '-'
-	// (dash). Violations to any of these rules will lead to reconciliation
-	// errors. If no custom name is given, a default name is chosen consisting of
-	// the character 'a' appended by the Service UID.
+	// annoDOLoadBalancerName is the annotation used to specify a custom name
+	// for the load balancer.
 	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-loadbalancer-name"
 
 	// annDOProtocol is the annotation used to specify the default protocol
