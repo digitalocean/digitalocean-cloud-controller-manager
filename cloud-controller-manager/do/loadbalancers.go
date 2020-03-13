@@ -53,7 +53,7 @@ const (
 	// (dash). Violations to any of these rules will lead to reconciliation
 	// errors. If no custom name is given, a default name is chosen consisting of
 	// the character 'a' appended by the Service UID.
-	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-load-balancer-name"
+	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-loadbalancer-name"
 
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
