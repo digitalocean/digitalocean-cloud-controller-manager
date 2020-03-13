@@ -488,14 +488,20 @@ func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*g
 }
 
 func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) (*godo.LoadBalancer, error) {
-	newName := getLoadBalancerName(service)
+	customName := getLoadBalancerName(service)
 	legacyName := getLoadBalancerLegacyName(service)
+	candidates := []string{customName}
+	if legacyName != customName {
+		candidates = append(candidates, legacyName)
+	}
 
-	klog.V(2).Infof("Looking up load-balancer for service %s/%s by either %s or %s name", service.Namespace, service.Name, newName, legacyName)
+	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name (candidates: %s)", service.Namespace, service.Name, strings.Join(candidates, ", "))
 
 	for _, lb := range allLBs {
-		if lb.Name == newName || lb.Name == legacyName {
-			return &lb, nil
+		for _, cand := range candidates {
+			if lb.Name == cand {
+				return &lb, nil
+			}
 		}
 	}
 
