@@ -40,20 +40,9 @@ const (
 	// used to enable fast retrievals of load-balancers from the API by UUID.
 	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
-	// annDOLoadBalancerName is the annotation used to specify a name of the load
-	// balancer that is going to be created by the controller. Adding this
-	// annotation to an existing service might also result in renaming an
-	// existing LoadBalancer associated with it.
-	//
-	// The name must not be longer than 255 characters and must adhere to the
-	// following naming convention:
-	// * it must start with an alphanumeric character;
-	// * it must consist of alphanumeric characters or the '.' (dot) or '-'
-	// (dash) characters; except for the final character which must not be '-'
-	// (dash). Violations to any of these rules will lead to reconciliation
-	// errors. If no custom name is given, a default name is chosen consisting of
-	// the character 'a' appended by the Service UID.
-	annDOLoadBalancerName = "service.beta.kubernetes.io/do-load-balancer-name"
+	// annoDOLoadBalancerName is the annotation used to specify a custom name
+	// for the load balancer.
+	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-loadbalancer-name"
 
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
@@ -262,7 +251,7 @@ func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName strin
 }
 
 func getLoadBalancerName(service *v1.Service) string {
-	name := service.Annotations[annDOLoadBalancerName]
+	name := service.Annotations[annoDOLoadBalancerName]
 
 	if len(name) > 0 {
 		return name
@@ -471,7 +460,12 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 		return nil, err
 	}
 
-	return findLoadBalancerByName(service, allLBs)
+	lb := findLoadBalancerByName(service, allLBs)
+	if lb == nil {
+		return nil, errLBNotFound
+	}
+
+	return lb, nil
 }
 
 func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*godo.LoadBalancer, error) {
@@ -487,7 +481,7 @@ func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*g
 	return lb, nil
 }
 
-func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) (*godo.LoadBalancer, error) {
+func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) *godo.LoadBalancer {
 	customName := getLoadBalancerName(service)
 	legacyName := getLoadBalancerLegacyName(service)
 	candidates := []string{customName}
@@ -500,26 +494,26 @@ func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) (*g
 	for _, lb := range allLBs {
 		for _, cand := range candidates {
 			if lb.Name == cand {
-				return &lb, nil
+				return &lb
 			}
 		}
 	}
 
-	return nil, errLBNotFound
+	return nil
 }
 
-func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) (string, error) {
+func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) string {
 	id := getLoadBalancerID(service)
 	if len(id) > 0 {
-		return id, nil
+		return id
 	}
 
-	lb, err := findLoadBalancerByName(service, allLBs)
-	if err != nil {
-		return "", err
+	lb := findLoadBalancerByName(service, allLBs)
+	if lb == nil {
+		return ""
 	}
 
-	return lb.ID, nil
+	return lb.ID
 }
 
 func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) {
