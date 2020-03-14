@@ -40,6 +40,10 @@ const (
 	// used to enable fast retrievals of load-balancers from the API by UUID.
 	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
+	// annoDOLoadBalancerName is the annotation used to specify a custom name
+	// for the load balancer.
+	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-loadbalancer-name"
+
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
@@ -164,7 +168,9 @@ const (
 	defaultSecurePort = 443
 )
 
-var errLBNotFound = errors.New("loadbalancer not found")
+var (
+	errLBNotFound = errors.New("loadbalancer not found")
+)
 
 func buildK8sTag(val string) string {
 	return fmt.Sprintf("%s:%s", tagPrefixClusterID, val)
@@ -241,10 +247,20 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 // GetLoadBalancerName returns the name of the load balancer. Implementations must treat the
 // *v1.Service parameter as read-only and not modify it.
 func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName string, service *v1.Service) string {
-	return getDefaultLoadBalancerName(service)
+	return getLoadBalancerName(service)
 }
 
-func getDefaultLoadBalancerName(service *v1.Service) string {
+func getLoadBalancerName(service *v1.Service) string {
+	name := service.Annotations[annoDOLoadBalancerName]
+
+	if len(name) > 0 {
+		return name
+	}
+
+	return getLoadBalancerLegacyName(service)
+}
+
+func getLoadBalancerLegacyName(service *v1.Service) string {
 	return cloudprovider.DefaultLoadBalancerName(service)
 }
 
@@ -432,23 +448,72 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 }
 
 func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Service) (*godo.LoadBalancer, error) {
-	if id := getLoadBalancerID(service); id != "" {
-		klog.V(2).Infof("Looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
-		lb, resp, err := l.resources.gclient.LoadBalancers.Get(ctx, id)
-		if err != nil {
-			if resp != nil && resp.StatusCode == http.StatusNotFound {
-				return nil, errLBNotFound
-			}
-			return nil, fmt.Errorf("failed to get load-balancer by ID %s: %s", id, err)
-		}
+	id := getLoadBalancerID(service)
+	if len(id) > 0 {
+		klog.V(2).Infof("looking up load-balancer for service %s/%s by ID %s", service.Namespace, service.Name, id)
 
-		return lb, nil
+		return l.findLoadBalancerByID(ctx, id)
 	}
 
-	// Retrieve by exhaustive iteration.
-	lbName := getDefaultLoadBalancerName(service)
-	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name %s", service.Namespace, service.Name, lbName)
-	return l.lbByName(ctx, lbName)
+	allLBs, err := allLoadBalancerList(ctx, l.resources.gclient)
+	if err != nil {
+		return nil, err
+	}
+
+	lb := findLoadBalancerByName(service, allLBs)
+	if lb == nil {
+		return nil, errLBNotFound
+	}
+
+	return lb, nil
+}
+
+func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*godo.LoadBalancer, error) {
+	lb, resp, err := l.resources.gclient.LoadBalancers.Get(ctx, id)
+	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			return nil, errLBNotFound
+		}
+
+		return nil, fmt.Errorf("failed to get load-balancer by ID %s: %s", id, err)
+	}
+
+	return lb, nil
+}
+
+func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) *godo.LoadBalancer {
+	customName := getLoadBalancerName(service)
+	legacyName := getLoadBalancerLegacyName(service)
+	candidates := []string{customName}
+	if legacyName != customName {
+		candidates = append(candidates, legacyName)
+	}
+
+	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name (candidates: %s)", service.Namespace, service.Name, strings.Join(candidates, ", "))
+
+	for _, lb := range allLBs {
+		for _, cand := range candidates {
+			if lb.Name == cand {
+				return &lb
+			}
+		}
+	}
+
+	return nil
+}
+
+func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) string {
+	id := getLoadBalancerID(service)
+	if len(id) > 0 {
+		return id
+	}
+
+	lb := findLoadBalancerByName(service, allLBs)
+	if lb == nil {
+		return ""
+	}
+
+	return lb.ID
 }
 
 func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) {
@@ -456,23 +521,6 @@ func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) 
 		service.ObjectMeta.Annotations = map[string]string{}
 	}
 	service.ObjectMeta.Annotations[annotName] = annotValue
-}
-
-// lbByName gets a DigitalOcean Load Balancer by name. The returned error will
-// be lbNotFound if the load balancer does not exist.
-func (l *loadBalancers) lbByName(ctx context.Context, name string) (*godo.LoadBalancer, error) {
-	lbs, err := allLoadBalancerList(ctx, l.resources.gclient)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, lb := range lbs {
-		if lb.Name == name {
-			return &lb, nil
-		}
-	}
-
-	return nil, errLBNotFound
 }
 
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
@@ -540,7 +588,7 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	lbName := getDefaultLoadBalancerName(service)
+	lbName := getLoadBalancerName(service)
 
 	dropletIDs, err := l.nodesToDropletIDs(ctx, nodes)
 	if err != nil {

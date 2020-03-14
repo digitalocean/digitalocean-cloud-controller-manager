@@ -4,6 +4,17 @@ DigitalOcean cloud controller manager watches for Services of type `LoadBalancer
 
 See example Kubernetes Services using LoadBalancers [here](examples/).
 
+## service.beta.kubernetes.io/do-loadbalancer-name
+
+Specifies a custom name for the Load Balancer. Existing Load Balancers will be renamed. The name must adhere to the following rules:
+
+- it must not be longer than 255 characters
+- it must start with an alphanumeric character
+- it must consist of alphanumeric characters or the '.' (dot) or '-' (dash) characters
+- except for the final character which must not be '-' (dash)
+
+If no custom name is specified, a default name is chosen consisting of the character `a` appended by the Service UID.
+
 ## service.beta.kubernetes.io/do-loadbalancer-protocol
 
 The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `http`, `https`, and `http2`. Defaults to `tcp`.

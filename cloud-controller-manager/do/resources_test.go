@@ -43,6 +43,7 @@ type serviceBuilder struct {
 	idx                int
 	isTypeLoadBalancer bool
 	loadBalancerID     string
+	loadBalancerName   string
 	certificateID      string
 	certificateType    string
 }
@@ -60,6 +61,11 @@ func (sb *serviceBuilder) setTypeLoadBalancer(isTypeLoadBalancer bool) *serviceB
 
 func (sb *serviceBuilder) setLoadBalancerID(id string) *serviceBuilder {
 	sb.loadBalancerID = id
+	return sb
+}
+
+func (sb *serviceBuilder) setLoadBalancerName(name string) *serviceBuilder {
+	sb.loadBalancerName = name
 	return sb
 }
 
@@ -85,18 +91,26 @@ func (sb *serviceBuilder) build() *v1.Service {
 		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 	}
 	if sb.loadBalancerID != "" {
-		if svc.Annotations == nil {
-			svc.Annotations = map[string]string{}
-		}
-		svc.Annotations[annoDOLoadBalancerID] = sb.loadBalancerID
+		sb.setAnnotation(svc, annoDOLoadBalancerID, sb.loadBalancerID)
+	}
+	if sb.loadBalancerName != "" {
+		sb.setAnnotation(svc, annoDOLoadBalancerName, sb.loadBalancerName)
 	}
 
 	return svc
 }
 
+func (sb *serviceBuilder) setAnnotation(svc *v1.Service, key, value string) {
+	if svc.Annotations == nil {
+		svc.Annotations = map[string]string{}
+	}
+	svc.Annotations[key] = value
+}
+
 func lbName(idx int) string {
 	svc := newSvcBuilder(idx).build()
-	return getDefaultLoadBalancerName(svc)
+
+	return getLoadBalancerName(svc)
 }
 
 func createLBSvc(idx int) *corev1.Service {
@@ -295,6 +309,28 @@ func TestResourcesController_SyncTags(t *testing.T) {
 					Resources: []godo.Resource{
 						{
 							ID:   "f7968b52-4ed9-4a16-af8b-304253f04e20",
+							Type: godo.LoadBalancerResourceType,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "found LB resource by custom LB name",
+			services: []*corev1.Service{
+				newSvcBuilder(1).setTypeLoadBalancer(true).setLoadBalancerName("acme-prod").build(),
+			},
+			lbSvcListFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{ID: "1", Name: "acme-prod"},
+				}, newFakeOKResponse(), nil
+			},
+			tagSvc: newFakeTagsService(clusterIDTag),
+			tagRequests: []*godo.TagResourcesRequest{
+				{
+					Resources: []godo.Resource{
+						{
+							ID:   "1",
 							Type: godo.LoadBalancerResourceType,
 						},
 					},

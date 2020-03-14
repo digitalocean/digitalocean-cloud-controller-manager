@@ -53,8 +53,7 @@ type resources struct {
 }
 
 // newResources initializes a new resources instance.
-
-// kclient can only be set during the cloud.Initialize call since that is when
+// kclient can only be set during the cloud. Initialize call since that is when
 // the cloud provider framework provides us with a clientset. Fortunately, the
 // initialization order guarantees that kclient won't be consumed prior to it
 // being set.
@@ -106,12 +105,9 @@ type ResourcesController struct {
 }
 
 // NewResourcesController returns a new resource controller.
-func NewResourcesController(
-	r *resources,
-	inf v1informers.ServiceInformer,
-	client kubernetes.Interface,
-) *ResourcesController {
+func NewResourcesController(r *resources, inf v1informers.ServiceInformer, client kubernetes.Interface) *ResourcesController {
 	r.kclient = client
+
 	return &ResourcesController{
 		resources: r,
 		kclient:   client,
@@ -157,24 +153,16 @@ func (r *ResourcesController) syncTags() error {
 		return fmt.Errorf("failed to list load-balancers: %s", err)
 	}
 
-	loadBalancerIDsByName := make(map[string]string, len(lbs))
-	for _, lb := range lbs {
-		loadBalancerIDsByName[lb.Name] = lb.ID
-	}
-
 	// Collect tag resources for known load-balancers (i.e., services with
 	// type=LoadBalancer that either have our own LB ID annotation set or go by
 	// a matching name).
 	var res []godo.Resource
 	for _, svc := range lbSvcs {
-		id := getLoadBalancerID(svc)
-		if id == "" {
-			name := getDefaultLoadBalancerName(svc)
-			id = loadBalancerIDsByName[name]
-		}
+		id := findLoadBalancerID(svc, lbs)
 
-		// Renamed load-balancers that have no LB ID set yet would still be
-		// missed, so check again if we have found an ID.
+		// Load-balancers that have no LB ID set yet and were renamed directly
+		// (e.g., via the cloud control panel) would still be missed, so check
+		// again if we have found an ID.
 		if id != "" {
 			res = append(res, godo.Resource{
 				ID:   id,

@@ -123,8 +123,6 @@ func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
 
 func createLB() *godo.LoadBalancer {
 	return &godo.LoadBalancer{
-		// loadbalancer names are a + service.UID
-		// see cloudprovider.DefaultLoadBalancerName
 		ID:     "load-balancer-id",
 		Name:   "afoobar123",
 		IP:     "10.0.0.1",
@@ -134,8 +132,6 @@ func createLB() *godo.LoadBalancer {
 
 func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
 	lb := &godo.LoadBalancer{
-		// loadbalancer names are a + service.UID
-		// see cloudprovider.DefaultLoadBalancerName
 		ID:     lbID,
 		Name:   "afoobar123",
 		IP:     "10.0.0.1",
@@ -2596,8 +2592,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -2674,8 +2668,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -2752,8 +2744,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -2829,8 +2819,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -2908,8 +2896,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -2991,8 +2977,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -3079,8 +3063,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			&godo.LoadBalancerRequest{
-				// cloudprovider.GetLoadBalancer name uses 'a' + service.UID
-				// as loadbalancer name
 				Name:       "afoobar123",
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
@@ -3464,8 +3446,6 @@ func Test_GetLoadBalancer(t *testing.T) {
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{
 					{
-						// loadbalancer names are a + service.UID
-						// see cloudprovider.DefaultLoadBalancerName
 						ID:     "load-balancer-id",
 						Name:   "afoobar123",
 						IP:     "10.0.0.1",
@@ -3504,11 +3484,84 @@ func Test_GetLoadBalancer(t *testing.T) {
 			err:    nil,
 		},
 		{
+			name: "get loadbalancer by annotated name",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						ID:     "load-balancer-id",
+						Name:   "my-load-balancer-123",
+						IP:     "10.0.0.1",
+						Status: lbStatusActive,
+					},
+				}, newFakeOKResponse(), nil
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					UID:       "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:          "http",
+						annoDOLoadBalancerName: "my-load-balancer-123",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			exists: true,
+			err:    nil,
+		},
+		{
+			name: "get loadbalancer by a legacy name",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{
+					{
+						ID:     "load-balancer-id",
+						Name:   "afoobar123",
+						IP:     "10.0.0.1",
+						Status: lbStatusActive,
+					},
+				}, newFakeOKResponse(), nil
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					UID:       "foobar123",
+					Annotations: map[string]string{
+						annoDOLoadBalancerName: "my-load-balancer-123",
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			exists: true,
+			err:    nil,
+		},
+		{
 			name: "got loadbalancer by ID",
 			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
 				return &godo.LoadBalancer{
-					// loadbalancer names are a + service.UID
-					// see cloudprovider.DefaultLoadBalancerName
 					ID:     "load-balancer-id",
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
@@ -4109,8 +4162,6 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{
 					{
-						// loadbalancer names are a + service.UID
-						// see cloudprovider.DefaultLoadBalancerName
 						Name:   lbName,
 						IP:     "10.0.0.1",
 						Status: lbStatusActive,
@@ -4133,8 +4184,6 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 				return []godo.LoadBalancer{
 					{
-						// loadbalancer names are a + service.UID
-						// see cloudprovider.DefaultLoadBalancerName
 						Name:   lbName,
 						IP:     "10.0.0.1",
 						Status: lbStatusActive,
@@ -4179,6 +4228,51 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 	}
 }
 
+func TestGetLoadBalancerName(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected string
+		service  *v1.Service
+	}{
+		{
+			name:     "when do-load-balancer-name is empty",
+			expected: "aservice123",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					UID:       "service123",
+					Namespace: v1.NamespaceDefault,
+				},
+			},
+		},
+		{
+			name:     "when do-load-balancer-name has been set",
+			expected: "my-load-balancer-name-123",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: v1.NamespaceDefault,
+					Annotations: map[string]string{
+						annoDOLoadBalancerName: "my-load-balancer-name-123",
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			lb := &loadBalancers{}
+
+			name := lb.GetLoadBalancerName(context.Background(), "cluster", test.service)
+
+			if test.expected != name {
+				t.Errorf("load balancer name invalid, is %q, should be %q", name, test.expected)
+			}
+		})
+	}
+}
+
 func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 	tests := []struct {
 		name string
@@ -4197,10 +4291,8 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			svc := createLBSvc(1)
 			lb := godo.LoadBalancer{
-				// loadbalancer names are a + service.UID
-				// see cloudprovider.DefaultLoadBalancerName
 				ID:   "f7968b52-4ed9-4a16-af8b-304253f04e20",
-				Name: getDefaultLoadBalancerName(svc),
+				Name: getLoadBalancerName(svc),
 				IP:   "10.0.0.1",
 				// Status: lbStatusActive,
 			}
