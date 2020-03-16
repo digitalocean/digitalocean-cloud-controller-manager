@@ -615,7 +615,11 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	algorithm := getAlgorithm(service)
 
-	redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(service)
+	redirectHTTPToHTTPS, err := getRedirectHTTPToHTTPS(service)
+	if err != nil {
+		return nil, err
+	}
+
 	enableProxyProtocol, err := getEnableProxyProtocol(service)
 	if err != nil {
 		return nil, err
@@ -1058,18 +1062,18 @@ func getStickySessionsCookieTTL(service *v1.Service) (int, error) {
 
 // getRedirectHTTPToHTTPS returns whether or not Http traffic should be redirected
 // to Https traffic for the loadbalancer. false is returned if not specified.
-func getRedirectHTTPToHTTPS(service *v1.Service) bool {
+func getRedirectHTTPToHTTPS(service *v1.Service) (bool, error) {
 	redirectHTTPToHTTPS, ok := service.Annotations[annDORedirectHTTPToHTTPS]
 	if !ok {
-		return false
+		return false, nil
 	}
 
 	redirectHTTPToHTTPSBool, err := strconv.ParseBool(redirectHTTPToHTTPS)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("failed to parse redirect HTTP-to-HTTPS flag %q from annotation %q: %s", redirectHTTPToHTTPS, annDORedirectHTTPToHTTPS, err)
 	}
 
-	return redirectHTTPToHTTPSBool
+	return redirectHTTPToHTTPSBool, nil
 }
 
 // getEnableProxyProtocol returns whether PROXY protocol should be enabled.
