@@ -44,8 +44,6 @@ type serviceBuilder struct {
 	isTypeLoadBalancer bool
 	loadBalancerID     string
 	loadBalancerName   string
-	certificateID      string
-	certificateType    string
 }
 
 func newSvcBuilder(idx int) *serviceBuilder {
@@ -66,12 +64,6 @@ func (sb *serviceBuilder) setLoadBalancerID(id string) *serviceBuilder {
 
 func (sb *serviceBuilder) setLoadBalancerName(name string) *serviceBuilder {
 	sb.loadBalancerName = name
-	return sb
-}
-
-func (sb *serviceBuilder) setCertificateIDAndType(id, certType string) *serviceBuilder {
-	sb.certificateID = id
-	sb.certificateType = certType
 	return sb
 }
 
