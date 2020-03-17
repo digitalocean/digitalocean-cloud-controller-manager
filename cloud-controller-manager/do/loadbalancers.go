@@ -292,8 +292,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		// LB missing
 		lb, _, err = l.resources.gclient.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
+			logLBInfo("CREATE", lbRequest, 2)
 			return nil, fmt.Errorf("failed to create load-balancer: %s", err)
 		}
+		logLBInfo("CREATE", lbRequest, 2)
 
 		updateServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
 
@@ -383,8 +385,10 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	lbID := lb.ID
 	lb, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	if err != nil {
+		logLBInfo("UPDATE", lbRequest, 2)
 		return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
 	}
+	logLBInfo("UPDATE", lbRequest, 2)
 
 	return lb, nil
 }
@@ -477,7 +481,6 @@ func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*g
 
 		return nil, fmt.Errorf("failed to get load-balancer by ID %s: %s", id, err)
 	}
-
 	return lb, nil
 }
 
@@ -1114,4 +1117,11 @@ func contains(vals []int, val int) bool {
 		}
 	}
 	return false
+}
+
+// logLBInfo wraps around klog and logs LB operation type and LB configuration info.
+func logLBInfo(opType string, cfgInfo *godo.LoadBalancerRequest, logLevel klog.Level) {
+	if cfgInfo != nil {
+		klog.V(logLevel).Infof("Operation type: %v, Configuration info: %v", opType, cfgInfo)
+	}
 }
