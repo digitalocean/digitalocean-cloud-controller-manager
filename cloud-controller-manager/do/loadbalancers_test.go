@@ -2549,6 +2549,82 @@ func Test_getEnableProxyProtocol(t *testing.T) {
 	}
 }
 
+func Test_getEnableBackendKeepalive(t *testing.T) {
+	testcases := []struct {
+		name                       string
+		service                    *v1.Service
+		wantErr                    bool
+		wantEnableBackendKeepalive bool
+	}{
+		{
+			name: "enabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableBackendKeepalive: "true",
+					},
+				},
+			},
+			wantErr:                    false,
+			wantEnableBackendKeepalive: true,
+		},
+		{
+			name: "disabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableBackendKeepalive: "false",
+					},
+				},
+			},
+			wantErr:                    false,
+			wantEnableBackendKeepalive: false,
+		},
+		{
+			name: "annotation missing",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			wantErr:                    false,
+			wantEnableBackendKeepalive: false,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableBackendKeepalive: "42",
+					},
+				},
+			},
+			wantErr:                    true,
+			wantEnableBackendKeepalive: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			gotEnabledBackendKeepalive, err := getEnableBackendKeepalive(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			if gotEnabledBackendKeepalive != test.wantEnableBackendKeepalive {
+				t.Fatalf("got enabled proxy protocol %t, want %t", gotEnabledBackendKeepalive, test.wantEnableBackendKeepalive)
+			}
+		})
+	}
+}
+
 func Test_buildLoadBalancerRequest(t *testing.T) {
 	testcases := []struct {
 		name     string

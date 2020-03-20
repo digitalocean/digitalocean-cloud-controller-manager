@@ -125,3 +125,11 @@ Indicates whether PROXY protocol should be enabled. Options are `"true"` or `"fa
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+## service.beta.kubernetes.io/do-loadbalancer-enable-backend-keepalive
+
+Indicates whether HTTP keepalive connections should be enabled to backend target droplets. Options are `"true"` or `"false"`. Defaults to `"false"`.
+
+**Note**
+
+You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
