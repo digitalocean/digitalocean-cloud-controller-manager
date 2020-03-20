@@ -6,6 +6,7 @@
 * Add logging for Create and Update requests to the LB API (@morrislaw)
 * Add support for specifying custom load-balancer names (@grzesiek)
 * Support specifying a fake region by environment variable (@timoreimann)
+* Bump godo dependency to v1.35.1 (@anitgandhi)
 
 ## v0.1.23 (beta) - Jan 31th 2020
 
