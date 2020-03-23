@@ -2,9 +2,10 @@
 
 ## unreleased
 
+* Use correct annotation name for invalid health check protocol (@timoreimann)
+* Add logging for Create and Update requests to the LB API (@morrislaw)
 * Add support for specifying custom load-balancer names (@grzesiek)
 * Support specifying a fake region by environment variable (@timoreimann)
-* Add logging for Create and Update requests to the LB API (@morrislaw)
 
 ## v0.1.23 (beta) - Jan 31th 2020
 

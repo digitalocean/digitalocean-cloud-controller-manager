@@ -543,7 +543,7 @@ func Test_getProtocol(t *testing.T) {
 				},
 			},
 			"",
-			fmt.Errorf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+			fmt.Errorf("invalid protocol %q specified in annotation %q", "invalid", annDOProtocol),
 		},
 	}
 
@@ -1985,7 +1985,7 @@ func Test_buildHealthCheck(t *testing.T) {
 					},
 				},
 			},
-			errMsgPrefix: fmt.Sprintf("invalid protocol: %q specified in annotation: %q", "invalid", annDOProtocol),
+			errMsgPrefix: fmt.Sprintf("invalid protocol %q specified in annotation %q", "invalid", annDOHealthCheckProtocol),
 		},
 		{
 			name: "health check with custom port",
