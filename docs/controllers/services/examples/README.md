@@ -99,23 +99,24 @@ deployment "nginx-example" configured
 $ doctl compute load-balancer list
 ID                                      IP                Name                                Status    Created At              Algorithm            Region    Tag    Droplet IDs                   SSL      Sticky Sessions                                Health Check                                                                                                                     Forwarding Rules
 105c2071-dcfd-479c-8e84-883d66ba4dec    159.203.52.207    a16bdac1c797611e7af69267d6e0a2ca    active    2017-08-05T00:36:16Z    round_robin          tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:31644,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:31644,certificate_id:,tls_passthrough:false entry_protocol:https,entry_port:443,target_protocol:https,target_port:30566,certificate_id:,tls_passthrough:true
-
 ```
 
 ## Accessing pods over a managed load-balancer from inside the cluster
 
 Because of an existing [limitation in upstream Kubernetes](https://github.com/kubernetes/kubernetes/issues/66607), pods cannot talk to other pods via the IP address of an external load-balancer set up through a `LoadBalancer`-typed service. Kubernetes will cause the LB to be bypassed, potentially breaking workflows that expect TLS termination or proxy protocol handling to be applied consistently.
 
-A workaround is to set up a DNS record for a custom hostname (at a provider of your choice) and have it point to the external IP address of the load-balancer. The clients would then speak to the service over the hostname (i.e., the load-balancer). To further simplify consumption of the hostname within a cluster, _digitalocean-cloud-controller-manager_ may be instructed to return the custom hostname (instead of the external LB IP address) in the service ingress status. This is done by specifying the hostname in the `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation and retrieving the service's `status.Hostname` field afterwards.
+However, a workaround exists that takes advantage of the fact that bypassing only happens when the Service status field returns an IP address but not if it returns a hostname. To leverage it, a DNS record for a custom hostname (at a provider of your choice) must be set up that points to the external IP address of the load-balancer. Afterwards, _digitalocean-cloud-controller-manager_ must be instructed to return the custom hostname (instead of the external LB IP address) in the service ingress status field `status.Hostname` by specifying the hostname in the `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation. Clients may then connect to the hostname to reach the load-balancer from inside the cluster.
 
-Note that setting `service.beta.kubernetes.io/do-loadbalancer-hostname` is not a requirement. You may also register additional hostnames and have them all point at the IP address.
+To make the load-balancer accessible through multiple hostnames, register additional CNAMEs that all point to the hostname. SSL certificates could then be associated with one or more of these hostnames.
+
+### Setup
 
 The workflow for setting up the `service.beta.kubernetes.io/do-loadbalancer-hostname` annotation is generally:
 
  1. Deploy the manifest with your Service (example below).
  2. Wait for the service external IP to be available.
  3. Add a DNS record for your hostname pointing to the external IP.
- 4. Add the hostname annotation to your manifest (example below). Deploy it.
+ 4. Add the hostname annotation to your manifest (example below). Apply it.
 
 ```yaml
 kind: Service
