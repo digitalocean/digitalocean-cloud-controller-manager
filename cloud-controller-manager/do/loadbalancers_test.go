@@ -2387,9 +2387,10 @@ func Test_buildStickySessions(t *testing.T) {
 
 func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 	testcases := []struct {
-		name                string
-		service             *v1.Service
-		redirectHTTPToHTTPS bool
+		name                    string
+		service                 *v1.Service
+		wantErr                 bool
+		wantRedirectHTTPToHTTPS bool
 	}{
 		{
 			"Redirect Http to Https true",
@@ -2402,6 +2403,7 @@ func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 					},
 				},
 			},
+			false,
 			true,
 		},
 		{
@@ -2416,6 +2418,7 @@ func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 				},
 			},
 			false,
+			false,
 		},
 		{
 			"Redirect Http to Https not defined",
@@ -2427,6 +2430,7 @@ func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 				},
 			},
 			false,
+			false,
 		},
 		{
 			"Service annotations nil",
@@ -2437,20 +2441,36 @@ func Test_getRedirectHTTPToHTTPS(t *testing.T) {
 				},
 			},
 			false,
+			false,
+		},
+		{
+			"illegal value",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORedirectHTTPToHTTPS: "42",
+					},
+				},
+			},
+			true,
+			false,
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(test.service)
-			if redirectHTTPToHTTPS != test.redirectHTTPToHTTPS {
-				t.Error("unexpected redirect Http to Https")
-				t.Logf("expected: %t", test.redirectHTTPToHTTPS)
-				t.Logf("actual: %t", redirectHTTPToHTTPS)
+			gotRedirectHTTPToHTTPS, err := getRedirectHTTPToHTTPS(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			if gotRedirectHTTPToHTTPS != test.wantRedirectHTTPToHTTPS {
+				t.Fatalf("got enabled redirect http to https %t, want %t", gotRedirectHTTPToHTTPS, test.wantRedirectHTTPToHTTPS)
 			}
 		})
 	}
-
 }
 
 func Test_getEnableProxyProtocol(t *testing.T) {
@@ -2524,6 +2544,82 @@ func Test_getEnableProxyProtocol(t *testing.T) {
 
 			if gotEnabledProxyProtocol != test.wantEnableProxyProtocol {
 				t.Fatalf("got enabled proxy protocol %t, want %t", gotEnabledProxyProtocol, test.wantEnableProxyProtocol)
+			}
+		})
+	}
+}
+
+func Test_getEnableBackendKeepalive(t *testing.T) {
+	testcases := []struct {
+		name                       string
+		service                    *v1.Service
+		wantErr                    bool
+		wantEnableBackendKeepalive bool
+	}{
+		{
+			name: "enabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableBackendKeepalive: "true",
+					},
+				},
+			},
+			wantErr:                    false,
+			wantEnableBackendKeepalive: true,
+		},
+		{
+			name: "disabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableBackendKeepalive: "false",
+					},
+				},
+			},
+			wantErr:                    false,
+			wantEnableBackendKeepalive: false,
+		},
+		{
+			name: "annotation missing",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			wantErr:                    false,
+			wantEnableBackendKeepalive: false,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOEnableBackendKeepalive: "42",
+					},
+				},
+			},
+			wantErr:                    true,
+			wantEnableBackendKeepalive: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			gotEnabledBackendKeepalive, err := getEnableBackendKeepalive(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			if gotEnabledBackendKeepalive != test.wantEnableBackendKeepalive {
+				t.Fatalf("got enabled proxy protocol %t, want %t", gotEnabledBackendKeepalive, test.wantEnableBackendKeepalive)
 			}
 		})
 	}

@@ -136,6 +136,10 @@ const (
 	// be enabled. Defaults to false.
 	annDOEnableProxyProtocol = "service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol"
 
+	// annDOEnableBackendKeepalive is the annotation specifying whether HTTP keepalive connections
+	// should be enabled to backend target droplets. Defaults to false.
+	annDOEnableBackendKeepalive = "service.beta.kubernetes.io/do-loadbalancer-enable-backend-keepalive"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -615,8 +619,17 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	algorithm := getAlgorithm(service)
 
-	redirectHTTPToHTTPS := getRedirectHTTPToHTTPS(service)
+	redirectHTTPToHTTPS, err := getRedirectHTTPToHTTPS(service)
+	if err != nil {
+		return nil, err
+	}
+
 	enableProxyProtocol, err := getEnableProxyProtocol(service)
+	if err != nil {
+		return nil, err
+	}
+
+	enableBackendKeepalive, err := getEnableBackendKeepalive(service)
 	if err != nil {
 		return nil, err
 	}
@@ -627,17 +640,18 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 	}
 
 	return &godo.LoadBalancerRequest{
-		Name:                lbName,
-		DropletIDs:          dropletIDs,
-		Region:              l.region,
-		ForwardingRules:     forwardingRules,
-		HealthCheck:         healthCheck,
-		StickySessions:      stickySessions,
-		Tags:                tags,
-		Algorithm:           algorithm,
-		RedirectHttpToHttps: redirectHTTPToHTTPS,
-		EnableProxyProtocol: enableProxyProtocol,
-		VPCUUID:             l.resources.clusterVPCID,
+		Name:                   lbName,
+		DropletIDs:             dropletIDs,
+		Region:                 l.region,
+		ForwardingRules:        forwardingRules,
+		HealthCheck:            healthCheck,
+		StickySessions:         stickySessions,
+		Tags:                   tags,
+		Algorithm:              algorithm,
+		RedirectHttpToHttps:    redirectHTTPToHTTPS,
+		EnableProxyProtocol:    enableProxyProtocol,
+		EnableBackendKeepalive: enableBackendKeepalive,
+		VPCUUID:                l.resources.clusterVPCID,
 	}, nil
 }
 
@@ -1058,18 +1072,18 @@ func getStickySessionsCookieTTL(service *v1.Service) (int, error) {
 
 // getRedirectHTTPToHTTPS returns whether or not Http traffic should be redirected
 // to Https traffic for the loadbalancer. false is returned if not specified.
-func getRedirectHTTPToHTTPS(service *v1.Service) bool {
+func getRedirectHTTPToHTTPS(service *v1.Service) (bool, error) {
 	redirectHTTPToHTTPS, ok := service.Annotations[annDORedirectHTTPToHTTPS]
 	if !ok {
-		return false
+		return false, nil
 	}
 
 	redirectHTTPToHTTPSBool, err := strconv.ParseBool(redirectHTTPToHTTPS)
 	if err != nil {
-		return false
+		return false, fmt.Errorf("failed to parse redirect HTTP-to-HTTPS flag %q from annotation %q: %s", redirectHTTPToHTTPS, annDORedirectHTTPToHTTPS, err)
 	}
 
-	return redirectHTTPToHTTPSBool
+	return redirectHTTPToHTTPSBool, nil
 }
 
 // getEnableProxyProtocol returns whether PROXY protocol should be enabled.
@@ -1086,6 +1100,22 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 	}
 
 	return enableProxyProtocol, nil
+}
+
+// getEnableBackendKeepalive returns whether HTTP keepalive to target droplets should be enabled.
+// False is returned if not specified.
+func getEnableBackendKeepalive(service *v1.Service) (bool, error) {
+	enableBackendKeepaliveStr, ok := service.Annotations[annDOEnableBackendKeepalive]
+	if !ok {
+		return false, nil
+	}
+
+	enableBackendKeepalive, err := strconv.ParseBool(enableBackendKeepaliveStr)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse backend keepalive flag %q from annotation %q: %s", enableBackendKeepaliveStr, annDOEnableBackendKeepalive, err)
+	}
+
+	return enableBackendKeepalive, nil
 }
 
 func getLoadBalancerID(service *v1.Service) string {
