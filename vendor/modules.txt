@@ -717,7 +717,7 @@ k8s.io/component-base/metrics/prometheus/version
 k8s.io/component-base/metrics/prometheus/workqueue
 k8s.io/component-base/version
 k8s.io/component-base/version/verflag
-# k8s.io/klog v1.0.0
+# k8s.io/klog v1.0.0 => k8s.io/klog v0.4.0
 ## explicit
 k8s.io/klog
 # k8s.io/kube-controller-manager v0.0.0 => k8s.io/kube-controller-manager v0.17.5
@@ -852,3 +852,4 @@ sigs.k8s.io/yaml
 # k8s.io/metrics => k8s.io/metrics v0.17.5
 # k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.17.5
 # k8s.io/kubectl => k8s.io/kubectl v0.17.5
+# k8s.io/klog => k8s.io/klog v0.4.0

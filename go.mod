@@ -67,3 +67,5 @@ replace k8s.io/metrics => k8s.io/metrics v0.17.5
 replace k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.17.5
 
 replace k8s.io/kubectl => k8s.io/kubectl v0.17.5
+
+replace k8s.io/klog => k8s.io/klog v0.4.0
