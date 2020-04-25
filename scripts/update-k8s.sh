@@ -13,7 +13,8 @@ do
   else
     deps+=("-replace $depname=$depname@kubernetes-$KUBERNETES_VERSION")
   fi
-done < <(curl -sSL "https://raw.githubusercontent.com/kubernetes/kubernetes/v$KUBERNETES_VERSION/go.mod" | grep -E '^[[:space:]]*k8s.io.* v0.0.0$')
+done < <(curl -sSL "https://raw.githubusercontent.com/kubernetes/kubernetes/v$KUBERNETES_VERSION/go.mod" \
+  | grep -E '^[[:space:]]*k8s.io.* v0.0.0$')
 
 unset GOROOT GOPATH
 export GO111MODULE=on
