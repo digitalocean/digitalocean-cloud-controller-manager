@@ -2,6 +2,7 @@
 
 ## unreleased
 
+* Add annotation to specify HTTP ports explicitly (@timoreimann)
 * Build using Go 1.14 (@timoreimann)
 * Add support for enabling backend keepalive feature for load balancers (@anitgandhi)
 * Bump godo dependency to v1.35.1 (@anitgandhi)

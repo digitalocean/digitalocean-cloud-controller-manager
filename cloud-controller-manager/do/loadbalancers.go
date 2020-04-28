@@ -85,6 +85,11 @@ const (
 	// value must be between 2 and 10. Defaults to 5.
 	annDOHealthCheckHealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold"
 
+	// annDOHTTPPorts is the annotation used to specify which ports of the load balancer
+	// should use the HTTP protocol. This is a comma separated list of ports
+	// (e.g., 80,8080).
+	annDOHTTPPorts = "service.beta.kubernetes.io/do-loadbalancer-http-ports"
+
 	// annDOTLSPorts is the annotation used to specify which ports of the load balancer
 	// should use the HTTPS protocol. This is a comma separated list of ports
 	// (e.g., 443,6443,7443).
@@ -707,6 +712,11 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
+	httpPorts, err := getHTTPPorts(service)
+	if err != nil {
+		return nil, err
+	}
+
 	httpsPorts, err := getHTTPSPorts(service)
 	if err != nil {
 		return nil, err
@@ -717,9 +727,9 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	securePortDups := findDups(append(httpsPorts, http2Ports...))
-	if len(securePortDups) > 0 {
-		return nil, fmt.Errorf("%q and %q cannot share values but found: %s", annDOTLSPorts, annDOHTTP2Ports, strings.Join(securePortDups, ", "))
+	portDups := findDups(httpPorts, httpsPorts, http2Ports)
+	if len(portDups) > 0 {
+		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: %s", strings.Join(portDups, ", "))
 	}
 
 	certificateID := getCertificateID(service)
@@ -730,6 +740,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		httpsPorts = append(httpsPorts, defaultSecurePort)
 	}
 
+	httpPortMap := map[int32]bool{}
+	for _, port := range httpPorts {
+		httpPortMap[int32(port)] = true
+	}
 	httpsPortMap := map[int32]bool{}
 	for _, port := range httpsPorts {
 		httpsPortMap[int32(port)] = true
@@ -741,8 +755,11 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	for _, port := range service.Spec.Ports {
 		protocol := defaultProtocol
-		// Set secure protocols explicitly if correspondingly configured ports
+		// Set protocols explicitly if correspondingly configured ports
 		// are found.
+		if httpPortMap[port.Port] {
+			protocol = protocolHTTP
+		}
 		if httpsPortMap[port.Port] {
 			protocol = protocolHTTPS
 		}
@@ -966,6 +983,12 @@ func healthCheckHealthyThreshold(service *v1.Service) (int, error) {
 	return val, nil
 }
 
+// getHTTPPorts returns the ports for the given service that are set to use
+// HTTP.
+func getHTTPPorts(service *v1.Service) ([]int, error) {
+	return getPorts(service, annDOHTTPPorts)
+}
+
 // getHTTP2Ports returns the ports for the given service that are set to use
 // HTTP2.
 func getHTTP2Ports(service *v1.Service) ([]int, error) {
@@ -1122,11 +1145,13 @@ func getLoadBalancerID(service *v1.Service) string {
 	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
 }
 
-func findDups(vals []int) []string {
+func findDups(lists ...[]int) []string {
 	occurrences := map[int]int{}
 
-	for _, val := range vals {
-		occurrences[val]++
+	for _, list := range lists {
+		for _, val := range list {
+			occurrences[val]++
+		}
 	}
 
 	var dups []string
