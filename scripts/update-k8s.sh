@@ -23,13 +23,11 @@ deps=()
 while read -ra LINE
 do
   depname="${LINE[0]}"
-  if [ "$depname" == "k8s.io/kubernetes" ] ;then
-    deps+=("-replace $depname=$depname@v$KUBERNETES_VERSION")
-  else
-    deps+=("-replace $depname=$depname@kubernetes-$KUBERNETES_VERSION")
-  fi
+  deps+=("-replace $depname=$depname@kubernetes-$KUBERNETES_VERSION")
 done < <(curl -sSL "https://raw.githubusercontent.com/kubernetes/kubernetes/v$KUBERNETES_VERSION/go.mod" \
   | grep -E '^[[:space:]]*k8s.io.* v0.0.0$')
+
+deps+=("-replace k8s.io/kubernetes=k8s.io/kubernetes@v$KUBERNETES_VERSION")
 
 unset GOROOT GOPATH
 export GO111MODULE=on
