@@ -427,6 +427,28 @@ func Test_getPorts(t *testing.T) {
 	}
 }
 
+func Test_getHTTPPorts(t *testing.T) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			UID:  "abc123",
+			Annotations: map[string]string{
+				annDOHTTPPorts: "8080",
+			},
+		},
+	}
+
+	gotPorts, err := getHTTPPorts(svc)
+	if err != nil {
+		t.Fatalf("got error %q", err)
+	}
+
+	wantPorts := []int{8080}
+	if !reflect.DeepEqual(gotPorts, wantPorts) {
+		t.Errorf("got ports %v, want %v", gotPorts, wantPorts)
+	}
+}
+
 func Test_getHTTPSPorts(t *testing.T) {
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1303,6 +1325,82 @@ func Test_buildForwardingRules(t *testing.T) {
 			nil,
 		},
 		{
+			"TCP and all HTTP* protocols used simultaneously",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:       "tcp",
+						annDOHTTPPorts:      "80",
+						annDOTLSPassThrough: "true",
+						annDOHTTP2Ports:     "886",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-tcp",
+							Protocol: "TCP",
+							Port:     int32(22),
+							NodePort: int32(20000),
+						},
+						{
+							Name:     "test-http",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(40000),
+						},
+						{
+							Name:     "test-http2",
+							Protocol: "TCP",
+							Port:     int32(886),
+							NodePort: int32(50000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      22,
+					TargetProtocol: "tcp",
+					TargetPort:     20000,
+				},
+				{
+					EntryProtocol:  "http",
+					EntryPort:      80,
+					TargetProtocol: "http",
+					TargetPort:     30000,
+					CertificateID:  "",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "https",
+					EntryPort:      443,
+					TargetProtocol: "https",
+					TargetPort:     40000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      886,
+					TargetProtocol: "http2",
+					TargetPort:     50000,
+					CertificateID:  "",
+					TlsPassthrough: true,
+				},
+			},
+			nil,
+		},
+		{
 			"default protocol is maintained",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1596,7 +1694,45 @@ func Test_buildForwardingRules(t *testing.T) {
 			errors.New("failed to build TLS part(s) of forwarding rule: must set certificate id or enable tls pass through"),
 		},
 		{
-			"secure ports shared",
+			"HTTP and HTTPS ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTPPorts:      "80,8080",
+						annDOHTTP2Ports:     "443,8080",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http-1",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(10080),
+						},
+						{
+							Name:     "test-http-2",
+							Protocol: "TCP",
+							Port:     int32(8080),
+							NodePort: int32(18080),
+						},
+						{
+							Name:     "test-https",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(10443),
+						},
+					},
+				},
+			},
+			nil,
+			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 8080"),
+		},
+		{
+			"HTTPS and HTTP2 ports shared",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -1610,22 +1746,28 @@ func Test_buildForwardingRules(t *testing.T) {
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:     "test-https",
+							Name:     "test-https-1",
 							Protocol: "TCP",
 							Port:     int32(443),
-							NodePort: int32(30000),
+							NodePort: int32(10443),
+						},
+						{
+							Name:     "test-https-2",
+							Protocol: "TCP",
+							Port:     int32(8443),
+							NodePort: int32(18443),
 						},
 						{
 							Name:     "test-http2",
 							Protocol: "TCP",
 							Port:     int32(4443),
-							NodePort: int32(40000),
+							NodePort: int32(14443),
 						},
 					},
 				},
 			},
 			nil,
-			fmt.Errorf("%q and %q cannot share values but found: 443", annDOTLSPorts, annDOHTTP2Ports),
+			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 443"),
 		},
 	}
 

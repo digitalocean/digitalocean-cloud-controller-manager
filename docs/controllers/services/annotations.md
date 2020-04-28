@@ -53,6 +53,12 @@ The number of times a health check must fail for a backend Droplet to be marked 
 
 The number of times a health check must pass for a backend Droplet to be marked "healthy" for the given service and be re-added to the pool. The vaule must be between 2 and 10. If not specified, the default value is 5.
 
+## service.beta.kubernetes.io/do-loadbalancer-http-ports
+
+Specify which ports of the loadbalancer should use the HTTP protocol. This is a comma separated list of ports (e.g. 80,8080).
+
+Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-tls-ports`, and `service.beta.kubernetes.io/do-loadbalancer-http2-ports`.
+
 ## service.beta.kubernetes.io/do-loadbalancer-tls-ports
 
 Specify which ports of the loadbalancer should use the HTTPS protocol. This is a comma separated list of ports (e.g. 443,6443,7443).
@@ -61,7 +67,7 @@ If specified, exactly one of `service.beta.kubernetes.io/do-loadbalancer-tls-pas
 
 If no HTTPS port is specified but one of `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` or `service.beta.kubernetes.io/do-loadbalancer-certificate-id` is, then port 443 is assumed to be used for HTTPS. This does not hold if `service.beta.kubernetes.io/do-loadbalancer-http2-ports` already specifies 443.
 
-Ports must not be shared between this annotation and `service.beta.kubernetes.io/do-loadbalancer-http2-ports`.
+Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-http-ports`, and `service.beta.kubernetes.io/do-loadbalancer-http2-ports`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-http2-ports
 
@@ -71,7 +77,7 @@ If specified, exactly one of `service.beta.kubernetes.io/do-loadbalancer-tls-pas
 
 The annotation is required for implicit HTTP2 usage, i.e., when `service.beta.kubernetes.io/do-loadbalancer-protocol` is not set to `http2`. (Unlike `service.beta.kubernetes.io/do-loadbalancer-tls-ports`, no default port is assumed for HTTP2 in order to retain compatibility with the semantics of implicit HTTPS usage.)
 
-Ports must not be shared between this annotation and `service.beta.kubernetes.io/do-loadbalancer-tls-ports`.
+Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-http-ports`, and `service.beta.kubernetes.io/do-loadbalancer-tls-ports`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-tls-passthrough
 
