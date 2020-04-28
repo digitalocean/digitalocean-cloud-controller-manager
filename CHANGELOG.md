@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## unreleased
+## v0.1.24 (beta) - April 28th 2020
 
 * Add annotation to specify HTTP ports explicitly (@timoreimann)
 * Build using Go 1.14 (@timoreimann)
