@@ -48,6 +48,7 @@ const (
 	doClusterIDEnv      string = "DO_CLUSTER_ID"
 	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
 	debugAddrEnv        string = "DEBUG_ADDR"
+	workerFirewallName  string = "WORKER_FIREWALL_NAME"
 )
 
 var version string
@@ -109,7 +110,8 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	clusterID := os.Getenv(doClusterIDEnv)
 	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
-	resources := newResources(clusterID, clusterVPCID, doClient)
+	firewallName := os.Getenv(workerFirewallName)
+	resources := newResources(clusterID, clusterVPCID, firewallName, doClient)
 
 	var httpServer *http.Server
 	if debugAddr := os.Getenv(debugAddrEnv); debugAddr != "" {
@@ -147,6 +149,15 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)
+	firewallService := c.client.Firewalls
+
+	if c.resources.firewallName != "" {
+		fw, err := NewFirewallController(c.resources.firewallName, c.resources.kclient, &firewallService, sharedInformer.Core().V1().Services())
+		if err != nil {
+			klog.Errorf("Failed to initialize firewall controller: %s", err)
+		}
+		go fw.Run(stop)
+	}
 	go res.Run(stop)
 	go c.serveDebug(stop)
 }

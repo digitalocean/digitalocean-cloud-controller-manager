@@ -162,7 +162,7 @@ func TestResourcesController_Run(t *testing.T) {
 		},
 		nil,
 	)
-	fakeResources := newResources(clusterID, "", gclient)
+	fakeResources := newResources(clusterID, "", "", gclient)
 	kclient := fake.NewSimpleClientset()
 	inf := informers.NewSharedInformerFactory(kclient, 0)
 
@@ -342,7 +342,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 				},
 			)
 
-			fakeResources := newResources("", "", gclient)
+			fakeResources := newResources("", "", "", gclient)
 			fakeTagsService := test.tagSvc
 			if fakeTagsService == nil {
 				fakeTagsService = newFakeTagsServiceWithFailure(0, errors.New("tags service not configured, should probably not have been called"))

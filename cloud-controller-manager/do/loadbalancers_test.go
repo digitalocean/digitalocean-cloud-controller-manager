@@ -3339,7 +3339,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					},
 				},
 			)
-			fakeResources := newResources("", "", fakeClient)
+			fakeResources := newResources("", "", "", fakeClient)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -3425,7 +3425,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 					},
 				},
 			)
-			fakeResources := newResources(test.clusterID, test.vpcID, fakeClient)
+			fakeResources := newResources(test.clusterID, test.vpcID, "", fakeClient)
 			fakeResources.clusterVPCID = test.vpcID
 
 			lb := &loadBalancers{
@@ -3631,7 +3631,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 					},
 				},
 			)
-			fakeResources := newResources("", "", fakeClient)
+			fakeResources := newResources("", "", "", fakeClient)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -3877,7 +3877,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 				listFn: test.listFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", fakeClient)
+			fakeResources := newResources("", "", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)
@@ -4308,7 +4308,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			certStore := make(map[string]*godo.Certificate)
 			fakeCert := newKVCertService(certStore, true)
 			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
-			fakeResources := newResources("", "", fakeClient)
+			fakeResources := newResources("", "", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)
@@ -4448,7 +4448,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 				deleteFn: test.deleteFn,
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", fakeClient)
+			fakeResources := newResources("", "", "", fakeClient)
 
 			lb := &loadBalancers{
 				resources:         fakeResources,
@@ -4540,7 +4540,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 				},
 			}
 			fakeClient := newFakeLBClient(fakeLB)
-			fakeResources := newResources("", "", fakeClient)
+			fakeResources := newResources("", "", "", fakeClient)
 			// fakeResources.kclient = fake.NewSimpleClientset(svc)
 			fakeResources.kclient = fake.NewSimpleClientset()
 			if _, err := fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Create(svc); err != nil {

@@ -252,7 +252,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				service := test.setupFn(lbService, certService)
 
 				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)
-				fakeResources := newResources("", "", fakeClient)
+				fakeResources := newResources("", "", "", fakeClient)
 				fakeResources.kclient = fake.NewSimpleClientset()
 				if _, err := fakeResources.kclient.CoreV1().Services(service.Namespace).Create(service); err != nil {
 					t.Fatalf("failed to add service to fake client: %s", err)
