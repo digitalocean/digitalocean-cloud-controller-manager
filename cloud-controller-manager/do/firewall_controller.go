@@ -39,12 +39,8 @@ import (
 const (
 	// Interval of synchronizing service status from apiserver
 	serviceSyncPeriod = 30 * time.Second
-
-	// How long to wait before retrying the processing of a service change.
-	// If this changes, the sleep in hack/jenkins/e2e.sh before downing a cluster
-	// should be changed appropriately.
-	minRetryDelay = 5 * time.Second
-	maxRetryDelay = 300 * time.Second
+	minRetryDelay     = 5 * time.Second
+	maxRetryDelay     = 300 * time.Second
 
 	// The format we should expect for ccm worker firewall names.
 	firewallWorkerCCMNameFormat = "k8s-%s-ccm"

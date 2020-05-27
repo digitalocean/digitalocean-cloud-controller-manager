@@ -149,9 +149,9 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)
-	firewallService := c.client.Firewalls
 
 	if c.resources.firewallName != "" {
+		firewallService := c.client.Firewalls
 		fw, err := NewFirewallController(c.resources.firewallName, c.resources.kclient, &firewallService, sharedInformer.Core().V1().Services())
 		if err != nil {
 			klog.Errorf("Failed to initialize firewall controller: %s", err)
