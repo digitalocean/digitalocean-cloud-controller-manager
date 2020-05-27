@@ -256,7 +256,7 @@ func (fc *Controller) processFirewallCreateOrUpdate(ctx context.Context, key, wo
 }
 
 func (fc *Controller) processFirewallDelete(key, workerFirewallname string, service *v1.Service) error {
-	cachedFirewall := fc.fwCache.getOrCreate(service.Name)
+	cachedFirewall := fc.fwCache.getOrCreate(key)
 	// We do not care about other firewalls
 	if cachedFirewall.state.Name != workerFirewallName {
 		return nil
@@ -267,12 +267,6 @@ func (fc *Controller) processFirewallDelete(key, workerFirewallname string, serv
 	}
 
 	return nil
-}
-
-func (fc *Controller) processServiceDeletion(key string) {
-	fc.svcCache.delete(key)
-	klog.V(2).Infof("Service %v has been deleted. Attempting to cleanup firewall resources", key)
-	fc.fwCache.delete(key)
 }
 
 func (fc *Controller) create(ctx context.Context, workerFirewallName string, fr *godo.FirewallRequest, rr *godo.FirewallRulesRequest) (*godo.Firewall, error) {
@@ -296,10 +290,6 @@ func isNodePort(service *v1.Service) bool {
 	return service.Spec.Type == v1.ServiceTypeNodePort
 }
 
-func workerserviceName(clusterUUID string) string {
-	return fmt.Sprintf(firewallWorkerCCMNameFormat, clusterUUID)
-}
-
 // Run starts the firewall controller loop.
 func (fc *Controller) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
@@ -311,50 +301,6 @@ func (fc *Controller) Run(stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-// worker runs a worker thread that just dequeues items, processes them, and marks them done.
-// It enforces that the syncHandler is never invoked concurrently with the same key.
-func (fc *Controller) worker() {
-	for fc.processNextWorkItem() {
-	}
-}
-
-func (fc *Controller) processNextWorkItem() bool {
-	key, quit := fc.queue.Get()
-	if quit {
-		return false
-	}
-	defer fc.queue.Done(key)
-
-	err := errors.NewBadRequest("place holder")
-	runtime.HandleError(fmt.Errorf("error processing service %v (will retry): %v", key, err))
-	fc.queue.AddRateLimited(key)
-	return true
-}
-
-// ListKeys implements the interface required by DeltaFIFO to list the keys we
-// already know about.
-func (s *serviceCache) ListKeys() []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	keys := make([]string, 0, len(s.serviceMap))
-	for k := range s.serviceMap {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// GetByKey returns the value stored in the serviceMap under the given key
-func (s *serviceCache) GetByKey(key string) (interface{}, bool, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	if v, ok := s.serviceMap[key]; ok {
-		return v, true, nil
-	}
-	return nil, false, nil
-}
-
-// ListKeys implements the interface required by DeltaFIFO to list the keys we
-// already know about.
 func (s *serviceCache) allServices() []*v1.Service {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -363,6 +309,12 @@ func (s *serviceCache) allServices() []*v1.Service {
 		services = append(services, v.state)
 	}
 	return services
+}
+
+func (s *serviceCache) delete(serviceName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.serviceMap, serviceName)
 }
 
 func (s *serviceCache) get(serviceName string) (*cachedService, bool) {
@@ -389,41 +341,6 @@ func (s *serviceCache) set(serviceName string, service *cachedService) {
 	s.serviceMap[serviceName] = service
 }
 
-func (s *serviceCache) delete(serviceName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.serviceMap, serviceName)
-}
-
-// ListKeys implements the interface required by DeltaFIFO to list the keys we
-// already know about.
-func (f *firewallCache) ListKeys() []string {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	keys := make([]string, 0, len(f.firewallMap))
-	for k := range f.firewallMap {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-// GetByKey returns the value stored in the firewallMap under the given key
-func (f *firewallCache) GetByKey(key string) (interface{}, bool, error) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	if v, ok := f.firewallMap[key]; ok {
-		return v, true, nil
-	}
-	return nil, false, nil
-}
-
-func (f *firewallCache) get(serviceName string) (*cachedFirewall, bool) {
-	f.mu.RLock()
-	defer f.mu.RUnlock()
-	firewall, ok := f.firewallMap[serviceName]
-	return firewall, ok
-}
-
 func (f *firewallCache) getOrCreate(serviceName string) *cachedFirewall {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -433,12 +350,6 @@ func (f *firewallCache) getOrCreate(serviceName string) *cachedFirewall {
 		f.firewallMap[serviceName] = firewall
 	}
 	return firewall
-}
-
-func (f *firewallCache) set(serviceName string, firewall *cachedFirewall) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.firewallMap[serviceName] = firewall
 }
 
 func (f *firewallCache) delete(serviceName string) {
