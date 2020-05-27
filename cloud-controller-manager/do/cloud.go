@@ -43,12 +43,12 @@ const (
 	// One option is to construct our own command that's specific to us.
 	// Alibaba's ccm is an example how this is done.
 	// https://github.com/kubernetes/cloud-provider-alibaba-cloud/blob/master/cmd/cloudprovider/app/ccm.go
-	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
-	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
-	doClusterIDEnv      string = "DO_CLUSTER_ID"
-	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
-	debugAddrEnv        string = "DEBUG_ADDR"
-	workerFirewallName  string = "WORKER_FIREWALL_NAME"
+	doAccessTokenEnv      string = "DO_ACCESS_TOKEN"
+	doOverrideAPIURLEnv   string = "DO_OVERRIDE_URL"
+	doClusterIDEnv        string = "DO_CLUSTER_ID"
+	doClusterVPCIDEnv     string = "DO_CLUSTER_VPC_ID"
+	debugAddrEnv          string = "DEBUG_ADDR"
+	workerFirewallNameEnv string = "WORKER_FIREWALL_NAME"
 )
 
 var version string
