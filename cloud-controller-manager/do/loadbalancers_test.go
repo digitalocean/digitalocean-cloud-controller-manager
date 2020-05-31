@@ -3935,7 +3935,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 		createFn          func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		updateFn          func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 		service           *v1.Service
-		newLoadBalancerID string
+		newLoadBalancerID *string
 		nodes             []*v1.Node
 		lbStatus          *v1.LoadBalancerStatus
 		err               error
@@ -4210,7 +4210,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			newLoadBalancerID: "other-load-balancer-id",
+			newLoadBalancerID: stringP("other-load-balancer-id"),
 			nodes: []*v1.Node{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -4290,6 +4290,50 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			lbStatus: nil,
 			err:      utilerrors.NewAggregate([]error{fmt.Errorf("load-balancer is not yet active (current status: %s)", lbStatusNew)}),
 		},
+		{
+			name:     "LB is disowned",
+			getFn:    nil,
+			listFn:   nil,
+			createFn: nil,
+			updateFn: nil,
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDODisownLB: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+				Status: v1.ServiceStatus{
+					LoadBalancer: v1.LoadBalancerStatus{
+						Ingress: []v1.LoadBalancerIngress{
+							{
+								IP: "10.0.0.1",
+							},
+						},
+					},
+				},
+			},
+			newLoadBalancerID: stringP(""),
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+				},
+			},
+			err: nil,
+		},
 	}
 
 	for _, test := range testcases {
@@ -4343,8 +4387,8 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 
 				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
 				wantLoadBalancerID := "load-balancer-id"
-				if test.newLoadBalancerID != "" {
-					wantLoadBalancerID = test.newLoadBalancerID
+				if test.newLoadBalancerID != nil {
+					wantLoadBalancerID = *test.newLoadBalancerID
 				}
 				if gotLoadBalancerID != wantLoadBalancerID {
 					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
@@ -4435,6 +4479,21 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "foobar123",
+				},
+			},
+			err: nil,
+		},
+		{
+			name:     "LB is disowned",
+			listFn:   nil,
+			deleteFn: nil,
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDODisownLB: "true",
+					},
 				},
 			},
 			err: nil,

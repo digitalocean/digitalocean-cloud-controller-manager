@@ -160,6 +160,95 @@ spec:
           protocol: TCP
 ```
 
+## Changing ownership of a load-balancer (for migration purposes)
+
+In general, multiple services (within the same cluster or across multiple clusters) should not be referencing the same [load-balancer ID](/docs/getting-started.md#load-balancer-id-annotations) to avoid conflicting reconciliation. However, at times this may be desired in order to pass ownership of a load-balancer from one Service to another. A common use case is to migrate a load-balancer from one cluster to a new one in order to preserve its IP address.
+
+This can be safely achieved by first "disowning" the load-balancer from the original Service, which turns all mutating actions (load balancer creates, updates, and deletes) into no-ops. Afterwards, the load-balancer can be taken over by a new Service by setting the `kubernetes.digitalocean.com/load-balancer-id` annotation accordingly.
+
+The workflow below outlines the necessary steps.
+
+### Workflow
+
+Suppose you have a Service
+
+```yaml
+# For the sake of this example, let's assume the Service lives in cluster "production-v1"
+kind: Service
+apiVersion: v1
+metadata:
+  name: app
+  annotations:
+    kubernetes.digitalocean.com/load-balancer-id: c16b0b29-217b-48eb-907e-93cf2e01fb56
+spec:
+  selector:
+    name: app
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+  type: LoadBalancer
+```
+
+in cluster _production-v1_. (Note the `kubernetes.digitalocean.com/load-balancer-id` annotation set by `digitalocean-cloud-controller-managers`.)
+
+Here is how you would go about moving the load-balancer to a new cluster `production-v2`:
+
+1. Make sure that no load-balancer-related errors are reported from `digitalocean-cloud-controller-managers` by checking for the absence of error events in your Service via `kubectl describe service app`. Fix any errors that may be reported to bring the Service into a stable state.
+2. Mark the load-balancer as disowned by adding the [`service.kubernetes.io/do-loadbalancer-disown`](docs/controllers/services/annotations.md#servicekubernetesiodo-loadbalancer-disown) annotation and assigning it a `"true"` value. Afterwards, the Service object should look like this:
+
+```yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: app
+  annotations:
+    kubernetes.digitalocean.com/load-balancer-id: c16b0b29-217b-48eb-907e-93cf2e01fb56
+    service.kubernetes.io/do-loadbalancer-disown: "true"
+spec:
+  selector:
+    name: app
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+  type: LoadBalancer
+```
+
+3. Make sure the change is applied correctly by checking the Service events again. Once applied, all mutating requests directed at the load-balancer and driven through the Service object will be ignored.
+
+(At this point, you could already delete the Service while the corresponding load-balancer would not be deleted.)
+
+4. In our hypthetical new cluster _production-v2_, create a new Service that is supposed to take over ownership and **set the `kubernetes.digitalocean.com/load-balancer-id` annotation right from the start**:
+
+```yaml
+# This would be in cluster "production-v2"
+kind: Service
+apiVersion: v1
+metadata:
+  name: app
+  annotations:
+    kubernetes.digitalocean.com/load-balancer-id: c16b0b29-217b-48eb-907e-93cf2e01fb56
+spec:
+  selector:
+    name: app
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+  type: LoadBalancer
+```
+
+(In the real-world, your Service may have a number of load-balancer-specific configuration annotation which you would transfer to the new Service as well.)
+
+5. Wait for `digitalocean-cloud-controller-managers` to finish reconciliation by checking the Service events until things have settled down.
+
+At this point, the load-balancer should be owned by the new Service, meaning that traffic should be routed into the new cluster.
+
+6. If you have not done so already: delete the Service _in the old cluster_ (or change its [type to something other than `LoadBalancer`](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types) if you want to, say, continue using the Service for cluster-internal routing).
+
+You're done!
+
 ## Surfacing errors related to provisioning a load balancer
 
 Cloud Controller Manager is using DigitalOcean API internally to provision a

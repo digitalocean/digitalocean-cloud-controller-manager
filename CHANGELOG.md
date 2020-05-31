@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## unreleased
+
+* Support disowning LBs (@timoreimann)
+
 ## v0.1.24 (beta) - April 28th 2020
 
 * Add annotation to specify HTTP ports explicitly (@timoreimann)

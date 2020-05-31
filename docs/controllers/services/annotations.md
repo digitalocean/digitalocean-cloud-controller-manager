@@ -139,3 +139,15 @@ Indicates whether HTTP keepalive connections should be enabled to backend target
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+## service.kubernetes.io/do-loadbalancer-disown
+
+Indicates whether the managed load-balancer should be disowned. Disowned load-balancers are not mutated anymore, including creates, updates, and deletes. This can be employed to manage the load-balancer by a different cluster. Options are `"true"` or `"false"`. Defaults to `"false"`.
+
+**Warning** Disowned load-balancers do not necessarily work correctly anymore because needed load-balancer updates (in terms of target nodes or configuration annotations) stop being propagated to the DigitalOcean load-balancer. Similarly, the Service status field may not reflect the right state anymore. Consequently, users should assign disowned load-balancers to a new Service without much delay.
+
+See also the [elaborate example](/docs/controllers/services/examples/README.md#changing-ownership-of-a-load-balancer-for-migration-purposes).
+
+**Note**
+
+You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).

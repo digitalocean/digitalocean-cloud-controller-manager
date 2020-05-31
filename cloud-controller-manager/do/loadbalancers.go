@@ -145,6 +145,10 @@ const (
 	// should be enabled to backend target droplets. Defaults to false.
 	annDOEnableBackendKeepalive = "service.beta.kubernetes.io/do-loadbalancer-enable-backend-keepalive"
 
+	// annDODisownLB is the annotation specifying if a load-balancer should be
+	// disowned. Defaults to false.
+	annDODisownLB = "service.kubernetes.io/do-loadbalancer-disown"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -219,7 +223,7 @@ func (sp *servicePatcher) Patch(err error) error {
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
-func newLoadBalancers(resources *resources, client *godo.Client, region string) cloudprovider.LoadBalancer {
+func newLoadBalancers(resources *resources, region string) cloudprovider.LoadBalancer {
 	return &loadBalancers{
 		resources:         resources,
 		region:            region,
@@ -278,6 +282,15 @@ func getLoadBalancerLegacyName(service *v1.Service) string {
 //
 // EnsureLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (lbs *v1.LoadBalancerStatus, err error) {
+	lbIsDisowned, err := getDisownLB(service)
+	if err != nil {
+		return nil, err
+	}
+	if lbIsDisowned {
+		klog.Infof("Short-circuiting EnsureLoadBalancer because service %q is disowned", service.Name)
+		return &service.Status.LoadBalancer, nil
+	}
+
 	patcher := newServicePatcher(l.resources.kclient, service)
 	defer func() { err = patcher.Patch(err) }()
 
@@ -407,6 +420,15 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 //
 // UpdateLoadBalancer will not modify service or nodes.
 func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (err error) {
+	lbIsDisowned, err := getDisownLB(service)
+	if err != nil {
+		return err
+	}
+	if lbIsDisowned {
+		klog.Infof("Short-circuiting UpdateLoadBalancer because service %q is disowned", service.Name)
+		return nil
+	}
+
 	patcher := newServicePatcher(l.resources.kclient, service)
 	defer func() { err = patcher.Patch(err) }()
 
@@ -426,6 +448,15 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 //
 // EnsureLoadBalancerDeleted will not modify service.
 func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+	lbIsDisowned, err := getDisownLB(service)
+	if err != nil {
+		return err
+	}
+	if lbIsDisowned {
+		klog.Infof("Short-circuiting EnsureLoadBalancerDeleted because service %q is disowned", service.Name)
+		return nil
+	}
+
 	// Not calling retrieveAndAnnotateLoadBalancer to save a potential PATCH API
 	// call: the load-balancer is destined to be removed anyway.
 	lb, err := l.retrieveLoadBalancer(ctx, service)
@@ -1143,6 +1174,22 @@ func getEnableBackendKeepalive(service *v1.Service) (bool, error) {
 
 func getLoadBalancerID(service *v1.Service) string {
 	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
+}
+
+// getDisownLB returns whether the load-balancer should be disowned.
+// False is returned if not specified.
+func getDisownLB(service *v1.Service) (bool, error) {
+	disownLBStr, ok := service.Annotations[annDODisownLB]
+	if !ok {
+		return false, nil
+	}
+
+	disownLB, err := strconv.ParseBool(disownLBStr)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse disown LB flag %q from annotation %q: %s", disownLBStr, annDODisownLB, err)
+	}
+
+	return disownLB, nil
 }
 
 func findDups(lists ...[]int) []string {
