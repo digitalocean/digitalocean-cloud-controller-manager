@@ -166,6 +166,8 @@ In general, multiple services (within the same cluster or across multiple cluste
 
 This can be safely achieved by first "disowning" the load-balancer from the original Service, which turns all mutating actions (load balancer creates, updates, and deletes) into no-ops. Afterwards, the load-balancer can be taken over by a new Service by setting the `kubernetes.digitalocean.com/load-balancer-id` annotation accordingly.
 
+**Note:** The new Service's cluster must reside in the same VPC as the original Service. Otherwise, ownership cannot be passed on. See the [DigitalOcean VPC documentation](https://www.digitalocean.com/docs/networking/vpc/) for details.
+
 The workflow below outlines the necessary steps.
 
 ### Workflow
