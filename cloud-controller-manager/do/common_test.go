@@ -29,6 +29,10 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+func stringP(s string) *string {
+	return &s
+}
+
 func newFakeClient(fakeDroplet *fakeDropletService, fakeLB *fakeLBService, fakeCert *kvCertService) *godo.Client {
 	return &godo.Client{
 		Certificates:  fakeCert,

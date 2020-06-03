@@ -93,7 +93,7 @@ When a cluster is created in a non-default VPC for the region, the environment v
 
 `digitalocean-cloud-controller-manager` annotates new and existing Services. Note that a load-balancer that is renamed before the annotation is added will be lost, and a new one will be created.
 
-You can have `digitalocean-cloud-controller-manager` manage an existing load-balancer by creating a `LoadBalancer` Service annotated with the UUID of the load-balancer. Do not do this while it is being managed by another cluster, or the `digitalocean-cloud-controller-managers` will make conflicting modifications to the load-balancer.
+You can have `digitalocean-cloud-controller-manager` manage an existing load-balancer by creating a `LoadBalancer` Service annotated with the UUID of the load-balancer. However, if it is already managed by another Service/cluster, you have to make sure [to disown it properly](/docs/controllers/services/examples/README.md#changing-ownership-of-a-load-balancer-for-migration-purposes) to prevent conflicting modifications to the load-balancer.
 
 ## Deployment
 
