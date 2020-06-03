@@ -4484,9 +4484,13 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			err: nil,
 		},
 		{
-			name:     "LB is disowned",
-			listFn:   nil,
-			deleteFn: nil,
+			name: "LB is disowned",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+			},
+			deleteFn: func(context.Context, string) (*godo.Response, error) {
+				return newFakeNotOKResponse(), errors.New("delete should not have been invoked")
+			},
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
