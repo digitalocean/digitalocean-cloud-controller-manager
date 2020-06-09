@@ -61,6 +61,38 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 	return list, nil
 }
 
+func allFirewallList(ctx context.Context, client *godo.Client) ([]godo.Firewall, error) {
+	list := []godo.Firewall{}
+
+	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
+	for {
+		firewalls, resp, err := client.Firewalls.List(ctx, opt)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, errors.New("firewalls list request returned no response")
+		}
+
+		list = append(list, firewalls...)
+
+		// if we are at the last page, break out the for loop
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		opt.Page = page + 1
+	}
+
+	return list, nil
+}
+
 func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadBalancer, error) {
 	list := []godo.LoadBalancer{}
 
