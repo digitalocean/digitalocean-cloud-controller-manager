@@ -110,7 +110,7 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	clusterID := os.Getenv(doClusterIDEnv)
 	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
-	firewallName := os.Getenv(workerFirewallName)
+	firewallName := os.Getenv(workerFirewallNameEnv)
 	resources := newResources(clusterID, clusterVPCID, firewallName, doClient)
 
 	var httpServer *http.Server

@@ -65,6 +65,7 @@ type Controller struct {
 	queue              workqueue.RateLimitingInterface
 	firewallService    *godo.FirewallsServiceOp
 	workerFirewallName string
+	tags               []string
 	serviceLister      corelisters.ServiceLister
 	firewallManager    FirewallManager
 }
@@ -84,6 +85,7 @@ func NewFirewallController(
 	client *godo.Client,
 	firewallService *godo.FirewallsService,
 	serviceInformer coreinformers.ServiceInformer,
+	tags []string,
 	ctx context.Context,
 ) (*Controller, error) {
 	if kubeClient != nil && kubeClient.CoreV1().RESTClient().GetRateLimiter() != nil {
@@ -98,6 +100,7 @@ func NewFirewallController(
 		fwCache:            &firewallCache{firewall: *cachedFirewall},
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(minRetryDelay, maxRetryDelay), "firewall"),
 		workerFirewallName: workerFirewallName,
+		tags:               tags,
 	}
 
 	serviceInformer.Informer().AddEventHandlerWithResyncPeriod(
@@ -214,7 +217,7 @@ func (c *Controller) onServiceChange(ctx context.Context) error {
 					Protocol:  "tcp",
 					PortRange: strconv.Itoa(int(servicePort.NodePort)),
 					Sources: &godo.Sources{
-						Tags: []string{"k8s:worker:" + clusterUUID},
+						Tags: c.tags,
 					},
 				})
 			}
