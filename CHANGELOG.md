@@ -1,8 +1,9 @@
 # CHANGELOG
 
-## unreleased
+## v0.1.25 (beta) - June 15th 2020
 
 * Support disowning LBs (@timoreimann)
+* Add commented out leases RBAC rules to manifest (@waynr)
 
 ## v0.1.24 (beta) - April 28th 2020
 
