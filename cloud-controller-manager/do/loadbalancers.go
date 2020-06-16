@@ -214,11 +214,11 @@ func newServicePatcher(kclient kubernetes.Interface, base *v1.Service) servicePa
 // Patch will submit a patch request for the Service unless the updated service
 // reference contains the same set of annotations as the base copied during
 // servicePatcher initialization.
-func (sp *servicePatcher) Patch(err error) error {
+func (sp *servicePatcher) Patch(ctx context.Context, err error) error {
 	if reflect.DeepEqual(sp.base.Annotations, sp.updated.Annotations) {
 		return err
 	}
-	perr := patchService(sp.kclient, sp.base, sp.updated)
+	perr := patchService(ctx, sp.kclient, sp.base, sp.updated)
 	return utilerrors.NewAggregate([]error{err, perr})
 }
 
@@ -237,7 +237,7 @@ func newLoadBalancers(resources *resources, region string) cloudprovider.LoadBal
 // GetLoadBalancer will not modify service.
 func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string, service *v1.Service) (status *v1.LoadBalancerStatus, exists bool, err error) {
 	patcher := newServicePatcher(l.resources.kclient, service)
-	defer func() { err = patcher.Patch(err) }()
+	defer func() { err = patcher.Patch(ctx, err) }()
 
 	var lb *godo.LoadBalancer
 	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
@@ -292,7 +292,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	patcher := newServicePatcher(l.resources.kclient, service)
-	defer func() { err = patcher.Patch(err) }()
+	defer func() { err = patcher.Patch(ctx, err) }()
 
 	var lbRequest *godo.LoadBalancerRequest
 	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
@@ -430,7 +430,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	patcher := newServicePatcher(l.resources.kclient, service)
-	defer func() { err = patcher.Patch(err) }()
+	defer func() { err = patcher.Patch(ctx, err) }()
 
 	var lb *godo.LoadBalancer
 	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)

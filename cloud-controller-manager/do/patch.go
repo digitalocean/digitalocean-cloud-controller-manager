@@ -17,16 +17,18 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	clientset "k8s.io/client-go/kubernetes"
 )
 
-func patchService(client clientset.Interface, cur, mod *v1.Service) error {
+func patchService(ctx context.Context, client clientset.Interface, cur, mod *v1.Service) error {
 	curJSON, err := json.Marshal(cur)
 	if err != nil {
 		return fmt.Errorf("failed to serialize current service object: %s", err)
@@ -44,7 +46,7 @@ func patchService(client clientset.Interface, cur, mod *v1.Service) error {
 	if len(patch) == 0 || string(patch) == "{}" {
 		return nil
 	}
-	_, err = client.CoreV1().Services(cur.Namespace).Patch(cur.Name, types.StrategicMergePatchType, patch, "")
+	_, err = client.CoreV1().Services(cur.Namespace).Patch(ctx, cur.Name, types.StrategicMergePatchType, patch, metav1.PatchOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to patch service object %s/%s: %s", cur.Namespace, cur.Name, err)
 	}
