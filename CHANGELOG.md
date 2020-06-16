@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.26 (beta) - June 16th 2020
+
+* Update Kubernetes dependences to 1.18.3 (@waynr)
+
 ## v0.1.25 (beta) - June 15th 2020
 
 * Support disowning LBs (@timoreimann)
