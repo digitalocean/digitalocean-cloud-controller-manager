@@ -31,7 +31,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	schedulerapi "k8s.io/kubernetes/pkg/scheduler/api"
+	cloudprovider "k8s.io/cloud-provider"
 )
 
 const (
@@ -115,7 +115,7 @@ func TestE2E(t *testing.T) {
 				for _, node := range gotNodes {
 					// Make sure the "uninitialized" node taint is missing.
 					for _, taint := range node.Spec.Taints {
-						if taint.Key == schedulerapi.TaintExternalCloudProvider {
+						if taint.Key == cloudprovider.TaintExternalCloudProvider {
 							continue Nodes
 						}
 					}
