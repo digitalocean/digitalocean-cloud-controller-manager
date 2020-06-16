@@ -17,6 +17,7 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -40,7 +41,7 @@ func TestPatchService(t *testing.T) {
 		t.Fatalf("failed to create service: %s", err)
 	}
 
-	err := patchService(cs, cur, mod)
+	err := patchService(context.Background(), cs, cur, mod)
 	if err != nil {
 		t.Fatalf("failed to patch service: %s", err)
 	}
