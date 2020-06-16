@@ -37,7 +37,7 @@ func TestPatchService(t *testing.T) {
 	mod.Annotations["copy"] = "true"
 
 	cs := fake.NewSimpleClientset()
-	if _, err := cs.CoreV1().Services(metav1.NamespaceDefault).Create(cur); err != nil {
+	if _, err := cs.CoreV1().Services(metav1.NamespaceDefault).Create(context.Background(), cur, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("failed to create service: %s", err)
 	}
 
@@ -46,7 +46,7 @@ func TestPatchService(t *testing.T) {
 		t.Fatalf("failed to patch service: %s", err)
 	}
 
-	svc, err := cs.CoreV1().Services(metav1.NamespaceDefault).Get(cur.Name, metav1.GetOptions{})
+	svc, err := cs.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), cur.Name, metav1.GetOptions{})
 	if err != nil {
 		t.Fatalf("failed to get service: %s", err)
 	}

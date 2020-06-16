@@ -352,7 +352,7 @@ func TestResourcesController_SyncTags(t *testing.T) {
 			kclient := fake.NewSimpleClientset()
 
 			for _, svc := range test.services {
-				_, err := kclient.CoreV1().Services(corev1.NamespaceDefault).Create(svc)
+				_, err := kclient.CoreV1().Services(corev1.NamespaceDefault).Create(context.Background(), svc, metav1.CreateOptions{})
 				if err != nil {
 					t.Fatalf("failed to create service: %s", err)
 				}

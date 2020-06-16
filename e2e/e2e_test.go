@@ -19,6 +19,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -164,7 +165,7 @@ func TestE2E(t *testing.T) {
 				},
 			}
 
-			if _, err := cs.CoreV1().Pods(corev1.NamespaceDefault).Create(&pod); err != nil {
+			if _, err := cs.CoreV1().Pods(corev1.NamespaceDefault).Create(context.Background(), &pod, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("failed to create example pod: %s", err)
 			}
 
@@ -211,7 +212,7 @@ func TestE2E(t *testing.T) {
 				},
 			}
 
-			if _, err := cs.CoreV1().Services(corev1.NamespaceDefault).Create(&svc); err != nil {
+			if _, err := cs.CoreV1().Services(corev1.NamespaceDefault).Create(context.Background(), &svc, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("failed to create service: %s", err)
 			}
 			// External LBs don't seem to get deleted when the kops cluster is
@@ -219,7 +220,7 @@ func TestE2E(t *testing.T) {
 			var lbAddr string
 			defer func() {
 				l.Printf("Deleting service %q\n", svcName)
-				if err := cs.CoreV1().Services(corev1.NamespaceDefault).Delete(svcName, &metav1.DeleteOptions{}); err != nil {
+				if err := cs.CoreV1().Services(corev1.NamespaceDefault).Delete(context.Background(), svcName, &metav1.DeleteOptions{}); err != nil {
 					t.Errorf("failed to delete service: %s", err)
 				}
 				// If this is the last test, CCM might not be able to remove
@@ -260,7 +261,7 @@ func TestE2E(t *testing.T) {
 			l.Println("Polling for service load balancer IP address assignment")
 			start = time.Now()
 			if err := wait.Poll(5*time.Second, 10*time.Minute, func() (bool, error) {
-				svc, err := cs.CoreV1().Services(corev1.NamespaceDefault).Get(svcName, metav1.GetOptions{})
+				svc, err := cs.CoreV1().Services(corev1.NamespaceDefault).Get(context.Background(), svcName, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}

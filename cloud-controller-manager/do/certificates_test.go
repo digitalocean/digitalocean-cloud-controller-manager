@@ -254,7 +254,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				fakeClient := newFakeClient(&fakeDroplet, &lbService, &certService)
 				fakeResources := newResources("", "", fakeClient)
 				fakeResources.kclient = fake.NewSimpleClientset()
-				if _, err := fakeResources.kclient.CoreV1().Services(service.Namespace).Create(service); err != nil {
+				if _, err := fakeResources.kclient.CoreV1().Services(service.Namespace).Create(context.Background(), service, metav1.CreateOptions{}); err != nil {
 					t.Fatalf("failed to add service to fake client: %s", err)
 				}
 
@@ -279,7 +279,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					t.Errorf("got error %q, want: %q", err, test.err)
 				}
 
-				service, err = fakeResources.kclient.CoreV1().Services(service.Namespace).Get(service.Name, metav1.GetOptions{})
+				service, err = fakeResources.kclient.CoreV1().Services(service.Namespace).Get(context.Background(), service.Name, metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("failed to get service from fake client: %s", err)
 				}

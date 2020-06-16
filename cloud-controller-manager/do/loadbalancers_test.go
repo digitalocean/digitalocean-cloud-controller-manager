@@ -3879,7 +3879,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 			fakeClient := newFakeLBClient(fakeLB)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
-			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
+			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(context.Background(), test.service, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)
 			}
 
@@ -3911,7 +3911,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 			}
 
 			if test.exists {
-				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
+				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(context.Background(), test.service.Name, metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("failed to get service from kube client: %s", err)
 				}
@@ -4354,7 +4354,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
 			fakeResources := newResources("", "", fakeClient)
 			fakeResources.kclient = fake.NewSimpleClientset()
-			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(test.service); err != nil {
+			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(context.Background(), test.service, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)
 			}
 
@@ -4380,7 +4380,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			}
 
 			if test.err == nil {
-				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(test.service.Name, metav1.GetOptions{})
+				svc, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Get(context.Background(), test.service.Name, metav1.GetOptions{})
 				if err != nil {
 					t.Fatalf("failed to get service from kube client: %s", err)
 				}
@@ -4606,7 +4606,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 			fakeResources := newResources("", "", fakeClient)
 			// fakeResources.kclient = fake.NewSimpleClientset(svc)
 			fakeResources.kclient = fake.NewSimpleClientset()
-			if _, err := fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Create(svc); err != nil {
+			if _, err := fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Create(context.Background(), svc, metav1.CreateOptions{}); err != nil {
 				t.Fatalf("failed to add service to fake client: %s", err)
 			}
 
@@ -4622,7 +4622,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			svc, err = fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Get(svc.Name, metav1.GetOptions{})
+			svc, err = fakeResources.kclient.CoreV1().Services(v1.NamespaceDefault).Get(context.Background(), svc.Name, metav1.GetOptions{})
 			if err != nil {
 				t.Fatalf("failed to get service from kube client: %s", err)
 			}
