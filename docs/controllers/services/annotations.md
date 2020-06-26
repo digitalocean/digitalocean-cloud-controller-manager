@@ -25,7 +25,9 @@ If `https` or `http2` is specified, then either `service.beta.kubernetes.io/do-l
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-port
 
-The port used to check if a backend droplet is healthy. Defaults to the first port in a service.
+The service port used to check if a backend droplet is healthy. Defaults to the first port in a service.
+
+**Note:** Users must specify a port exposed by the Service, not the NodePort.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-path
 
