@@ -36,6 +36,19 @@ A solution to the problem is to pass the provider ID (aka droplet ID) via the ku
 
 DigitalOcean's managed Kubernetes offering DOKS sets the provider ID on each worker node kubelet instance.
 
+### Managed firewall handling for public access
+
+`digitalocean-cloud-controller-manager` can manage a dedicated [DigitalOcean Cloud Firewall](https://www.digitalocean.com/docs/networking/firewalls/) to dynamically allow access to NodePorts. A controller watches over Services and modifies the inbound rules of a firewall to permit access to the target NodePorts, and likewise close down access again if a Service is deleted or its type changed to something other than `NodePort`. (Note that DigitalOcean Load-Balancers access the cluster over the VPC interface and as such are not managed by this particular firewall for now.)
+
+By default, no firewall will be managed. To enable firewall management, the following environment variables need to be defined:
+
+* `PUBLIC_ACCESS_FIREWALL_NAME`: the name of the firewall to use.
+* `PUBLIC_ACCESS_FIREWALL_TAGS`: a comma-separated list of tags that match the worker droplets the firewall should target.
+
+Managed firewalls should **not** be modified directly as such changes will be reverted eventually, including re-creation of the firewall should it ever be found missing.
+
+If management of the firewall is not desired anymore, the environment variables must be unset before the firewall can be deleted by the user manually.
+
 ### DEBUG_ADDR environment variable
 
 If the `DEBUG_ADDR` environment variable is specified, then an HTTP server is started on the given address (e.g., `:12301`). It serves on `/healthz` and queries the `/v2/account` path of the DigitalOcean API on request.

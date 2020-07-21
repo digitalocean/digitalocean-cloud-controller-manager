@@ -42,9 +42,15 @@ type tagMissingError struct {
 	error
 }
 
+type publicAccessFirewall struct {
+	name string
+	tags []string
+}
+
 type resources struct {
 	clusterID    string
 	clusterVPCID string
+	firewall     publicAccessFirewall
 
 	gclient *godo.Client
 	kclient kubernetes.Interface
@@ -57,10 +63,11 @@ type resources struct {
 // the cloud provider framework provides us with a clientset. Fortunately, the
 // initialization order guarantees that kclient won't be consumed prior to it
 // being set.
-func newResources(clusterID, clusterVPCID string, gclient *godo.Client) *resources {
+func newResources(clusterID, clusterVPCID string, publicAccessFW publicAccessFirewall, gclient *godo.Client) *resources {
 	return &resources{
 		clusterID:    clusterID,
 		clusterVPCID: clusterVPCID,
+		firewall:     publicAccessFW,
 
 		gclient: gclient,
 	}

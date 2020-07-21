@@ -9,6 +9,7 @@ require (
 	github.com/digitalocean/godo v1.35.1
 	github.com/go-ini/ini v1.39.0 // indirect
 	github.com/golang/groupcache v0.0.0-20180513044358-24b0969c4cb7 // indirect
+	github.com/google/go-cmp v0.5.0
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/minio/minio-go v6.0.10+incompatible
 	github.com/spf13/pflag v1.0.5
