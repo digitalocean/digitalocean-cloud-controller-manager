@@ -887,7 +887,9 @@ func getProtocol(service *v1.Service) (string, error) {
 		return protocolTCP, nil
 	}
 
-	if protocol != protocolTCP && protocol != protocolHTTP && protocol != protocolHTTPS && protocol != protocolHTTP2 {
+	switch protocol {
+	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2:
+	default:
 		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOProtocol)
 	}
 
@@ -936,7 +938,9 @@ func healthCheckProtocol(service *v1.Service) (string, error) {
 		return protocolTCP, nil
 	}
 
-	if protocol != protocolTCP && protocol != protocolHTTP {
+	switch protocol {
+	case protocolTCP, protocolHTTP, protocolHTTPS:
+	default:
 		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOHealthCheckProtocol)
 	}
 
