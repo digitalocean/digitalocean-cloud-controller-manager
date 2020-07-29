@@ -1984,7 +1984,7 @@ func Test_buildHealthCheck(t *testing.T) {
 			healthcheck: defaultHealthCheck("tcp", 30000, ""),
 		},
 		{
-			name: "http health check using protocol override",
+			name: "explicit http health check protocol and tcp payload protocol",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -2008,7 +2008,7 @@ func Test_buildHealthCheck(t *testing.T) {
 			healthcheck: defaultHealthCheck("http", 30000, ""),
 		},
 		{
-			name: "https health check using protocol override",
+			name: "explicit http health check protocol and https payload protocol",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -2033,7 +2033,7 @@ func Test_buildHealthCheck(t *testing.T) {
 			healthcheck: defaultHealthCheck("http", 30000, ""),
 		},
 		{
-			name: "http2 health check using protocol override",
+			name: "explicit http health check protocol and http2 payload protocol",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -2056,6 +2056,30 @@ func Test_buildHealthCheck(t *testing.T) {
 				},
 			},
 			healthcheck: defaultHealthCheck("http", 30000, ""),
+		},
+		{
+			name: "explicit https health check protocol and tcp payload protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:            "tcp",
+						annDOHealthCheckProtocol: "https",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: defaultHealthCheck("https", 30000, ""),
 		},
 		{
 			name: "http health check with https and certificate",
