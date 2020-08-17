@@ -22,6 +22,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -43,11 +45,13 @@ const (
 	// One option is to construct our own command that's specific to us.
 	// Alibaba's ccm is an example how this is done.
 	// https://github.com/kubernetes/cloud-provider-alibaba-cloud/blob/master/cmd/cloudprovider/app/ccm.go
-	doAccessTokenEnv    string = "DO_ACCESS_TOKEN"
-	doOverrideAPIURLEnv string = "DO_OVERRIDE_URL"
-	doClusterIDEnv      string = "DO_CLUSTER_ID"
-	doClusterVPCIDEnv   string = "DO_CLUSTER_VPC_ID"
-	debugAddrEnv        string = "DEBUG_ADDR"
+	doAccessTokenEnv            string = "DO_ACCESS_TOKEN"
+	doOverrideAPIURLEnv         string = "DO_OVERRIDE_URL"
+	doClusterIDEnv              string = "DO_CLUSTER_ID"
+	doClusterVPCIDEnv           string = "DO_CLUSTER_VPC_ID"
+	debugAddrEnv                string = "DEBUG_ADDR"
+	publicAccessFirewallNameEnv string = "PUBLIC_ACCESS_FIREWALL_NAME"
+	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
 )
 
 var version string
@@ -109,7 +113,16 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	clusterID := os.Getenv(doClusterIDEnv)
 	clusterVPCID := os.Getenv(doClusterVPCIDEnv)
-	resources := newResources(clusterID, clusterVPCID, doClient)
+	firewallName := os.Getenv(publicAccessFirewallNameEnv)
+	firewallTags := os.Getenv(publicAccessFirewallTagsEnv)
+	if firewallName == "" && firewallTags != "" {
+		return nil, fmt.Errorf("environment variable %q is required when managing firewalls", publicAccessFirewallNameEnv)
+	}
+	if firewallName != "" && firewallTags == "" {
+		return nil, fmt.Errorf("environment variable %q is required when managing firewalls", publicAccessFirewallTagsEnv)
+	}
+	tags := strings.Split(firewallTags, ",")
+	resources := newResources(clusterID, clusterVPCID, publicAccessFirewall{firewallName, tags}, doClient)
 
 	var httpServer *http.Server
 	if debugAddr := os.Getenv(debugAddrEnv); debugAddr != "" {
@@ -147,8 +160,26 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 
 	sharedInformer.Start(nil)
 	sharedInformer.WaitForCacheSync(nil)
+
 	go res.Run(stop)
 	go c.serveDebug(stop)
+
+	if c.resources.firewall.name == "" {
+		klog.Info("Nothing to manage since firewall name was not provided")
+		return
+	}
+	klog.Infof("Managing the firewall using provided firewall worker name: %s", c.resources.firewall.name)
+	fm := firewallManager{
+		client: c.client,
+		fwCache: firewallCache{
+			mu: new(sync.RWMutex),
+		},
+		workerFirewallName: c.resources.firewall.name,
+		workerFirewallTags: c.resources.firewall.tags,
+	}
+	fc := NewFirewallController(context.Background(), c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm, fm.workerFirewallTags, fm.workerFirewallName)
+
+	go fc.Run(stop, firewallReconcileFrequency)
 }
 
 func (c *cloud) serveDebug(stop <-chan struct{}) {
