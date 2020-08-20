@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -27,6 +28,8 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"golang.org/x/oauth2"
 
@@ -50,6 +53,7 @@ const (
 	doClusterIDEnv              string = "DO_CLUSTER_ID"
 	doClusterVPCIDEnv           string = "DO_CLUSTER_VPC_ID"
 	debugAddrEnv                string = "DEBUG_ADDR"
+	metricsAddrEnv              string = "METRICS_ADDR"
 	publicAccessFirewallNameEnv string = "PUBLIC_ACCESS_FIREWALL_NAME"
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
 )
@@ -72,6 +76,7 @@ type cloud struct {
 	instances     cloudprovider.Instances
 	zones         cloudprovider.Zones
 	loadbalancers cloudprovider.LoadBalancer
+	metrics       metrics
 
 	resources *resources
 
@@ -134,13 +139,22 @@ func newCloud() (cloudprovider.Interface, error) {
 		}
 	}
 
+	var addr string
+	if metricsAddr := os.Getenv(metricsAddrEnv); metricsAddr != "" {
+		addrHost, addrPort, err := net.SplitHostPort(metricsAddr)
+		if err != nil {
+			return nil, fmt.Errorf("environment variable %q requires host and port in the format <host>:<port> when exposing metrics: %v", metricsAddr, err)
+		}
+		addr = fmt.Sprintf("%s:%s", addrHost, addrPort)
+	}
+
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(resources, region),
 		zones:         newZones(resources, region),
 		loadbalancers: newLoadBalancers(resources, region),
-
-		resources: resources,
+		metrics:       newMetrics(addr),
+		resources:     resources,
 
 		httpServer: httpServer,
 	}, nil
@@ -163,6 +177,7 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 
 	go res.Run(stop)
 	go c.serveDebug(stop)
+	go c.serveMetrics()
 
 	if c.resources.firewall.name == "" {
 		klog.Info("Nothing to manage since firewall name was not provided")
@@ -176,10 +191,12 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 		},
 		workerFirewallName: c.resources.firewall.name,
 		workerFirewallTags: c.resources.firewall.tags,
+		metrics:            c.metrics,
 	}
-	fc := NewFirewallController(context.Background(), c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm, fm.workerFirewallTags, fm.workerFirewallName)
+	ctx := context.Background()
+	fc := NewFirewallController(ctx, c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm, fm.workerFirewallTags, fm.workerFirewallName, c.metrics)
 
-	go fc.Run(stop, firewallReconcileFrequency)
+	go fc.Run(ctx, stop, firewallReconcileFrequency)
 }
 
 func (c *cloud) serveDebug(stop <-chan struct{}) {
@@ -198,6 +215,19 @@ func (c *cloud) serveDebug(stop <-chan struct{}) {
 	defer cancel()
 	if err := c.httpServer.Shutdown(ctx); err != nil {
 		klog.Errorf("Failed to shut down debug server: %s", err)
+	}
+}
+
+func (c *cloud) serveMetrics() {
+	http.Handle("/metrics", promhttp.Handler())
+
+	// register metrics
+	prometheus.MustRegister(apiRequestDuration)
+	prometheus.MustRegister(runLoopDuration)
+	prometheus.MustRegister(reconcileDuration)
+
+	if err := http.ListenAndServe(c.metrics.host, nil); err != http.ErrServerClosed {
+		klog.Warningf("Metrics server has not been configured: %s", err)
 	}
 }
 

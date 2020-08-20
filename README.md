@@ -90,6 +90,58 @@ Please note that if you use a kubernetes cluster created on DigitalOcean, there
 will be a cloud controller manager running in the cluster already, so you local
 one will compete for API access with it.
 
+### Run Locally (optional features)
+
+#### Add Public Access Firewall
+
+If you want to add an additional firewall, that allows public access to your
+cluster, you can run a command like this:
+
+```bash
+cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
+FAKE_REGION=fra1 DO_ACCESS_TOKEN=your_access_token            \
+PUBLIC_ACCESS_FIREWALL_NAME=firewall_name                     \
+PUBLIC_ACCESS_FIREWALL_TAGS=k8s,k8s:<cluster-uuid>,k8s:worker \
+go run main.go                                                \
+  --kubeconfig <path to your kubeconfig file>                 \                                     
+  --leader-elect=false --v=5 --cloud-provider=digitalocean
+```
+
+The `PUBLIC_ACCESS_FIREWALL_NAME` environment variable allows you to pass in
+the name of the firewall you plan to use in addition to the already existing
+DOKS managed firewall. It is called public access because you are able to
+allow access to ports in the NodePort range, whereas this isn't possible with
+the default DOKS managed firewall. Not passing this in will cause your cluster
+to resort to the default behavior of denying all access to ports in the 
+NodePort range.
+
+The `PUBLIC_ACCESS_FIREWALL_TAGS` environment variable refers to the tags
+associated with the public access firewall you provide.
+
+#### Expose Prometheus Metrics
+
+If you are interested in exposing prometheus metrics, you can pass in a metrics
+endpoint that will expose them. The command will look similar to this:
+
+```bash
+cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
+FAKE_REGION=fra1 DO_ACCESS_TOKEN=your_access_token \
+METRICS_ADDR=<host>:<port> go run main.go          \
+  --kubeconfig <path to your kubeconfig file>      \                                                
+  --leader-elect=false --v=5 --cloud-provider=digitalocean
+```
+
+The `METRICS_ADDR` environment variable takes a valid endpoint that you'd
+like to use to serve your prometheus metrics. To be valid it should be in the
+form `<host>:<port>`.
+
+After you have started up CCM, run the following curl command to view the
+prometheus metrics output:
+
+```bash
+curl <host>:<port>/metrics
+```
+
 ### Run Containerized
 
 If you want to test your changes in a containerized environment, create a new
