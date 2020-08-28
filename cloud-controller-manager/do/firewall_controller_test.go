@@ -216,6 +216,12 @@ func newFakeFirewallManager(client *godo.Client, cache firewallCache) firewallMa
 		fwCache:            cache,
 		workerFirewallName: testWorkerFWName,
 		workerFirewallTags: testWorkerFWTags,
+		metrics: metrics{
+			host:               "localhost:8080",
+			apiRequestDuration: apiRequestDuration,
+			runLoopDuration:    runLoopDuration,
+			reconcileDuration:  reconcileDuration,
+		},
 	}
 }
 
@@ -437,7 +443,7 @@ func TestFirewallController_Set(t *testing.T) {
 				},
 			)
 			fwManager = newFakeFirewallManager(gclient, test.fwCache)
-			fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName)
+			fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName, fwManager.metrics)
 
 			err := fc.fwManager.Set(ctx, test.firewallRequest)
 			if (err != nil && test.expectedError == nil) || (err == nil && test.expectedError != nil) {
@@ -470,7 +476,7 @@ func TestFirewallController_NoDataRace(t *testing.T) {
 		},
 	)
 	fwManager := newFakeFirewallManager(gclient, newFakeFirewallCache())
-	fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName)
+	fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName, fwManager.metrics)
 
 	wg.Add(1)
 	go func() {
@@ -485,7 +491,7 @@ func TestFirewallController_NoDataRace(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		fc.Run(ctx.Done(), time.Duration(0))
+		fc.Run(context.TODO(), ctx.Done(), time.Duration(0))
 	}()
 
 	wg.Wait()
@@ -552,7 +558,7 @@ func TestFirewallController_actualRun(t *testing.T) {
 				},
 			)
 			fwManager := newFakeFirewallManager(gclient, test.fwCache)
-			fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName)
+			fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName, fwManager.metrics)
 
 			err := fc.actualRun(ctx.Done(), time.Duration(0))
 			if (err != nil && test.expectedError == nil) || (err == nil && test.expectedError != nil) {

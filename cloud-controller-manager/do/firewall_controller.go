@@ -26,6 +26,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/google/go-cmp/cmp"
+	"github.com/prometheus/client_golang/prometheus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,6 +42,10 @@ const (
 	serviceSyncPeriod = 30 * time.Second
 	// Frequency at which the firewall controller runs.
 	firewallReconcileFrequency = 5 * time.Minute
+	originEventAdd             = "event_add"
+	originEventUpdate          = "event_update"
+	originEventDelete          = "event_delete"
+	originFirewallLoop         = "firewall_loop"
 )
 
 var (
@@ -80,6 +85,7 @@ type firewallManager struct {
 	fwCache            firewallCache
 	workerFirewallName string
 	workerFirewallTags []string
+	metrics            metrics
 }
 
 // FirewallController helps to keep cloud provider service firewalls in sync.
@@ -90,6 +96,7 @@ type FirewallController struct {
 	workerFirewallName string
 	serviceLister      corelisters.ServiceLister
 	fwManager          firewallManager
+	metrics            metrics
 }
 
 // NewFirewallController returns a new firewall controller to reconcile public access firewall state.
@@ -101,6 +108,7 @@ func NewFirewallController(
 	fwManager firewallManager,
 	workerFirewallTags []string,
 	workerFirewallName string,
+	metrics metrics,
 ) *FirewallController {
 	fc := &FirewallController{
 		kubeClient:         kubeClient,
@@ -108,6 +116,7 @@ func NewFirewallController(
 		workerFirewallTags: workerFirewallTags,
 		workerFirewallName: workerFirewallName,
 		fwManager:          fwManager,
+		metrics:            metrics,
 	}
 
 	serviceInformer.Informer().AddEventHandlerWithResyncPeriod(
@@ -115,7 +124,8 @@ func NewFirewallController(
 			AddFunc: func(cur interface{}) {
 				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 				defer cancel()
-				err := fc.ensureReconciledFirewall(ctx)
+
+				err := fc.observeReconcileDuration(ctx, originEventAdd)
 				if err != nil {
 					klog.Errorf("failed to reconcile worker firewall after adding a resource object: %s", err)
 				}
@@ -123,7 +133,8 @@ func NewFirewallController(
 			UpdateFunc: func(old, cur interface{}) {
 				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 				defer cancel()
-				err := fc.ensureReconciledFirewall(ctx)
+
+				err := fc.observeReconcileDuration(ctx, originEventUpdate)
 				if err != nil {
 					klog.Errorf("failed to reconcile worker firewall after updating a resource object: %s", err)
 				}
@@ -131,7 +142,8 @@ func NewFirewallController(
 			DeleteFunc: func(obj interface{}) {
 				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 				defer cancel()
-				err := fc.ensureReconciledFirewall(ctx)
+
+				err := fc.observeReconcileDuration(ctx, originEventDelete)
 				if err != nil {
 					klog.Errorf("failed to reconcile worker firewall after deleting a resource object: %s", err)
 				}
@@ -145,9 +157,9 @@ func NewFirewallController(
 }
 
 // Run starts the firewall controller loop.
-func (fc *FirewallController) Run(stopCh <-chan struct{}, fwReconcileFrequency time.Duration) {
+func (fc *FirewallController) Run(ctx context.Context, stopCh <-chan struct{}, fwReconcileFrequency time.Duration) {
 	wait.Until(func() {
-		err := fc.actualRun(stopCh, fwReconcileFrequency)
+		err := fc.observeRunLoopDuration(ctx, stopCh, fwReconcileFrequency)
 		if err != nil {
 			klog.Errorf("failed to run firewall controller loop: %v", err)
 		}
@@ -168,7 +180,7 @@ func (fc *FirewallController) actualRun(stopCh <-chan struct{}, fwReconcileFrequ
 		}
 	}
 	fc.fwManager.fwCache.updateCache(currentFirewall)
-	err = fc.ensureReconciledFirewall(ctx)
+	err = fc.observeReconcileDuration(ctx, originFirewallLoop)
 	if err != nil {
 		return fmt.Errorf("failed to reconcile worker firewall: %s", err)
 	}
@@ -182,12 +194,37 @@ func (fm *firewallManager) Get(ctx context.Context) (*godo.Firewall, error) {
 	// check cache and query the API firewall service to get firewall by ID, if it exists. Return it. If not, continue.
 	fw := fm.fwCache.getCachedFirewall()
 	if fw != nil {
-		fw, resp, err := fm.client.Firewalls.Get(ctx, fw.ID)
+		var (
+			resp *godo.Response
+			err  error
+		)
+		fw, resp, err := func() (*godo.Firewall, *godo.Response, error) {
+			var (
+				code   int
+				method string
+			)
+			// The ObserverFunc gets called by the deferred ObserveDuration. The
+			// method and code values will be set before ObserveDuration is called
+			// with the value returned from the response from the Firewall API request.
+			timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+				fm.metrics.apiRequestDuration.With(prometheus.Labels{"method": method, "code": strconv.FormatInt(int64(code), 10)}).Observe(v)
+			}))
+			defer timer.ObserveDuration()
+			fw, resp, err := fm.client.Firewalls.Get(ctx, fw.ID)
+			if resp != nil {
+				code = resp.StatusCode
+				if resp.Request != nil {
+					method = resp.Request.Method
+				}
+			}
+			return fw, resp, err
+		}()
+
 		if err != nil && (resp == nil || resp.StatusCode != http.StatusNotFound) {
 			return nil, fmt.Errorf("could not get firewall: %v", err)
 		}
 		if resp.StatusCode == http.StatusNotFound {
-			klog.Warningf("unable to retrieve firewall by ID because it no longer exists")
+			klog.Warning("unable to retrieve firewall by ID because it no longer exists")
 		}
 		if fw != nil {
 			return fw, nil
@@ -199,7 +236,27 @@ func (fm *firewallManager) Get(ctx context.Context) (*godo.Firewall, error) {
 		return fw.Name == fm.workerFirewallName
 	}
 	klog.Info("filtering firewall list for the firewall that has the expected firewall name")
-	fw, err := filterFirewallList(ctx, fm.client, f)
+	fw, err := func() (*godo.Firewall, error) {
+		var (
+			code   int
+			method string
+		)
+		// The ObserverFunc gets called by the deferred ObserveDuration. The
+		// method and code values will be set before ObserveDuration is called
+		// with the value returned from the response from the Firewall API request.
+		timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+			fm.metrics.apiRequestDuration.With(prometheus.Labels{"method": method, "code": strconv.FormatInt(int64(code), 10)}).Observe(v)
+		}))
+		defer timer.ObserveDuration()
+		fw, resp, err := filterFirewallList(ctx, fm.client, f)
+		if resp != nil {
+			code = resp.StatusCode
+			if resp.Request != nil {
+				method = resp.Request.Method
+			}
+		}
+		return fw, err
+	}()
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve list of firewalls from DO API: %v", err)
 	}
@@ -223,11 +280,33 @@ func (fm *firewallManager) Set(ctx context.Context, fr *godo.FirewallRequest) er
 			return nil
 		}
 		klog.Infof("firewall configuration mismatch: %v", unequalParts)
+
 		// A locally cached firewall exists, but is does not match the expected
 		// service inbound rules, outbound rules, name or tags. So we need to use the locally
 		// cached firewall ID to attempt to update the firewall APIs representation of the
-		// firewall with the new rules.
-		currentFirewall, resp, err := fm.client.Firewalls.Update(ctx, targetFirewall.ID, fr)
+		// firewall with the new rules
+		currentFirewall, resp, err := func() (*godo.Firewall, *godo.Response, error) {
+			var (
+				code   int
+				method string
+			)
+			// The ObserverFunc gets called by the deferred ObserveDuration. The
+			// method and code values will be set before ObserveDuration is called
+			// with the value returned from the response from the Firewall API request.
+			timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+				fm.metrics.apiRequestDuration.With(prometheus.Labels{"method": method, "code": strconv.FormatInt(int64(code), 10)}).Observe(v)
+			}))
+			defer timer.ObserveDuration()
+			fw, resp, err := fm.client.Firewalls.Update(ctx, targetFirewall.ID, fr)
+			if resp != nil {
+				code = resp.StatusCode
+				if resp.Request != nil {
+					method = resp.Request.Method
+				}
+			}
+			return fw, resp, err
+		}()
+
 		if err == nil {
 			klog.Info("successfully updated firewall")
 		} else {
@@ -290,12 +369,50 @@ func isEqual(targetFirewall *godo.Firewall, fr *godo.FirewallRequest) (bool, []s
 }
 
 func (fm *firewallManager) createFirewall(ctx context.Context, fr *godo.FirewallRequest) (*godo.Firewall, error) {
-	currentFirewall, _, err := fm.client.Firewalls.Create(ctx, fr)
+	var (
+		code   int
+		method string
+	)
+	// The ObserverFunc gets called by the deferred ObserveDuration. The
+	// method and code values will be set before ObserveDuration is called
+	// with the value returned from the response from the Firewall API request.
+	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+		fm.metrics.apiRequestDuration.With(prometheus.Labels{"method": method, "code": strconv.FormatInt(int64(code), 10)}).Observe(v)
+	}))
+	defer timer.ObserveDuration()
+
+	currentFirewall, resp, err := fm.client.Firewalls.Create(ctx, fr)
+	if resp != nil {
+		code = resp.StatusCode
+		if resp.Request != nil {
+			method = resp.Request.Method
+		}
+	}
+
 	return currentFirewall, err
 }
 
 func (fm *firewallManager) updateFirewall(ctx context.Context, fwID string, fr *godo.FirewallRequest) (*godo.Firewall, error) {
-	currentFirewall, _, err := fm.client.Firewalls.Update(ctx, fwID, fr)
+	var (
+		code   int
+		method string
+	)
+	// The ObserverFunc gets called by the deferred ObserveDuration. The
+	// method and code values will be set before ObserveDuration is called
+	// with the value returned from the response from the Firewall API request.
+	timer := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+		fm.metrics.apiRequestDuration.With(prometheus.Labels{"method": method, "code": strconv.FormatInt(int64(code), 10)}).Observe(v)
+	}))
+	defer timer.ObserveDuration()
+
+	currentFirewall, resp, err := fm.client.Firewalls.Update(ctx, fwID, fr)
+	if resp != nil {
+		code = resp.StatusCode
+		if resp.Request != nil {
+			method = resp.Request.Method
+		}
+	}
+
 	return currentFirewall, err
 }
 
@@ -308,7 +425,7 @@ func (fc *FirewallController) createReconciledFirewallRequest(serviceList []*v1.
 			for _, servicePort := range svc.Spec.Ports {
 				// In the odd case that a failure is asynchronous causing the NodePort to be set to zero.
 				if servicePort.NodePort == 0 {
-					klog.Warningf("NodePort on the service is set to zero")
+					klog.Warning("NodePort on the service is set to zero")
 					continue
 				}
 				var protocol string
@@ -371,4 +488,33 @@ func (fc *firewallCache) updateCache(currentFirewall *godo.Firewall) {
 	fc.mu.Lock()
 	defer fc.mu.Unlock()
 	fc.firewall = currentFirewall
+}
+
+func (fc *FirewallController) observeReconcileDuration(ctx context.Context, origin string) error {
+	var labels prometheus.Labels
+	switch origin {
+	case originEventAdd, originEventUpdate, originEventDelete, originFirewallLoop:
+		labels = prometheus.Labels{"reconcile_type": origin}
+	default:
+		labels = prometheus.Labels{"reconcile_type": "none"}
+	}
+	t := prometheus.NewTimer(fc.fwManager.metrics.reconcileDuration.With(labels))
+	defer t.ObserveDuration()
+
+	return fc.ensureReconciledFirewall(ctx)
+}
+
+func (fc *FirewallController) observeRunLoopDuration(ctx context.Context, stopCh <-chan struct{}, fwReconcileFreq time.Duration) error {
+	labels := prometheus.Labels{"success": "false"}
+	t := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
+		fc.fwManager.metrics.runLoopDuration.With(labels).Observe(v)
+	}))
+	defer t.ObserveDuration()
+
+	err := fc.actualRun(stopCh, fwReconcileFreq)
+	if err == nil {
+		labels["success"] = "true"
+	}
+
+	return err
 }

@@ -61,17 +61,17 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 	return list, nil
 }
 
-func filterFirewallList(ctx context.Context, client *godo.Client, matchExpectedFirewallName func(godo.Firewall) bool) (*godo.Firewall, error) {
+func filterFirewallList(ctx context.Context, client *godo.Client, matchExpectedFirewallName func(godo.Firewall) bool) (*godo.Firewall, *godo.Response, error) {
 	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
 	for {
 		firewalls, resp, err := client.Firewalls.List(ctx, opt)
 		if err != nil {
-			return nil, err
+			return nil, resp, err
 		}
 
 		for _, fw := range firewalls {
 			if matchExpectedFirewallName(fw) {
-				return &fw, nil
+				return &fw, nil, nil
 			}
 		}
 
@@ -82,13 +82,13 @@ func filterFirewallList(ctx context.Context, client *godo.Client, matchExpectedF
 
 		page, err := resp.Links.CurrentPage()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		opt.Page = page + 1
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadBalancer, error) {
