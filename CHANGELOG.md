@@ -3,6 +3,7 @@
 * Support HTTPS as health check protocol (@timoreimann)
 * Add controller to manage worker firewall for public access (@MorrisLaw)
 * Add prometheus metrics instrumentation to firewall controller (@MorrisLaw)
+* Update Kubernetes dependencies to 1.19.1 (@adamwg)
 
 ## v0.1.26 (beta) - June 16th 2020
 
