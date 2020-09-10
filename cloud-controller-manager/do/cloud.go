@@ -239,6 +239,13 @@ func (c *cloud) Instances() (cloudprovider.Instances, bool) {
 	return c.instances, true
 }
 
+func (c *cloud) InstancesV2() (cloudprovider.InstancesV2, bool) {
+	// TODO: Implement the InstancesV2 interface. Our API should be sufficient
+	// to fetch all the necessary implementation, but it's not required at the
+	// moment.
+	return nil, false
+}
+
 func (c *cloud) Zones() (cloudprovider.Zones, bool) {
 	return c.zones, true
 }
