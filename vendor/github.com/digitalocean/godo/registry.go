@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -43,7 +45,8 @@ type RegistryCreateRequest struct {
 // RegistryDockerCredentialsRequest represents a request to retrieve docker
 // credentials for a registry.
 type RegistryDockerCredentialsRequest struct {
-	ReadWrite bool `json:"read_write"`
+	ReadWrite     bool `json:"read_write"`
+	ExpirySeconds *int `json:"expiry_seconds,omitempty"`
 }
 
 // Registry represents a registry.
@@ -138,12 +141,18 @@ type DockerCredentials struct {
 
 // DockerCredentials retrieves a Docker config file containing the registry's credentials.
 func (svc *RegistryServiceOp) DockerCredentials(ctx context.Context, request *RegistryDockerCredentialsRequest) (*DockerCredentials, *Response, error) {
-	path := fmt.Sprintf("%s/%s?read_write=%t", registryPath, "docker-credentials", request.ReadWrite)
-
+	path := fmt.Sprintf("%s/%s", registryPath, "docker-credentials")
 	req, err := svc.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	q := req.URL.Query()
+	q.Add("read_write", strconv.FormatBool(request.ReadWrite))
+	if request.ExpirySeconds != nil {
+		q.Add("expiry_seconds", strconv.Itoa(*request.ExpirySeconds))
+	}
+	req.URL.RawQuery = q.Encode()
 
 	var buf bytes.Buffer
 	resp, err := svc.client.Do(ctx, req, &buf)
@@ -187,7 +196,7 @@ func (svc *RegistryServiceOp) ListRepositories(ctx context.Context, registry str
 
 // ListRepositoryTags returns a list of the RepositoryTags available within the given repository.
 func (svc *RegistryServiceOp) ListRepositoryTags(ctx context.Context, registry, repository string, opts *ListOptions) ([]*RepositoryTag, *Response, error) {
-	path := fmt.Sprintf("%s/%s/repositories/%s/tags", registryPath, registry, repository)
+	path := fmt.Sprintf("%s/%s/repositories/%s/tags", registryPath, registry, url.PathEscape(repository))
 	path, err := addOptions(path, opts)
 	if err != nil {
 		return nil, nil, err
@@ -215,7 +224,7 @@ func (svc *RegistryServiceOp) ListRepositoryTags(ctx context.Context, registry, 
 
 // DeleteTag deletes a tag within a given repository.
 func (svc *RegistryServiceOp) DeleteTag(ctx context.Context, registry, repository, tag string) (*Response, error) {
-	path := fmt.Sprintf("%s/%s/repositories/%s/tags/%s", registryPath, registry, repository, tag)
+	path := fmt.Sprintf("%s/%s/repositories/%s/tags/%s", registryPath, registry, url.PathEscape(repository), tag)
 	req, err := svc.client.NewRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return nil, err
@@ -230,7 +239,7 @@ func (svc *RegistryServiceOp) DeleteTag(ctx context.Context, registry, repositor
 
 // DeleteManifest deletes a manifest by its digest within a given repository.
 func (svc *RegistryServiceOp) DeleteManifest(ctx context.Context, registry, repository, digest string) (*Response, error) {
-	path := fmt.Sprintf("%s/%s/repositories/%s/digests/%s", registryPath, registry, repository, digest)
+	path := fmt.Sprintf("%s/%s/repositories/%s/digests/%s", registryPath, registry, url.PathEscape(repository), digest)
 	req, err := svc.client.NewRequest(ctx, http.MethodDelete, path, nil)
 	if err != nil {
 		return nil, err
