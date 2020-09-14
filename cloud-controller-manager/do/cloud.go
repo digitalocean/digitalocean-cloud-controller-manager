@@ -195,7 +195,7 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 	}
 	ctx := context.Background()
 	fc := NewFirewallController(ctx, c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm, fm.workerFirewallTags, fm.workerFirewallName, c.metrics)
-
+	go fc.runWorker()
 	go fc.Run(ctx, stop, firewallReconcileFrequency)
 }
 

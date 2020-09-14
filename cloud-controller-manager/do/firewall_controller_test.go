@@ -491,7 +491,7 @@ func TestFirewallController_NoDataRace(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		fc.Run(context.TODO(), ctx.Done(), time.Duration(0))
+		fc.Run(ctx, ctx.Done(), time.Duration(0))
 	}()
 
 	wg.Wait()
@@ -560,7 +560,7 @@ func TestFirewallController_actualRun(t *testing.T) {
 			fwManager := newFakeFirewallManager(gclient, test.fwCache)
 			fc := NewFirewallController(ctx, kclient, gclient, inf.Core().V1().Services(), fwManager, testWorkerFWTags, testWorkerFWName, fwManager.metrics)
 
-			err := fc.actualRun(ctx.Done(), time.Duration(0))
+			err := fc.reconcileCloudFirewallChanges(ctx)
 			if (err != nil && test.expectedError == nil) || (err == nil && test.expectedError != nil) {
 				t.Errorf("error with firewall controller run\nwant: %#v\n got: %#v", test.expectedError, err)
 			}

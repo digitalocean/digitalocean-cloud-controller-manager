@@ -34,6 +34,7 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog"
 )
 
@@ -42,10 +43,12 @@ const (
 	serviceSyncPeriod = 30 * time.Second
 	// Frequency at which the firewall controller runs.
 	firewallReconcileFrequency = 5 * time.Minute
-	originEventAdd             = "event_add"
-	originEventUpdate          = "event_update"
-	originEventDelete          = "event_delete"
+	originEvent                = "event"
 	originFirewallLoop         = "firewall_loop"
+
+	// How long to wait before retrying the processing of a firewall change.
+	minRetryDelay = 1 * time.Second
+	maxRetryDelay = 5 * time.Minute
 )
 
 var (
@@ -97,6 +100,7 @@ type FirewallController struct {
 	serviceLister      corelisters.ServiceLister
 	fwManager          firewallManager
 	metrics            metrics
+	queue              workqueue.RateLimitingInterface
 }
 
 // NewFirewallController returns a new firewall controller to reconcile public access firewall state.
@@ -117,36 +121,19 @@ func NewFirewallController(
 		workerFirewallName: workerFirewallName,
 		fwManager:          fwManager,
 		metrics:            metrics,
+		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.NewItemExponentialFailureRateLimiter(minRetryDelay, maxRetryDelay), "firewall"),
 	}
 
 	serviceInformer.Informer().AddEventHandlerWithResyncPeriod(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(cur interface{}) {
-				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-				defer cancel()
-
-				err := fc.observeReconcileDuration(ctx, originEventAdd)
-				if err != nil {
-					klog.Errorf("failed to reconcile worker firewall after adding a resource object: %s", err)
-				}
+				fc.queue.Add("service")
 			},
 			UpdateFunc: func(old, cur interface{}) {
-				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-				defer cancel()
-
-				err := fc.observeReconcileDuration(ctx, originEventUpdate)
-				if err != nil {
-					klog.Errorf("failed to reconcile worker firewall after updating a resource object: %s", err)
-				}
+				fc.queue.Add("service")
 			},
-			DeleteFunc: func(obj interface{}) {
-				ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-				defer cancel()
-
-				err := fc.observeReconcileDuration(ctx, originEventDelete)
-				if err != nil {
-					klog.Errorf("failed to reconcile worker firewall after deleting a resource object: %s", err)
-				}
+			DeleteFunc: func(cur interface{}) {
+				fc.queue.Add("service")
 			},
 		},
 		serviceSyncPeriod,
@@ -159,17 +146,42 @@ func NewFirewallController(
 // Run starts the firewall controller loop.
 func (fc *FirewallController) Run(ctx context.Context, stopCh <-chan struct{}, fwReconcileFrequency time.Duration) {
 	wait.Until(func() {
-		err := fc.observeRunLoopDuration(ctx, stopCh, fwReconcileFrequency)
+		err := fc.observeRunLoopDuration(ctx)
 		if err != nil {
 			klog.Errorf("failed to run firewall controller loop: %v", err)
 		}
 	}, fwReconcileFrequency, stopCh)
+	fc.queue.ShutDown()
 }
 
-func (fc *FirewallController) actualRun(stopCh <-chan struct{}, fwReconcileFrequency time.Duration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), fwReconcileFrequency)
-	defer cancel()
+func (fc *FirewallController) runWorker() {
+	for fc.processNextItem() {
+	}
+}
 
+func (fc *FirewallController) processNextItem() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), firewallReconcileFrequency)
+	defer cancel()
+	// Wait until there is a new item in the working queue
+	key, quit := fc.queue.Get()
+	if quit {
+		return false
+	}
+	// Tell the queue that we are done with processing this key. This unblocks the key for other workers
+	// This allows safe parallel processing because items with the same key are never processed in
+	// parallel.
+	defer fc.queue.Done(key)
+
+	err := fc.observeReconcileDuration(ctx, originEvent)
+	if err != nil {
+		klog.Errorf("failed to run firewall controller loop: %v", err)
+		fc.queue.AddRateLimited(key)
+	}
+	fc.queue.Forget(key)
+	return true
+}
+
+func (fc *FirewallController) reconcileCloudFirewallChanges(ctx context.Context) error {
 	currentFirewall, err := fc.fwManager.Get(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get worker firewall: %s", err)
@@ -491,27 +503,21 @@ func (fc *firewallCache) updateCache(currentFirewall *godo.Firewall) {
 }
 
 func (fc *FirewallController) observeReconcileDuration(ctx context.Context, origin string) error {
-	var labels prometheus.Labels
-	switch origin {
-	case originEventAdd, originEventUpdate, originEventDelete, originFirewallLoop:
-		labels = prometheus.Labels{"reconcile_type": origin}
-	default:
-		labels = prometheus.Labels{"reconcile_type": "none"}
-	}
+	labels := prometheus.Labels{"reconcile_type": origin}
 	t := prometheus.NewTimer(fc.fwManager.metrics.reconcileDuration.With(labels))
 	defer t.ObserveDuration()
 
 	return fc.ensureReconciledFirewall(ctx)
 }
 
-func (fc *FirewallController) observeRunLoopDuration(ctx context.Context, stopCh <-chan struct{}, fwReconcileFreq time.Duration) error {
+func (fc *FirewallController) observeRunLoopDuration(ctx context.Context) error {
 	labels := prometheus.Labels{"success": "false"}
 	t := prometheus.NewTimer(prometheus.ObserverFunc(func(v float64) {
 		fc.fwManager.metrics.runLoopDuration.With(labels).Observe(v)
 	}))
 	defer t.ObserveDuration()
 
-	err := fc.actualRun(stopCh, fwReconcileFreq)
+	err := fc.reconcileCloudFirewallChanges(ctx)
 	if err == nil {
 		labels["success"] = "true"
 	}
