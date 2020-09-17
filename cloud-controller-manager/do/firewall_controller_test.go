@@ -78,7 +78,7 @@ var (
 		Protocol:  "tcp",
 		PortRange: "31000",
 		Sources: &godo.Sources{
-			Tags:       []string{"tag"},
+			Addresses:  []string{"0.0.0.0/0", "::/0"},
 			DropletIDs: []int{1},
 		},
 	}
@@ -86,7 +86,7 @@ var (
 		Protocol:  "tcp",
 		PortRange: "32000",
 		Sources: &godo.Sources{
-			Tags:       []string{"tag"},
+			Addresses:  []string{"0.0.0.0/0", "::/0"},
 			DropletIDs: []int{1, 2},
 		},
 	}
@@ -184,7 +184,6 @@ func newFakeFirewallWithDiffInboundRules() *godo.Firewall {
 	return &godo.Firewall{
 		ID:            "123",
 		Name:          testWorkerFWName,
-		Tags:          testWorkerFWTags,
 		InboundRules:  testDiffInboundRules,
 		OutboundRules: testOutboundRules,
 	}
@@ -739,7 +738,7 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 						Protocol:  "tcp",
 						PortRange: "31000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 				},
@@ -805,14 +804,14 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 						Protocol:  "tcp",
 						PortRange: "31000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "udp",
 						PortRange: "31000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 				},
@@ -852,42 +851,42 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 						Protocol:  "tcp",
 						PortRange: "31000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "udp",
 						PortRange: "31000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "tcp",
 						PortRange: "30000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "udp",
 						PortRange: "30000",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "tcp",
 						PortRange: "32727",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "udp",
 						PortRange: "32727",
 						Sources: &godo.Sources{
-							Tags: testWorkerFWTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 				},

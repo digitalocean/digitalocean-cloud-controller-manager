@@ -456,7 +456,7 @@ func (fc *FirewallController) createReconciledFirewallRequest(serviceList []*v1.
 						Protocol:  protocol,
 						PortRange: strconv.Itoa(int(servicePort.NodePort)),
 						Sources: &godo.Sources{
-							Tags: fc.workerFirewallTags,
+							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 				)
