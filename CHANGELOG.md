@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## v0.1.27 (beta) - September 24th 2020
+
 * Support HTTPS as health check protocol (@timoreimann)
 * Add controller to manage worker firewall for public access (@MorrisLaw)
 * Add prometheus metrics instrumentation to firewall controller (@MorrisLaw)
