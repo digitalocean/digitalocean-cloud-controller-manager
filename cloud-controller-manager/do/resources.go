@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -54,8 +53,6 @@ type resources struct {
 
 	gclient *godo.Client
 	kclient kubernetes.Interface
-
-	mutex sync.RWMutex
 }
 
 // newResources initializes a new resources instance.
