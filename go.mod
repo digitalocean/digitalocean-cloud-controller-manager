@@ -1,6 +1,6 @@
 module github.com/digitalocean/digitalocean-cloud-controller-manager
 
-go 1.14
+go 1.15
 
 require (
 	github.com/NYTimes/gziphandler v1.0.1 // indirect
