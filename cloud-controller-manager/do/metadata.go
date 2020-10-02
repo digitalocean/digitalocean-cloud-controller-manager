@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"os"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
