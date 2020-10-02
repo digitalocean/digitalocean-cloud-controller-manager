@@ -33,7 +33,6 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/informers"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/klog"
@@ -132,7 +131,7 @@ func newCloud() (cloudprovider.Interface, error) {
 	var httpServer *http.Server
 	if debugAddr := os.Getenv(debugAddrEnv); debugAddr != "" {
 		debugMux := http.NewServeMux()
-		healthz.InstallHandler(debugMux, &godoHealthChecker{client: doClient})
+		debugMux.Handle("/healthz", &godoHealthChecker{client: doClient})
 		httpServer = &http.Server{
 			Addr:    debugAddr,
 			Handler: debugMux,
