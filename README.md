@@ -2,20 +2,20 @@
 
 [![Build Status](https://travis-ci.org/digitalocean/digitalocean-cloud-controller-manager.svg?branch=master)](https://travis-ci.org/digitalocean/digitalocean-cloud-controller-manager) [![Report Card](https://goreportcard.com/badge/github.com/digitalocean/digitalocean-cloud-controller-manager)](https://goreportcard.com/report/github.com/digitalocean/digitalocean-cloud-controller-manager)
 
-`digitalocean-cloud-controller-manager` is the Kubernetes cloud controller manager implementation for DigitalOcean. Read more about cloud controller managers [here](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/). Running `digitalocean-cloud-controller-manager` allows you to leverage many of the cloud provider features offered by DigitalOcean on your kubernetes clusters.
+`digitalocean-cloud-controller-manager` is the Kubernetes cloud controller manager implementation for DigitalOcean. Read more about cloud controller managers [here](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/). Running `digitalocean-cloud-controller-manager` allows you to leverage many of the cloud provider features offered by DigitalOcean on your Kubernetes clusters.
 
 ## Releases
 
 Cloud Controller Manager follows [semantic versioning](https://semver.org/).
-The current version is: **`v0.1.27`**. This means that the project is still
-under active development and may not be production ready. The plugin will be
+The current version is **`v0.1.27`**. This means that the project is still
+under active development and may not be production-ready. The plugin will be
 bumped to **`v1.0.0`** once the [DigitalOcean Kubernetes
 product](https://www.digitalocean.com/products/kubernetes/) is released and
 will continue following the rules below:
 
 * Bug fixes will be released as a `PATCH` update.
 * New features will be released as a `MINOR` update.
-* Significant breaking changes makes a `MAJOR` update.
+* Significant breaking changes make a `MAJOR` update.
 
 Because of the fast Kubernetes release cycles, CCM (Cloud Controller Manager)
 will **only** support the version that is _also_ supported on [DigitalOcean Kubernetes
@@ -45,9 +45,9 @@ Other than that, the only safe place to make load-balancer configuration changes
 
 ### DO load-balancer entry port restrictions
 
-For technical reasons, the ports 50053, 50054, and 50055 cannot be used as load-balancer entry ports (i.e., the port that the load-balancer listens on for requests). Trying to use one of the affected ports as service port causes a _422 entry port is invalid_ HTTP error response to be returned by the DO API (and surfaced as a Kubernetes event).
+For technical reasons, the ports 50053, 50054, and 50055 cannot be used as load-balancer entry ports (i.e., the port that the load-balancer listens on for requests). Trying to use one of the affected ports as a service port causes a _422 entry port is invalid_ HTTP error response to be returned by the DO API (and surfaced as a Kubernetes event).
 
-The solution is to change the service port to a different, non-conlicting one.
+The solution is to change the service port to a different, non-conflicting one.
 
 ## Development
 
@@ -83,10 +83,10 @@ which region you choose should not matter a lot as long as you pick one.
 
 You might also need to provide your DigitalOcean access token in
 `DO_ACCESS_TOKEN` environment variable. The token does not need to be valid for
-the cloud controller to start, but in that case you will not be able to
+the cloud controller to start, but in that case, you will not be able to
 validate integration with DigitalOcean API.
 
-Please note that if you use a kubernetes cluster created on DigitalOcean, there
+Please note that if you use a Kubernetes cluster created on DigitalOcean, there
 will be a cloud controller manager running in the cluster already, so you local
 one will compete for API access with it.
 
@@ -109,7 +109,7 @@ go run main.go                                                \
 
 The `PUBLIC_ACCESS_FIREWALL_NAME` environment variable allows you to pass in
 the name of the firewall you plan to use in addition to the already existing
-DOKS managed firewall. It is called public access because you are able to
+DOKS managed firewall. It is called public access because you can
 allow access to ports in the NodePort range, whereas this isn't possible with
 the default DOKS managed firewall. Not passing this in will cause your cluster
 to resort to the default behavior of denying all access to ports in the 
@@ -132,11 +132,11 @@ METRICS_ADDR=<host>:<port> go run main.go          \
 ```
 
 The `METRICS_ADDR` environment variable takes a valid endpoint that you'd
-like to use to serve your prometheus metrics. To be valid it should be in the
+like to use to serve your Prometheus metrics. To be valid it should be in the
 form `<host>:<port>`.
 
 After you have started up CCM, run the following curl command to view the
-prometheus metrics output:
+Prometheus metrics output:
 
 ```bash
 curl <host>:<port>/metrics
