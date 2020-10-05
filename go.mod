@@ -16,7 +16,6 @@ require (
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	k8s.io/api v0.19.1
 	k8s.io/apimachinery v0.19.1
-	k8s.io/apiserver v0.19.1
 	k8s.io/client-go v0.19.1
 	k8s.io/cloud-provider v0.19.1
 	k8s.io/component-base v0.19.1

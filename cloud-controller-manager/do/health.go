@@ -18,10 +18,12 @@ package do
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/digitalocean/godo"
+	"k8s.io/klog"
 )
 
 var godoHealthTimeout = 15 * time.Second
@@ -30,13 +32,16 @@ type godoHealthChecker struct {
 	client *godo.Client
 }
 
-func (c *godoHealthChecker) Name() string {
-	return "godo"
-}
-
-func (c *godoHealthChecker) Check(r *http.Request) error {
+func (c *godoHealthChecker) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), godoHealthTimeout)
 	defer cancel()
 	_, _, err := c.client.Account.Get(ctx)
-	return err
+	if err != nil {
+		msg := fmt.Sprintf("health check failed: %s", err)
+		klog.Error(msg)
+		http.Error(w, msg, http.StatusInternalServerError)
+		return
+	}
+
+	klog.V(8).Info("health check succeeded")
 }

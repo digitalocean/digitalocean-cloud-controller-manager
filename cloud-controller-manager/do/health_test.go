@@ -17,67 +17,74 @@ limitations under the License.
 package do
 
 import (
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/digitalocean/godo"
 )
 
-func TestGodoHealthChecker_Name(t *testing.T) {
-	c := godoHealthChecker{}
-	if want, got := "godo", c.Name(); want != got {
-		t.Errorf("incorrect name\nwant: %#v \n got: %#v", want, got)
+func TestGodoHealthChecker(t *testing.T) {
+	tests := []struct {
+		name        string
+		stubHandler func(http.ResponseWriter, *http.Request)
+		wantCode    int
+		wantBody    string
+	}{
+		{
+			name: "healthy",
+			stubHandler: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				w.Write([]byte(`{"account": null}`))
+			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name: "not healthy",
+			stubHandler: func(w http.ResponseWriter, _ *http.Request) {
+				http.Error(w, `{"message": "not you"}`, http.StatusUnauthorized)
+			},
+			wantCode: http.StatusInternalServerError,
+			wantBody: "not you",
+		},
 	}
-}
 
-func TestGodoHealthCheker_Check(t *testing.T) {
-	c := godoHealthChecker{}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(test.stubHandler))
+			defer ts.Close()
 
-	t.Run("healthy godo", func(t *testing.T) {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"account":null}`))
-		}))
-		defer ts.Close()
+			c := godoHealthChecker{}
+			var err error
+			c.client, err = godo.New(http.DefaultClient, godo.SetBaseURL(ts.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		var err error
-		c.client, err = godo.New(http.DefaultClient, godo.SetBaseURL(ts.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
+			req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			w := httptest.NewRecorder()
+			c.ServeHTTP(w, req)
 
-		req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+			resp := w.Result()
+			if gotCode := resp.StatusCode; gotCode != test.wantCode {
+				t.Errorf("got code %d, want %d", gotCode, test.wantCode)
+			}
 
-		err = c.Check(req)
-		if err != nil {
-			t.Errorf("expected no error: %s", err)
-		}
-	})
-
-	t.Run("unhealthy godo", func(t *testing.T) {
-		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-		defer ts.Close()
-
-		var err error
-		c.client, err = godo.New(http.DefaultClient, godo.SetBaseURL(ts.URL))
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req, err := http.NewRequest(http.MethodGet, "http://example.com", nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = c.Check(req)
-		if err == nil {
-			t.Error("expected error but got none")
-		}
-	})
+			if test.wantBody != "" {
+				gotBodyRaw, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatalf("failed to read response body: %s", err)
+				}
+				gotBody := string(gotBodyRaw)
+				if !strings.Contains(gotBody, test.wantBody) {
+					t.Errorf("body %q does not contain %q", gotBody, test.wantBody)
+				}
+			}
+		})
+	}
 }
