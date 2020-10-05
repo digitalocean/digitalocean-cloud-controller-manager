@@ -8,6 +8,7 @@
 * Update Kubernetes dependencies to 1.19.1 (@adamwg)
 * Add exponential retry to firewall controller (@MorrisLaw)
 * Expose health check failures (@timoreimann)
+* Fix logging and update Kubernetes dependencies to 1.19.2 (@timoreimann)
 
 ## v0.1.26 (beta) - June 16th 2020
 
