@@ -118,6 +118,11 @@ const (
 	// to round_robin.
 	annDOAlgorithm = "service.beta.kubernetes.io/do-loadbalancer-algorithm"
 
+	// annDOSizeSlug is the annotation specifying the size of the LB.
+	// Options are `lb-small`, `lb-medium`, and `lb-large`.
+	// Defaults to `lb-small`.
+	annDOSizeSlug = "service.beta.kubernetes.io/do-loadbalancer-size-slug"
+
 	// annDOStickySessionsType is the annotation specifying which sticky session type
 	// DO loadbalancer should use. Options are none and cookies. Defaults
 	// to none.
@@ -655,6 +660,11 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	algorithm := getAlgorithm(service)
 
+	sizeSlug, err := getSizeSlug(service)
+	if err != nil {
+		return nil, err
+	}
+
 	redirectHTTPToHTTPS, err := getRedirectHTTPToHTTPS(service)
 	if err != nil {
 		return nil, err
@@ -679,6 +689,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		Name:                   lbName,
 		DropletIDs:             dropletIDs,
 		Region:                 l.region,
+		SizeSlug:               sizeSlug,
 		ForwardingRules:        forwardingRules,
 		HealthCheck:            healthCheck,
 		StickySessions:         stickySessions,
@@ -1081,6 +1092,21 @@ func getAlgorithm(service *v1.Service) string {
 		return "least_connections"
 	default:
 		return "round_robin"
+	}
+}
+
+func getSizeSlug(service *v1.Service) (string, error) {
+	sizeSlug, ok := service.Annotations[annDOSizeSlug]
+
+	if !ok || sizeSlug == "" {
+		sizeSlug = "lb-small"
+	}
+
+	switch sizeSlug {
+	case "lb-small", "lb-medium", "lb-large":
+		return sizeSlug, nil
+	default:
+		return "", fmt.Errorf("invalid LB size slug provided: %s", sizeSlug)
 	}
 }
 

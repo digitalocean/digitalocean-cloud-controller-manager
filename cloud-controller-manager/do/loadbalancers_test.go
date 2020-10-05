@@ -240,6 +240,106 @@ func Test_getAlgorithm(t *testing.T) {
 	}
 }
 
+func Test_getSizeSlug(t *testing.T) {
+	testcases := []struct {
+		name     string
+		service  *v1.Service
+		sizeSlug string
+	}{
+		{
+			"sizeSlug should be lb-small",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOSizeSlug: "lb-small",
+					},
+				},
+			},
+			"lb-small",
+		},
+		{
+			"sizeSlug should be lb-medium",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOSizeSlug: "lb-medium",
+					},
+				},
+			},
+			"lb-medium",
+		},
+		{
+			"empty sizeSlug should default to lb-small",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOSizeSlug: "",
+					},
+				},
+			},
+			"lb-small",
+		},
+		{
+			"no sizeSlug specified should default to lb-small",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			"lb-small",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			sizeSlug, err := getSizeSlug(test.service)
+			if err != nil {
+				t.Error("unexpected error")
+				t.Logf("expected: <nil>")
+				t.Logf("actual: %v", err)
+			}
+			if sizeSlug != test.sizeSlug {
+				t.Error("unexpected sizeSlug")
+				t.Logf("expected: %q", test.sizeSlug)
+				t.Logf("actual: %q", sizeSlug)
+			}
+		})
+	}
+
+	t.Run("invalid sizeSlug should return error", func(t *testing.T) {
+		testSvc := &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "abc123",
+				Annotations: map[string]string{
+					annDOSizeSlug: "invalid",
+				},
+			},
+		}
+
+		got, gotErr := getSizeSlug(testSvc)
+		if got != "" {
+			t.Error("unexpected sizeSlug")
+			t.Logf("expected: \"\"")
+			t.Logf("actual: %q", got)
+		}
+
+		expectedErr := "invalid LB size slug provided: invalid"
+		if gotErr.Error() != expectedErr {
+			t.Error("unexpected error")
+			t.Logf("expected: %v", expectedErr)
+			t.Logf("actual: %v", got)
+		}
+	})
+}
+
 func Test_getTLSPassThrough(t *testing.T) {
 	testcases := []struct {
 		name           string
@@ -2869,6 +2969,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
 				Algorithm:   "round_robin",
+				SizeSlug:    "lb-small",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -2945,6 +3046,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
 				Algorithm:   "round_robin",
+				SizeSlug:    "lb-small",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -3021,6 +3123,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
 				Algorithm:   "round_robin",
+				SizeSlug:    "lb-small",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -3096,6 +3199,83 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
 				Algorithm:   "least_connections",
+				SizeSlug:    "lb-small",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+			},
+			nil,
+		},
+		{
+			"successful load balancer request using medium size",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+						annDOSizeSlug: "lb-medium",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "",
+						TlsPassthrough: false,
+					},
+				},
+				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
+				Algorithm:   "round_robin",
+				SizeSlug:    "lb-medium",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
@@ -3173,6 +3353,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
 				Algorithm:   "round_robin",
+				SizeSlug:    "lb-small",
 				StickySessions: &godo.StickySessions{
 					Type:             "cookies",
 					CookieName:       "DO-CCM",
@@ -3254,6 +3435,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck: defaultHealthCheck("http", 30000, ""),
 				Algorithm:   "round_robin",
+				SizeSlug:    "lb-small",
 				StickySessions: &godo.StickySessions{
 					Type:             "cookies",
 					CookieName:       "DO-CCM",
@@ -3345,6 +3527,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
 				Algorithm:           "round_robin",
+				SizeSlug:            "lb-small",
 				RedirectHttpToHttps: true,
 				StickySessions: &godo.StickySessions{
 					Type: "none",
