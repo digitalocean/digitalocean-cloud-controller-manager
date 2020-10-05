@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/godo"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 var godoHealthTimeout = 15 * time.Second

@@ -23,9 +23,13 @@ deps=()
 while read -ra LINE
 do
   depname="${LINE[0]}"
-  deps+=("-replace $depname=$depname@kubernetes-$KUBERNETES_VERSION")
+  version="${LINE[1]}"
+  if [[ "${version}" = "v0.0.0" ]]; then
+    version="kubernetes-${KUBERNETES_VERSION}"
+  fi
+  deps+=("-replace $depname=$depname@$version")
 done < <(curl -sSL "https://raw.githubusercontent.com/kubernetes/kubernetes/v$KUBERNETES_VERSION/go.mod" \
-  | grep -E '^[[:space:]]*k8s.io.* v0.0.0$')
+  | grep -E '^\s*k8s.io/\S+ v\S+$')
 
 deps+=("-replace k8s.io/kubernetes=k8s.io/kubernetes@v$KUBERNETES_VERSION")
 
