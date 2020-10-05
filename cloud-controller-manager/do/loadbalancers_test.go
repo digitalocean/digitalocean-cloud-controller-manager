@@ -3666,6 +3666,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 
 			var logBuf bytes.Buffer
 			if len(test.missingNames) > 0 {
+				klog.LogToStderr(false)
 				klog.SetOutput(ioutil.Discard)
 				klog.SetOutputBySeverity("ERROR", &logBuf)
 			}
@@ -3686,7 +3687,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 				wantErrMsg := fmt.Sprintf("Failed to find droplets for nodes %s", strings.Join(test.missingNames, " "))
 				gotErrMsg := logBuf.String()
 				if !strings.Contains(gotErrMsg, wantErrMsg) {
-					t.Errorf("got missing nodes error message %q, missing %q", gotErrMsg, wantErrMsg)
+					t.Errorf("got missing nodes error message %q, want %q contained", gotErrMsg, wantErrMsg)
 				}
 			}
 		})
