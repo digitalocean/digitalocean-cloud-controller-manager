@@ -1,6 +1,9 @@
 # CHANGELOG
 
+## v0.1.28 (beta) - October 15th 2020
+
 * Fix firewall cache usage (@timoreimann)
+* Create context after retrieving item from worker queue (@MorrisLaw)
 * Fix logging and update Kubernetes dependencies to 1.19.2 (@timoreimann)
 * Expose health check failures (@timoreimann)
 
