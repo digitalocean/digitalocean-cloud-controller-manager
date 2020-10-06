@@ -1,14 +1,15 @@
 # CHANGELOG
 
+* Fix logging and update Kubernetes dependencies to 1.19.2 (@timoreimann)
+* Expose health check failures (@timoreimann)
+
 ## v0.1.27 (beta) - September 24th 2020
 
-* Support HTTPS as health check protocol (@timoreimann)
-* Add controller to manage worker firewall for public access (@MorrisLaw)
-* Add prometheus metrics instrumentation to firewall controller (@MorrisLaw)
-* Update Kubernetes dependencies to 1.19.1 (@adamwg)
 * Add exponential retry to firewall controller (@MorrisLaw)
-* Expose health check failures (@timoreimann)
-* Fix logging and update Kubernetes dependencies to 1.19.2 (@timoreimann)
+* Update Kubernetes dependencies to 1.19.1 (@adamwg)
+* Add prometheus metrics instrumentation to firewall controller (@MorrisLaw)
+* Add controller to manage worker firewall for public access (@MorrisLaw)
+* Support HTTPS as health check protocol (@timoreimann)
 
 ## v0.1.26 (beta) - June 16th 2020
 
