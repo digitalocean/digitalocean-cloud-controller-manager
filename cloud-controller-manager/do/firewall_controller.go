@@ -43,8 +43,10 @@ const (
 	serviceSyncPeriod = 30 * time.Second
 	// Frequency at which the firewall controller runs.
 	firewallReconcileFrequency = 5 * time.Minute
-	originEvent                = "event"
-	originFirewallLoop         = "firewall_loop"
+	// Timeout value for processing worker items taken from the queue.
+	processWorkerItemTimeout = 30 * time.Second
+	originEvent              = "event"
+	originFirewallLoop       = "firewall_loop"
 
 	// How long to wait before retrying the processing of a firewall change.
 	minRetryDelay = 1 * time.Second
@@ -160,8 +162,6 @@ func (fc *FirewallController) runWorker() {
 }
 
 func (fc *FirewallController) processNextItem() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), firewallReconcileFrequency)
-	defer cancel()
 	// Wait until there is a new item in the working queue
 	key, quit := fc.queue.Get()
 	if quit {
@@ -172,9 +172,11 @@ func (fc *FirewallController) processNextItem() bool {
 	// parallel.
 	defer fc.queue.Done(key)
 
+	ctx, cancel := context.WithTimeout(context.Background(), processWorkerItemTimeout)
+	defer cancel()
 	err := fc.observeReconcileDuration(ctx, originEvent)
 	if err != nil {
-		klog.Errorf("failed to run firewall controller loop: %v", err)
+		klog.Errorf("failed to process worker item: %v", err)
 		fc.queue.AddRateLimited(key)
 	}
 	fc.queue.Forget(key)
