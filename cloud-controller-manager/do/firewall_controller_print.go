@@ -24,7 +24,11 @@ import (
 	"github.com/digitalocean/godo"
 )
 
-const missingFirewallLabel = "<n/a>"
+const (
+	missingFirewallLabel = "<n/a>"
+	ruleOpeningToken     = "<"
+	ruleClosingToken     = ">"
+)
 
 func printRelevantFirewallParts(fw *godo.Firewall) string {
 	if fw == nil {
@@ -63,13 +67,13 @@ func printInboundRule(inboundRule godo.InboundRule) string {
 	if inboundRule.PortRange == "" || inboundRule.PortRange == "all" {
 		portRange = "0"
 	}
-	rule := fmt.Sprintf("<Proto:%s PortRange:%s", inboundRule.Protocol, portRange)
+	rule := fmt.Sprintf("%sProto:%s PortRange:%s", ruleOpeningToken, inboundRule.Protocol, portRange)
 
 	if inboundRule.Sources != nil {
 		rule += fmt.Sprintf(" AddrSources:%s", inboundRule.Sources.Addresses)
 	}
 
-	rule += ">"
+	rule += ruleClosingToken
 	return rule
 }
 
@@ -87,12 +91,12 @@ func printOutboundRule(outboundRule godo.OutboundRule) string {
 	if outboundRule.PortRange == "" || outboundRule.PortRange == "all" {
 		portRange = "0"
 	}
-	rule := fmt.Sprintf("<Proto:%s PortRange:%s", outboundRule.Protocol, portRange)
+	rule := fmt.Sprintf("%sProto:%s PortRange:%s", ruleOpeningToken, outboundRule.Protocol, portRange)
 
 	if outboundRule.Destinations != nil {
 		rule += fmt.Sprintf(" AddrDestinations:%s", outboundRule.Destinations.Addresses)
 	}
 
-	rule += ">"
+	rule += ruleClosingToken
 	return rule
 }
