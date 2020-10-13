@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	ctx = context.TODO()
+	ctx = context.Background()
 
 	kclient kubernetes.Interface
 
