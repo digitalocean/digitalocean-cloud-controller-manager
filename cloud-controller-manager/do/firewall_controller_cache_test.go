@@ -56,7 +56,8 @@ func TestUpdateCache(t *testing.T) {
 				t.Error("cache is not set")
 			}
 			if cache.firewall != test.curFirewall {
-				t.Errorf("got firewall %s, want %s", printRelevantFirewallParts(cache.firewall), printRelevantFirewallParts(test.curFirewall))
+				_, diff := firewallsEqual(cache.firewall, test.curFirewall)
+				t.Errorf("got firewall %s, want %s (diff: %s)", printRelevantFirewallParts(cache.firewall), printRelevantFirewallParts(test.curFirewall), diff)
 			}
 		})
 	}
