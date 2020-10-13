@@ -27,7 +27,9 @@ import (
 type firewallCache struct {
 	sync.RWMutex
 	firewall *godo.Firewall
-	isSet    bool
+	// isSet is to distinguish between a firewall being present or absent in the API.
+	// It is set once we first update the cache.
+	isSet bool
 }
 
 func (fc *firewallCache) getCachedFirewall() (*godo.Firewall, bool) {
