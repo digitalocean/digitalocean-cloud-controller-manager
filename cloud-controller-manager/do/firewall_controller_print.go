@@ -24,16 +24,18 @@ import (
 	"github.com/digitalocean/godo"
 )
 
+const missingFirewallLabel = "<n/a>"
+
 func printRelevantFirewallParts(fw *godo.Firewall) string {
 	if fw == nil {
-		return "<n/a>"
+		return missingFirewallLabel
 	}
 	return printFirewallParts(fw.Name, fw.InboundRules, fw.OutboundRules, fw.Tags)
 }
 
 func printRelevantFirewallRequestParts(fr *godo.FirewallRequest) string {
 	if fr == nil {
-		return "<n/a>"
+		return missingFirewallLabel
 	}
 	return printFirewallParts(fr.Name, fr.InboundRules, fr.OutboundRules, fr.Tags)
 }

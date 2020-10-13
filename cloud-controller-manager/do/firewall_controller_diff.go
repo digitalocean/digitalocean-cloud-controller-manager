@@ -103,7 +103,7 @@ func compFirewallsEqual(cf1, cf2 *comparableFirewall) (bool, string) {
 		return false
 	}, cmp.Comparer(func(pr1, pr2 string) bool {
 		sanitizePortRange := func(pr string) string {
-			if pr == "" || pr == "0" || pr == "all" {
+			if pr == "" || pr == "all" {
 				pr = "0"
 			}
 			return pr
