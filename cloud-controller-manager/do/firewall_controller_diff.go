@@ -33,6 +33,32 @@ type comparableFirewall struct {
 	Tags          []string
 }
 
+func compFirewallFromFirewall(fw *godo.Firewall) *comparableFirewall {
+	if fw == nil {
+		return nil
+	}
+
+	return &comparableFirewall{
+		Name:          fw.Name,
+		InboundRules:  fw.InboundRules,
+		OutboundRules: fw.OutboundRules,
+		Tags:          fw.Tags,
+	}
+}
+
+func compFirewallFromFirewallRequest(fr *godo.FirewallRequest) *comparableFirewall {
+	if fr == nil {
+		return nil
+	}
+
+	return &comparableFirewall{
+		Name:          fr.Name,
+		InboundRules:  fr.InboundRules,
+		OutboundRules: fr.OutboundRules,
+		Tags:          fr.Tags,
+	}
+}
+
 func firewallRequestEqual(fw *godo.Firewall, fr *godo.FirewallRequest) (bool, string) {
 	cf1 := compFirewallFromFirewall(fw)
 	cf2 := compFirewallFromFirewallRequest(fr)
@@ -98,30 +124,4 @@ func compFirewallsEqual(cf1, cf2 *comparableFirewall) (bool, string) {
 
 	diff := cmp.Diff(cf1, cf2, sorterInboundRules, sorterOutboundRules, portRangeMapper, ruleSourceDestFilter, cmpopts.EquateEmpty())
 	return diff == "", diff
-}
-
-func compFirewallFromFirewall(fw *godo.Firewall) *comparableFirewall {
-	if fw == nil {
-		return nil
-	}
-
-	return &comparableFirewall{
-		Name:          fw.Name,
-		InboundRules:  fw.InboundRules,
-		OutboundRules: fw.OutboundRules,
-		Tags:          fw.Tags,
-	}
-}
-
-func compFirewallFromFirewallRequest(fr *godo.FirewallRequest) *comparableFirewall {
-	if fr == nil {
-		return nil
-	}
-
-	return &comparableFirewall{
-		Name:          fr.Name,
-		InboundRules:  fr.InboundRules,
-		OutboundRules: fr.OutboundRules,
-		Tags:          fr.Tags,
-	}
 }
