@@ -1,5 +1,6 @@
 # CHANGELOG
 
+* Fix firewall cache usage (@timoreimann)
 * Fix logging and update Kubernetes dependencies to 1.19.2 (@timoreimann)
 * Expose health check failures (@timoreimann)
 
