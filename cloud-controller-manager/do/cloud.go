@@ -24,7 +24,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/digitalocean/godo"
@@ -183,17 +182,15 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 		return
 	}
 	klog.Infof("Managing the firewall using provided firewall worker name: %s", c.resources.firewall.name)
-	fm := firewallManager{
-		client: c.client,
-		fwCache: firewallCache{
-			mu: new(sync.RWMutex),
-		},
+	fm := &firewallManager{
+		client:             c.client,
+		fwCache:            &firewallCache{},
 		workerFirewallName: c.resources.firewall.name,
 		workerFirewallTags: c.resources.firewall.tags,
 		metrics:            c.metrics,
 	}
 	ctx := context.Background()
-	fc := NewFirewallController(ctx, c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm, fm.workerFirewallTags, fm.workerFirewallName, c.metrics)
+	fc := NewFirewallController(c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm)
 	go fc.runWorker()
 	go fc.Run(ctx, stop, firewallReconcileFrequency)
 }

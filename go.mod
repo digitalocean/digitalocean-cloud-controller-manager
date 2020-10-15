@@ -9,10 +9,12 @@ require (
 	github.com/go-ini/ini v1.39.0 // indirect
 	github.com/google/go-cmp v0.5.0
 	github.com/minio/minio-go v6.0.10+incompatible
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/prometheus/client_golang v1.7.1
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/sync v0.0.0-20201008141435-b3e1573b7520
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
@@ -21,6 +23,7 @@ require (
 	k8s.io/component-base v0.19.2
 	k8s.io/klog/v2 v2.2.0
 	k8s.io/kubernetes v1.17.5
+	k8s.io/utils v0.0.0-20200729134348-d5654de09c73
 )
 
 replace k8s.io/api => k8s.io/api v0.19.2

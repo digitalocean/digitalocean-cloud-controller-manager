@@ -52,7 +52,7 @@ var (
 			Help:      "This is a histogram for tracking the duration of the run loop and whether it succeeds or not.",
 			Buckets:   prometheus.LinearBuckets(1, runLoopDurationWidth, 21),
 		},
-		[]string{"success"},
+		[]string{"result"},
 	)
 	reconcileDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -61,7 +61,7 @@ var (
 			Help:      "The duration of time, in seconds, that it takes for the firewall reconcile to run and ensure that the firewall is reconciled.",
 			Buckets:   prometheus.LinearBuckets(1, reconcileDurationWidth, 21),
 		},
-		[]string{"reconcile_type"},
+		[]string{"result", "error_type"},
 	)
 )
 
