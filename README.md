@@ -7,7 +7,7 @@
 ## Releases
 
 Cloud Controller Manager follows [semantic versioning](https://semver.org/).
-The current version is **`v0.1.27`**. This means that the project is still
+The current version is **`v0.1.28`**. This means that the project is still
 under active development and may not be production-ready. The plugin will be
 bumped to **`v1.0.0`** once the [DigitalOcean Kubernetes
 product](https://www.digitalocean.com/products/kubernetes/) is released and
@@ -90,43 +90,50 @@ Please note that if you use a Kubernetes cluster created on DigitalOcean, there
 will be a cloud controller manager running in the cluster already, so you local
 one will compete for API access with it.
 
-### Run Locally (optional features)
+### Optional features
 
 #### Add Public Access Firewall
 
-If you want to add an additional firewall, that allows public access to your
-cluster, you can run a command like this:
+You can have `digitalocan-cloud-controller-manager` manage a DigitalOcean Firewall
+that will dynamically adjust rules for accessing NodePorts: once a Service of type
+`NodePort` is created, the firewall controller will update the firewall to public
+allow access to just that NodePort. Likewise, access is automatically retracted
+if the Service gets deleted or changed to a different type.
+
+Example invocation:
 
 ```bash
 cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
-FAKE_REGION=fra1 DO_ACCESS_TOKEN=your_access_token            \
+DO_ACCESS_TOKEN=<your_access_token>                           \
 PUBLIC_ACCESS_FIREWALL_NAME=firewall_name                     \
-PUBLIC_ACCESS_FIREWALL_TAGS=k8s,k8s:<cluster-uuid>,k8s:worker \
-go run main.go                                                \
+PUBLIC_ACCESS_FIREWALL_TAGS=worker-droplet                    \
+digitalocean-cloud-controller-manager                         \
   --kubeconfig <path to your kubeconfig file>                 \                                     
   --leader-elect=false --v=5 --cloud-provider=digitalocean
 ```
 
-The `PUBLIC_ACCESS_FIREWALL_NAME` environment variable allows you to pass in
-the name of the firewall you plan to use in addition to the already existing
-DOKS managed firewall. It is called public access because you can
-allow access to ports in the NodePort range, whereas this isn't possible with
-the default DOKS managed firewall. Not passing this in will cause your cluster
-to resort to the default behavior of denying all access to ports in the 
-NodePort range.
+The `PUBLIC_ACCESS_FIREWALL_NAME` environment variable defines the name of the
+firewall. The firewall is created if no firewall by that name is found.
 
 The `PUBLIC_ACCESS_FIREWALL_TAGS` environment variable refers to the tags
-associated with the public access firewall you provide.
+associated with the droplets that the firewall should apply to. Usually, this
+is a tag attached to the worker node droplets. Multiple tags are applied in
+a logical OR fashion.
+
+No firewall is managed if the environment variables are missing or left
+empty. Once the firewall is created, no public access other than to the NodePorts
+is allowed. Users should create additional firewalls to further extend access.
 
 #### Expose Prometheus Metrics
 
-If you are interested in exposing prometheus metrics, you can pass in a metrics
+If you are interested in exposing Prometheus metrics, you can pass in a metrics
 endpoint that will expose them. The command will look similar to this:
 
 ```bash
 cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
-FAKE_REGION=fra1 DO_ACCESS_TOKEN=your_access_token \
-METRICS_ADDR=<host>:<port> go run main.go          \
+DO_ACCESS_TOKEN=your_access_token                  \
+METRICS_ADDR=<host>:<port>                         \
+digitalocean-cloud-controller-manager              \
   --kubeconfig <path to your kubeconfig file>      \                                                
   --leader-elect=false --v=5 --cloud-provider=digitalocean
 ```
@@ -135,8 +142,8 @@ The `METRICS_ADDR` environment variable takes a valid endpoint that you'd
 like to use to serve your Prometheus metrics. To be valid it should be in the
 form `<host>:<port>`.
 
-After you have started up CCM, run the following curl command to view the
-Prometheus metrics output:
+After you have started up `digitalocan-cloud-controller-manager`, run the
+following curl command to view the Prometheus metrics output:
 
 ```bash
 curl <host>:<port>/metrics
