@@ -1067,17 +1067,8 @@ func getCertificateID(service *v1.Service) string {
 // getTLSPassThrough returns true if there should be TLS pass through to
 // backend nodes.
 func getTLSPassThrough(service *v1.Service) bool {
-	passThrough, ok := service.Annotations[annDOTLSPassThrough]
-	if !ok {
-		return false
-	}
-
-	passThroughBool, err := strconv.ParseBool(passThrough)
-	if err != nil {
-		return false
-	}
-
-	return passThroughBool
+	passThrough, _, err := getBool(service.Annotations, annDOTLSPassThrough)
+	return err == nil && passThrough
 }
 
 // getAlgorithm returns the load balancing algorithm to use for service.
@@ -1131,48 +1122,30 @@ func getStickySessionsCookieTTL(service *v1.Service) (int, error) {
 // getRedirectHTTPToHTTPS returns whether or not Http traffic should be redirected
 // to Https traffic for the loadbalancer. false is returned if not specified.
 func getRedirectHTTPToHTTPS(service *v1.Service) (bool, error) {
-	redirectHTTPToHTTPS, ok := service.Annotations[annDORedirectHTTPToHTTPS]
-	if !ok {
-		return false, nil
-	}
-
-	redirectHTTPToHTTPSBool, err := strconv.ParseBool(redirectHTTPToHTTPS)
+	redirectHTTPToHTTPS, _, err := getBool(service.Annotations, annDORedirectHTTPToHTTPS)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse redirect HTTP-to-HTTPS flag %q from annotation %q: %s", redirectHTTPToHTTPS, annDORedirectHTTPToHTTPS, err)
+		return false, fmt.Errorf("failed to get HTTP-to-HTTPS configuration setting: %s", err)
 	}
-
-	return redirectHTTPToHTTPSBool, nil
+	return redirectHTTPToHTTPS, nil
 }
 
 // getEnableProxyProtocol returns whether PROXY protocol should be enabled.
 // False is returned if not specified.
 func getEnableProxyProtocol(service *v1.Service) (bool, error) {
-	enableProxyProtocolStr, ok := service.Annotations[annDOEnableProxyProtocol]
-	if !ok {
-		return false, nil
-	}
-
-	enableProxyProtocol, err := strconv.ParseBool(enableProxyProtocolStr)
+	enableProxyProtocol, _, err := getBool(service.Annotations, annDOEnableProxyProtocol)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse proxy protocol flag %q from annotation %q: %s", enableProxyProtocolStr, annDOEnableProxyProtocol, err)
+		return false, fmt.Errorf("failed to get proxy protocol configuration setting: %s", err)
 	}
-
 	return enableProxyProtocol, nil
 }
 
 // getEnableBackendKeepalive returns whether HTTP keepalive to target droplets should be enabled.
 // False is returned if not specified.
 func getEnableBackendKeepalive(service *v1.Service) (bool, error) {
-	enableBackendKeepaliveStr, ok := service.Annotations[annDOEnableBackendKeepalive]
-	if !ok {
-		return false, nil
-	}
-
-	enableBackendKeepalive, err := strconv.ParseBool(enableBackendKeepaliveStr)
+	enableBackendKeepalive, _, err := getBool(service.Annotations, annDOEnableBackendKeepalive)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse backend keepalive flag %q from annotation %q: %s", enableBackendKeepaliveStr, annDOEnableBackendKeepalive, err)
+		return false, fmt.Errorf("failed to get backend keepalive configuration setting: %s", err)
 	}
-
 	return enableBackendKeepalive, nil
 }
 
@@ -1183,16 +1156,10 @@ func getLoadBalancerID(service *v1.Service) string {
 // getDisownLB returns whether the load-balancer should be disowned.
 // False is returned if not specified.
 func getDisownLB(service *v1.Service) (bool, error) {
-	disownLBStr, ok := service.Annotations[annDODisownLB]
-	if !ok {
-		return false, nil
-	}
-
-	disownLB, err := strconv.ParseBool(disownLBStr)
+	disownLB, _, err := getBool(service.Annotations, annDODisownLB)
 	if err != nil {
-		return false, fmt.Errorf("failed to parse disown LB flag %q from annotation %q: %s", disownLBStr, annDODisownLB, err)
+		return false, fmt.Errorf("failed to get disown LB configuration setting: %s", err)
 	}
-
 	return disownLB, nil
 }
 
