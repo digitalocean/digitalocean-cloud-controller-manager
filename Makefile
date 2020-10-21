@@ -23,7 +23,6 @@ BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
 GO_VERSION ?= 1.15.2
-KUBERNETES_VERSION ?= 1.19.2
 
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do.version=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
 PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
@@ -36,7 +35,7 @@ ci: check-headers check-unused gofmt govet golint test
 
 .PHONY: update-k8s
 update-k8s:
-	env KUBERNETES_VERSION=$(KUBERNETES_VERSION) bash scripts/update-k8s.sh
+	bash scripts/update-k8s.sh $(KUBERNETES_VERSION)
 
 .PHONY: check-unused
 check-unused:
