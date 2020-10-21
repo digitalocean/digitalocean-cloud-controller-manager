@@ -107,7 +107,7 @@ gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 .PHONY: test
 test:
 	@echo "==> Testing all packages"
-	@go test -race $(shell go list ./... | grep -v vendor)
+	@GO111MODULE=on GOFLAGS=-mod=vendor go test -race $(shell go list ./... | grep -v vendor)
 
 .PHONY: check-headers
 check-headers:
