@@ -120,9 +120,19 @@ associated with the droplets that the firewall should apply to. Usually, this
 is a tag attached to the worker node droplets. Multiple tags are applied in
 a logical OR fashion.
 
-No firewall is managed if the environment variables are missing or left
-empty. Once the firewall is created, no public access other than to the NodePorts
-is allowed. Users should create additional firewalls to further extend access.
+In some cases, firewall management for a particular Service may not be
+desirable. One example is that a NodePort is supposed to be accessible over the
+VPC only. In such cases, the Service annotation
+`kubernetes.digitalocean.com/firewall-managed` can be used to selectively
+exclude a given Service from firewall management. If set to `"false"`, no
+inbound rules will be created for the Service, effectively disabling public
+access to the NodePort. (Note the quotes that must be included with "boolean"
+annotation values.) The default behavior applies if the annotation is omitted,
+is set to `"true`", or contains an invalid value.
+
+No firewall is managed if the environment variables are missing or left empty.
+Once the firewall is created, no public access other than to the NodePorts is
+allowed. Users should create additional firewalls to further extend access.
 
 #### Expose Prometheus Metrics
 

@@ -524,6 +524,112 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "reconcile firewall with management flag",
+			firewallRequest: &godo.FirewallRequest{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol:  "tcp",
+						PortRange: "30000",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: "31000",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: "32000",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+				},
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "noManagementFlag",
+						UID:  "uid1",
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeNodePort,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(30000),
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "managementEnabled",
+						UID:  "uid2",
+						Annotations: map[string]string{
+							annotationDOFirewallManaged: "true",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeNodePort,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(31000),
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "managementFlagInvalid",
+						UID:  "uid4",
+						Annotations: map[string]string{
+							annotationDOFirewallManaged: "undecided",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeNodePort,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(32000),
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "managementDisabled",
+						UID:  "uid3",
+						Annotations: map[string]string{
+							annotationDOFirewallManaged: "false",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeNodePort,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(33000),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testcases {

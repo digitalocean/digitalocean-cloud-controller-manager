@@ -48,6 +48,12 @@ const (
 	maxRetryDelay = 5 * time.Minute
 )
 
+const (
+	// annotationDOFirewallManaged is the annotation specifying if the given Service
+	// should be managed with regards to public firewall access.
+	annotationDOFirewallManaged = "kubernetes.digitalocean.com/firewall-managed"
+)
+
 var (
 	allowAllOutboundRules = []godo.OutboundRule{
 		{
@@ -356,6 +362,15 @@ func (fm *firewallManager) updateFirewall(ctx context.Context, fwID string, fr *
 func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Service) *godo.FirewallRequest {
 	var nodePortInboundRules []godo.InboundRule
 	for _, svc := range serviceList {
+		managed, err := isManaged(svc)
+		if err != nil {
+			klog.Warningf("managing service %s/%s for which no correct management flag setting could be detected: %s", svc.Namespace, svc.Name, err)
+			managed = true
+		}
+		if !managed {
+			continue
+		}
+
 		if svc.Spec.Type == v1.ServiceTypeNodePort {
 			// this is a nodeport service so we should check for existing inbound rules on all ports.
 			for _, servicePort := range svc.Spec.Ports {
@@ -393,6 +408,18 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 		OutboundRules: allowAllOutboundRules,
 		Tags:          fm.workerFirewallTags,
 	}
+}
+
+//isManaged returns if the given Service should be firewall-managed based on the
+//configuration annotation. An omitted annotation applies the default behavior
+//of managing firewall rules for the Service.
+func isManaged(service *v1.Service) (bool, error) {
+	val, found, err := getBool(service.Annotations, annotationDOFirewallManaged)
+	if err != nil {
+		return false, err
+	}
+
+	return !found || val, nil
 }
 
 func (fc *FirewallController) ensureReconciledFirewall(ctx context.Context) (skipped bool, err error) {

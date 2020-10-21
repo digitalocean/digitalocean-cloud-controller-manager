@@ -1,5 +1,6 @@
 # CHANGELOG
 
+* Support marking Services as firewall-unmanaged (@timoreimann)
 * Update Kubernetes dependencies to 1.19.3 (@timoreimann)
 
 ## v0.1.28 (beta) - October 15th 2020
