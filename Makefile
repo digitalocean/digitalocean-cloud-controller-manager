@@ -72,7 +72,7 @@ compile:
 	@echo "==> Building the project"
 	@docker run -v $(PWD):/go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
-	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GOFLAGS=-mod=vendor golang:$(GO_VERSION) \
+	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GO111MODULE=on -e GOFLAGS=-mod=vendor golang:$(GO_VERSION) \
 	  go build -ldflags "$(LDFLAGS)" ${PKG}
 
 .PHONY: build
@@ -107,7 +107,7 @@ gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 .PHONY: test
 test:
 	@echo "==> Testing all packages"
-	@go test -race $(shell go list ./... | grep -v vendor)
+	@GO111MODULE=on GOFLAGS=-mod=vendor go test -race $(shell go list ./... | grep -v vendor)
 
 .PHONY: check-headers
 check-headers:
