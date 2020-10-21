@@ -273,12 +273,7 @@ func newFakeFirewallManager(client *godo.Client, cache *firewallCache) *firewall
 		fwCache:            cache,
 		workerFirewallName: testWorkerFWName,
 		workerFirewallTags: testWorkerFWTags,
-		metrics: metrics{
-			host:               "localhost:8080",
-			apiRequestDuration: apiRequestDuration,
-			runLoopDuration:    runLoopDuration,
-			reconcileDuration:  reconcileDuration,
-		},
+		metrics:            newMetrics("localhost:8080"),
 	}
 }
 

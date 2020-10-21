@@ -21,9 +21,8 @@ import (
 	"errors"
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
-
 	"github.com/digitalocean/godo"
+	v1 "k8s.io/api/core/v1"
 )
 
 // apiResultsPerPage is the maximum page size that DigitalOcean's api supports.
@@ -63,15 +62,17 @@ func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, e
 
 func filterFirewallList(ctx context.Context, client *godo.Client, matchExpectedFirewallName func(godo.Firewall) bool) (*godo.Firewall, *godo.Response, error) {
 	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
+	var lastResp *godo.Response
 	for {
 		firewalls, resp, err := client.Firewalls.List(ctx, opt)
 		if err != nil {
 			return nil, resp, err
 		}
+		lastResp = resp
 
 		for _, fw := range firewalls {
 			if matchExpectedFirewallName(fw) {
-				return &fw, nil, nil
+				return &fw, resp, nil
 			}
 		}
 
@@ -88,7 +89,7 @@ func filterFirewallList(ctx context.Context, client *godo.Client, matchExpectedF
 		opt.Page = page + 1
 	}
 
-	return nil, nil, nil
+	return nil, lastResp, nil
 }
 
 func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadBalancer, error) {

@@ -1,5 +1,6 @@
 # CHANGELOG
 
+* Improve firewall metrics design (@timoreimann)
 * Support marking Services as firewall-unmanaged (@timoreimann)
 * Update Kubernetes dependencies to 1.19.3 (@timoreimann)
 

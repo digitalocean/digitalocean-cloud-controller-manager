@@ -18,39 +18,67 @@ package do
 
 import "github.com/prometheus/client_golang/prometheus"
 
+type firewallOperation string
+
+const (
+	firewallOperationGetByID   = "get_by_id"
+	firewallOperationGetByList = "get_by_list"
+	firewallOperationCreate    = "create"
+	firewallOperationUpdate    = "update"
+)
+
 type metrics struct {
-	host               string
-	apiRequestDuration *prometheus.HistogramVec
-	runLoopDuration    *prometheus.HistogramVec
-	reconcileDuration  *prometheus.HistogramVec
+	host                 string
+	apiOperationDuration *prometheus.HistogramVec
+	apiOperationsTotal   *prometheus.CounterVec
+	resourceSyncDuration *prometheus.HistogramVec
+	resourceSyncsTotal   *prometheus.CounterVec
+	reconcileDuration    *prometheus.HistogramVec
+	reconcilesTotal      *prometheus.CounterVec
 }
 
 const (
-	// apiRequestDurationWidth of 4.5 represents 90(duration in sec)/20(bucket count -1)
-	apiRequestDurationWidth float64 = 4.5
-	// runLoopDurationWidth of 15 represents 300(duration in sec)/20(bucket count -1)
-	runLoopDurationWidth float64 = 15
+	// apiOperationDurationWidth of 4.5 represents 90(duration in sec)/20(bucket count -1)
+	apiOperationDurationWidth float64 = 4.5
+	// resourceSyncDurationWidth of 15 represents 300(duration in sec)/20(bucket count -1)
+	resourceSyncDurationWidth float64 = 15
 	// reconcileDurationWidth of 15 represents 300(duration in sec)/20(bucket count -1)
 	reconcileDurationWidth float64 = 15
 )
 
 // create metrics
 var (
-	apiRequestDuration = prometheus.NewHistogramVec(
+	apiOperationDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "firewall",
-			Name:      "http_request_duration_seconds",
-			Help:      "This is a histogram for tracking the duration of firewall API requests.",
-			Buckets:   prometheus.LinearBuckets(1, apiRequestDurationWidth, 21),
+			Name:      "api_operation_duration_seconds",
+			Help:      "Histogram for tracking the duration of firewall API operations.",
+			Buckets:   prometheus.LinearBuckets(1, apiOperationDurationWidth, 21),
 		},
-		[]string{"method", "code"},
+		[]string{"operation", "result", "http_response_code"},
 	)
-	runLoopDuration = prometheus.NewHistogramVec(
+	apiOperationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "firewall",
+			Name:      "api_operations_total",
+			Help:      "The total number of firewall API operations executed.",
+		},
+		[]string{"operation", "result", "http_response_code"},
+	)
+	resourceSyncDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: "firewall",
-			Name:      "run_loop_duration_seconds",
-			Help:      "This is a histogram for tracking the duration of the run loop and whether it succeeds or not.",
-			Buckets:   prometheus.LinearBuckets(1, runLoopDurationWidth, 21),
+			Name:      "resource_sync_duration_seconds",
+			Help:      "Histogram for tracking the duration of remote firewall resource synchronizations.",
+			Buckets:   prometheus.LinearBuckets(1, resourceSyncDurationWidth, 21),
+		},
+		[]string{"result"},
+	)
+	resourceSyncsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "firewall",
+			Name:      "resource_syncs_total",
+			Help:      "The total number of remote firewall resource synchronizations executed.",
 		},
 		[]string{"result"},
 	)
@@ -58,8 +86,16 @@ var (
 		prometheus.HistogramOpts{
 			Namespace: "firewall",
 			Name:      "reconcile_duration_seconds",
-			Help:      "The duration of time, in seconds, that it takes for the firewall reconcile to run and ensure that the firewall is reconciled.",
+			Help:      "Histogram for tracking the duration of firewall reconciles.",
 			Buckets:   prometheus.LinearBuckets(1, reconcileDurationWidth, 21),
+		},
+		[]string{"result", "error_type"},
+	)
+	reconcilesTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "firewall",
+			Name:      "reconciles_total",
+			Help:      "The total number of firewall reconciles executed.",
 		},
 		[]string{"result", "error_type"},
 	)
@@ -67,9 +103,12 @@ var (
 
 func newMetrics(host string) metrics {
 	return metrics{
-		host:               host,
-		apiRequestDuration: apiRequestDuration,
-		runLoopDuration:    runLoopDuration,
-		reconcileDuration:  reconcileDuration,
+		host:                 host,
+		apiOperationDuration: apiOperationDuration,
+		apiOperationsTotal:   apiOperationsTotal,
+		resourceSyncDuration: resourceSyncDuration,
+		resourceSyncsTotal:   resourceSyncsTotal,
+		reconcileDuration:    reconcileDuration,
+		reconcilesTotal:      reconcilesTotal,
 	}
 }
