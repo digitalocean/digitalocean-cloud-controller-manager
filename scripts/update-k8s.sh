@@ -14,24 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -euo pipefail
 
-KUBERNETES_VERSION=${KUBERNETES_VERSION:?}
+if [[ $# -ne 1 ]]; then
+  echo "usage: $(basename "$0") <Kubernetes semver version x.y.z>" >&2
+  exit 1
+fi
+
+# Ensure 'v' prefix is set (by stripping and (re-)applying).
+readonly KUBERNETES_VERSION="v${1#v}"
+# Kubernetes dependencies officially use v0.x.y to evade the semver police.
+readonly KUBERNETES_SEMVER_VERSION="${KUBERNETES_VERSION/v1./v0.}"
 
 deps=()
 
-while read -ra LINE
-do
+while read -ra LINE; do
   depname="${LINE[0]}"
   version="${LINE[1]}"
   if [[ "${version}" = "v0.0.0" ]]; then
-    version="kubernetes-${KUBERNETES_VERSION}"
+    version="${KUBERNETES_SEMVER_VERSION}"
   fi
   deps+=("-replace $depname=$depname@$version")
-done < <(curl -sSL "https://raw.githubusercontent.com/kubernetes/kubernetes/v$KUBERNETES_VERSION/go.mod" \
+done < <(curl -fsSL "https://raw.githubusercontent.com/kubernetes/kubernetes/$KUBERNETES_VERSION/go.mod" \
   | grep -E '^\s*k8s.io/\S+ v\S+$')
 
-deps+=("-replace k8s.io/kubernetes=k8s.io/kubernetes@v$KUBERNETES_VERSION")
+deps+=("-replace k8s.io/kubernetes=k8s.io/kubernetes@$KUBERNETES_VERSION")
 
 unset GOROOT GOPATH
 export GO111MODULE=on
@@ -42,5 +49,3 @@ go mod edit ${deps[*]}
 go mod tidy
 go mod vendor
 set +x
-
-sed -i -e "s/^KUBERNETES_VERSION.*/KUBERNETES_VERSION ?= $KUBERNETES_VERSION/" Makefile
