@@ -65,7 +65,7 @@ rules:
 # The following is necessary to support leader election when running DO-CCM on
 # a multi-master cluster. We leave it commented out on the assumption that the
 # typical user is not running a multi-master cluster and therefore does not
-# need the additional persmissions.
+# need the additional permissions.
 #
 # - apiGroups:
 #   - coordination.k8s.io
