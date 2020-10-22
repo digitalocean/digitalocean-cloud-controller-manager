@@ -277,7 +277,7 @@ func TestFirewallController_ConcurrentUsage(t *testing.T) {
 	}))
 
 	eg.Go(loopCreator(func() error {
-		err := fc.observeRunLoopDuration(ctx)
+		err := fc.syncResource(ctx)
 		if err != nil {
 			return fmt.Errorf("run loop failed: %s", err)
 		}

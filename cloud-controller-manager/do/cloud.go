@@ -218,9 +218,12 @@ func (c *cloud) serveMetrics() {
 	http.Handle("/metrics", promhttp.Handler())
 
 	// register metrics
-	prometheus.MustRegister(apiRequestDuration)
-	prometheus.MustRegister(runLoopDuration)
+	prometheus.MustRegister(apiOperationDuration)
+	prometheus.MustRegister(apiOperationsTotal)
+	prometheus.MustRegister(resourceSyncDuration)
+	prometheus.MustRegister(resourceSyncsTotal)
 	prometheus.MustRegister(reconcileDuration)
+	prometheus.MustRegister(reconcilesTotal)
 
 	if err := http.ListenAndServe(c.metrics.host, nil); err != http.ErrServerClosed {
 		klog.Warningf("Metrics server has not been configured: %s", err)
