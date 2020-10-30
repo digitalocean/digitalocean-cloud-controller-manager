@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## v0.1.30 (beta) - October 31th 2020
+
 * Support LB custom size slug (@anitgandhi)
 
 ## v0.1.29 (beta) - October 22th 2020
