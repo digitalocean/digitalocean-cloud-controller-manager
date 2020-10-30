@@ -101,6 +101,12 @@ Specifies the hostname used for the Service `status.Hostname` instead of assigni
 
 Specifies which algorithm the Load Balancer should use. Options are `round_robin`, `least_connections`. Defaults to `round_robin`.
 
+## service.beta.kubernetes.io/do-loadbalancer-size-slug
+
+Specifies which size the Load Balancer should be created with. Options are `lb-small`, `lb-medium`, and `lb-large`. Defaults to `lb-small`.
+
+IMPORTANT NOTE: This feature is currently in closed beta.
+
 ## service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type
 
 Specifies which stick session type the loadbalancer should use. Options are `none` or `cookies`.

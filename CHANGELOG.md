@@ -1,5 +1,7 @@
 # CHANGELOG
 
+* Support LB custom size slug (@anitgandhi)
+
 ## v0.1.29 (beta) - October 22th 2020
 
 * Improve firewall metrics design (@timoreimann)
