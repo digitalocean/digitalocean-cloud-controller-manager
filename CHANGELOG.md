@@ -1,5 +1,7 @@
 # CHANGELOG
 
+* Fix broken firewall counter metrics by incrementing (@timoreimann)
+
 ## v0.1.30 (beta) - October 31th 2020
 
 * Support LB custom size slug (@anitgandhi)
