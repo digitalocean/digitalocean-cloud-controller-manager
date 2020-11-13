@@ -379,7 +379,7 @@ func (fm *firewallManager) executeInstrumentedFirewallOperation(ctx context.Cont
 	}))
 	defer func() {
 		timer.ObserveDuration()
-		fm.metrics.apiOperationsTotal.With(promLabels)
+		fm.metrics.apiOperationsTotal.With(promLabels).Inc()
 	}()
 
 	fw, resp, err := f(ctx)
@@ -439,7 +439,7 @@ func (fc *FirewallController) ensureReconciledFirewallInstrumented(ctx context.C
 	}))
 	defer func() {
 		t.ObserveDuration()
-		fc.fwManager.metrics.reconcilesTotal.With(labels)
+		fc.fwManager.metrics.reconcilesTotal.With(labels).Inc()
 	}()
 
 	skipped, err := fc.ensureReconciledFirewall(ctx)
@@ -466,7 +466,7 @@ func (fc *FirewallController) syncResource(ctx context.Context) error {
 	}))
 	defer func() {
 		t.ObserveDuration()
-		fc.fwManager.metrics.resourceSyncsTotal.With(labels)
+		fc.fwManager.metrics.resourceSyncsTotal.With(labels).Inc()
 	}()
 
 	// Ignore Get() result since we only care about the cache getting updated.
