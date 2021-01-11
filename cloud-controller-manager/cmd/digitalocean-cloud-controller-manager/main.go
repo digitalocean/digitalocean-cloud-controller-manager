@@ -20,17 +20,25 @@ import (
 	"fmt"
 	"os"
 
+	"k8s.io/cloud-provider/app"
+	"k8s.io/cloud-provider/app/config"
+	"k8s.io/cloud-provider/options"
 	"k8s.io/component-base/logs"
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugins
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
-	"k8s.io/kubernetes/cmd/cloud-controller-manager/app"
 
 	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	"github.com/spf13/pflag"
 )
 
 func main() {
-	command := app.NewCloudControllerManagerCommand()
+	opts, err := options.NewCloudControllerManagerOptions()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to construct options: %v\n", err)
+		os.Exit(1)
+	}
+	cfg := &config.Config{}
+	command := app.NewCloudControllerManagerCommand(opts, cfg, nil)
 
 	// Set static flags for which we know the values.
 	command.Flags().VisitAll(func(fl *pflag.Flag) {
