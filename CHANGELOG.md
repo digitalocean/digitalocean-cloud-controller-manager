@@ -1,6 +1,7 @@
 # CHANGELOG
 
 * Fix broken firewall counter metrics by incrementing (@timoreimann)
+* Update Kubernetes dependencies to 1.20.2 (@adamwg)
 
 ## v0.1.30 (beta) - October 31th 2020
 
