@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## v0.1.31 (beta) - January 30 2021
+
 * Fix broken firewall counter metrics by incrementing (@timoreimann)
 
 ## v0.1.30 (beta) - October 31th 2020
