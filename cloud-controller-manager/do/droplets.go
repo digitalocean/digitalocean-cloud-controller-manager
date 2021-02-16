@@ -168,7 +168,7 @@ func (i *instances) InstanceShutdownByProviderID(ctx context.Context, providerID
 
 	droplet, err := dropletByID(ctx, i.resources.gclient, dropletID)
 	if err != nil {
-		return false, fmt.Errorf("error getting droplet %q by ID: %s", dropletID, err)
+		return false, fmt.Errorf("error getting droplet \"%d\" by ID: %s", dropletID, err)
 	}
 
 	return droplet.Status == dropletShutdownStatus, nil
