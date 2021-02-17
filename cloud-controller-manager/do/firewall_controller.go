@@ -170,8 +170,9 @@ func (fc *FirewallController) processNextItem() bool {
 	if err != nil {
 		klog.Errorf("failed to process worker item: %v", err)
 		fc.queue.AddRateLimited(key)
+	} else {
+		fc.queue.Forget(key)
 	}
-	fc.queue.Forget(key)
 	return true
 }
 
