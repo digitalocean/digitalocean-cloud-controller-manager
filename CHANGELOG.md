@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## v0.1.32 (beta) - March 21 2021
+
 * Do not forget work item on firewall controller error (@timoreimann)
 
 ## v0.1.31 (beta) - January 30 2021
