@@ -193,7 +193,7 @@ After it's merged to master, tag the commit and push it:
 git checkout master
 git pull
 git tag <new version>
-git push --tags
+git push origin <new version>
 ```
 
 Finally, [create a Github
