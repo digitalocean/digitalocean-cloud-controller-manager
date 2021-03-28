@@ -253,7 +253,7 @@ You're done!
 
 ## Excluding specific nodes as targets
 
-To exclude a particular node from the load balancer target set, add the `node.kubernetes.io/exclude-from-external-load-balancers` label to the node. This requires the `ServiceNodeExclusion` [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) to be enabled, which is the default since Kubernetes 1.19.
+To exclude a particular node from the load balancer target set, add the `node.kubernetes.io/exclude-from-external-load-balancers=` label to the node. (The value is not relevant.) This requires the `ServiceNodeExclusion` [feature gate](https://kubernetes.io/docs/reference/command-line-tools-reference/feature-gates/) to be enabled, which is the default since Kubernetes 1.19.
 
 **Note:** For services that use `externalTrafficPolicy=Local`, this may mean that any pods on excluded nodes are not reachable by those external load-balancers.
 
