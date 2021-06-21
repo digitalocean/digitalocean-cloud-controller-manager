@@ -38,8 +38,6 @@ while read -ra LINE; do
 done < <(curl -fsSL "https://raw.githubusercontent.com/kubernetes/kubernetes/$KUBERNETES_VERSION/go.mod" \
   | grep -E '^\s*k8s.io/\S+ v\S+$')
 
-deps+=("-replace k8s.io/kubernetes=k8s.io/kubernetes@$KUBERNETES_VERSION")
-
 unset GOROOT GOPATH
 export GO111MODULE=on
 
