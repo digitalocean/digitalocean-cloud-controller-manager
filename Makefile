@@ -33,10 +33,6 @@ publish: clean ci compile build push
 
 ci: check-headers check-unused gofmt govet golint test
 
-.PHONY: update-k8s
-update-k8s:
-	bash scripts/update-k8s.sh $(KUBERNETES_VERSION)
-
 .PHONY: check-unused
 check-unused:
 	@GO111MODULE=on go mod tidy
