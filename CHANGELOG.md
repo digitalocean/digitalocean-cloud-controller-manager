@@ -1,5 +1,7 @@
 # CHANGELOG
 
+* Update Kubernetes dependencies to 1.21.2 (@adamwg)
+
 ## v0.1.32 (beta) - March 21 2021
 
 * Do not forget work item on firewall controller error (@timoreimann)
