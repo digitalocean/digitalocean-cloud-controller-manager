@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
 	"k8s.io/apiserver/pkg/authentication/request/headerrequest"
 	"k8s.io/apiserver/pkg/server"
@@ -35,6 +36,17 @@ import (
 	"k8s.io/klog/v2"
 	openapicommon "k8s.io/kube-openapi/pkg/common"
 )
+
+// DefaultAuthWebhookRetryBackoff is the default backoff parameters for
+// both authentication and authorization webhook used by the apiserver.
+func DefaultAuthWebhookRetryBackoff() *wait.Backoff {
+	return &wait.Backoff{
+		Duration: 500 * time.Millisecond,
+		Factor:   1.5,
+		Jitter:   0.2,
+		Steps:    5,
+	}
+}
 
 type RequestHeaderAuthenticationOptions struct {
 	// ClientCAFile is the root certificate bundle to verify client certificates on incoming requests
@@ -177,6 +189,15 @@ type DelegatingAuthenticationOptions struct {
 	// TolerateInClusterLookupFailure indicates failures to look up authentication configuration from the cluster configmap should not be fatal.
 	// Setting this can result in an authenticator that will reject all requests.
 	TolerateInClusterLookupFailure bool
+
+	// WebhookRetryBackoff specifies the backoff parameters for the authentication webhook retry logic.
+	// This allows us to configure the sleep time at each iteration and the maximum number of retries allowed
+	// before we fail the webhook call in order to limit the fan out that ensues when the system is degraded.
+	WebhookRetryBackoff *wait.Backoff
+
+	// TokenRequestTimeout specifies a time limit for requests made by the authorization webhook client.
+	// The default value is set to 10 seconds.
+	TokenRequestTimeout time.Duration
 }
 
 func NewDelegatingAuthenticationOptions() *DelegatingAuthenticationOptions {
@@ -189,12 +210,32 @@ func NewDelegatingAuthenticationOptions() *DelegatingAuthenticationOptions {
 			GroupHeaders:        []string{"x-remote-group"},
 			ExtraHeaderPrefixes: []string{"x-remote-extra-"},
 		},
+		WebhookRetryBackoff: DefaultAuthWebhookRetryBackoff(),
+		TokenRequestTimeout: 10 * time.Second,
 	}
 }
 
+// WithCustomRetryBackoff sets the custom backoff parameters for the authentication webhook retry logic.
+func (s *DelegatingAuthenticationOptions) WithCustomRetryBackoff(backoff wait.Backoff) {
+	s.WebhookRetryBackoff = &backoff
+}
+
+// WithRequestTimeout sets the given timeout for requests made by the authentication webhook client.
+func (s *DelegatingAuthenticationOptions) WithRequestTimeout(timeout time.Duration) {
+	s.TokenRequestTimeout = timeout
+}
+
 func (s *DelegatingAuthenticationOptions) Validate() []error {
+	if s == nil {
+		return nil
+	}
+
 	allErrors := []error{}
 	allErrors = append(allErrors, s.RequestHeader.Validate()...)
+
+	if s.WebhookRetryBackoff != nil && s.WebhookRetryBackoff.Steps <= 0 {
+		allErrors = append(allErrors, fmt.Errorf("number of webhook retry attempts must be greater than 1, but is: %d", s.WebhookRetryBackoff.Steps))
+	}
 
 	return allErrors
 }
@@ -233,8 +274,10 @@ func (s *DelegatingAuthenticationOptions) ApplyTo(authenticationInfo *server.Aut
 	}
 
 	cfg := authenticatorfactory.DelegatingAuthenticatorConfig{
-		Anonymous: true,
-		CacheTTL:  s.CacheTTL,
+		Anonymous:                true,
+		CacheTTL:                 s.CacheTTL,
+		WebhookRetryBackoff:      s.WebhookRetryBackoff,
+		TokenAccessReviewTimeout: s.TokenRequestTimeout,
 	}
 
 	client, err := s.getClient()
@@ -248,16 +291,16 @@ func (s *DelegatingAuthenticationOptions) ApplyTo(authenticationInfo *server.Aut
 	}
 
 	// get the clientCA information
-	clientCAFileSpecified := len(s.ClientCert.ClientCA) > 0
+	clientCASpecified := s.ClientCert != ClientCertAuthenticationOptions{}
 	var clientCAProvider dynamiccertificates.CAContentProvider
-	if clientCAFileSpecified {
+	if clientCASpecified {
 		clientCAProvider, err = s.ClientCert.GetClientCAContentProvider()
 		if err != nil {
-			return fmt.Errorf("unable to load client CA file %q: %v", s.ClientCert.ClientCA, err)
+			return fmt.Errorf("unable to load client CA provider: %v", err)
 		}
 		cfg.ClientCertificateCAContentProvider = clientCAProvider
 		if err = authenticationInfo.ApplyClientCert(cfg.ClientCertificateCAContentProvider, servingInfo); err != nil {
-			return fmt.Errorf("unable to assign  client CA file: %v", err)
+			return fmt.Errorf("unable to assign client CA provider: %v", err)
 		}
 
 	} else if !s.SkipInClusterLookup {
@@ -292,8 +335,8 @@ func (s *DelegatingAuthenticationOptions) ApplyTo(authenticationInfo *server.Aut
 			if err != nil {
 				if s.TolerateInClusterLookupFailure {
 					klog.Warningf("Error looking up in-cluster authentication configuration: %v", err)
-					klog.Warningf("Continuing without authentication configuration. This may treat all requests as anonymous.")
-					klog.Warningf("To require authentication configuration lookup to succeed, set --authentication-tolerate-lookup-failure=false")
+					klog.Warning("Continuing without authentication configuration. This may treat all requests as anonymous.")
+					klog.Warning("To require authentication configuration lookup to succeed, set --authentication-tolerate-lookup-failure=false")
 				} else {
 					return fmt.Errorf("unable to load configmap based request-header-client-ca-file: %v", err)
 				}
@@ -377,6 +420,10 @@ func (s *DelegatingAuthenticationOptions) getClient() (kubernetes.Interface, err
 	// set high qps/burst limits since this will effectively limit API server responsiveness
 	clientConfig.QPS = 200
 	clientConfig.Burst = 400
+	// do not set a timeout on the http client, instead use context for cancellation
+	// if multiple timeouts were set, the request will pick the smaller timeout to be applied, leaving other useless.
+	//
+	// see https://github.com/golang/go/blob/a937729c2c2f6950a32bc5cd0f5b88700882f078/src/net/http/client.go#L364
 
 	return kubernetes.NewForConfig(clientConfig)
 }
