@@ -1,7 +1,5 @@
 # Kubernetes Cloud Controller Manager for DigitalOcean
 
-[![Build Status](https://travis-ci.org/digitalocean/digitalocean-cloud-controller-manager.svg?branch=master)](https://travis-ci.org/digitalocean/digitalocean-cloud-controller-manager) [![Report Card](https://goreportcard.com/badge/github.com/digitalocean/digitalocean-cloud-controller-manager)](https://goreportcard.com/report/github.com/digitalocean/digitalocean-cloud-controller-manager)
-
 `digitalocean-cloud-controller-manager` is the Kubernetes cloud controller manager implementation for DigitalOcean. Read more about cloud controller managers [here](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/). Running `digitalocean-cloud-controller-manager` allows you to leverage many of the cloud provider features offered by DigitalOcean on your Kubernetes clusters.
 
 ## Releases
@@ -173,7 +171,20 @@ This will create a binary with version `dev` and docker image pushed to
 
 ## Release a new version
 
-To release a new version first bump the version:
+To create the docker image and generate the manifests, go to the actions page on Github and click on Run Workflow . Specify the github tag that you want to create.
+Make sure that the tag is prefixed with `v`
+
+The workflow does the following:
+
+Runs make bump-version with the specified tag
+Creates the ccm related manifests file as <tag>.yaml
+Commits the manifest file under releases/ directory in the repo
+Creates release and tags the new commit with the input tag specified when workflow is triggered
+Login with dockerhub credentials specified as secrets
+Builds the docker image digitalocean/digitalocean-cloud-controller-manager:<tag>
+Pushes digitalocean/digitalocean-cloud-controller-manager:<tag> to dockerhub
+
+To manually release a new version, first bump the version:
 
 ```bash
 make NEW_VERSION=v1.0.0 bump-version
