@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
+        with:
+          ref: master
       - name: run make bump-version
         run: make bump-version
         env:
@@ -23,7 +25,7 @@ jobs:
         uses: EndBug/add-and-commit@a988073222b8bd50f3ecfca9c0ab7dfbf0d08ceb
         with:
           message: "create release manifests for ${{ github.event.inputs.tag }}"
-          add: "releases/"
+          add: "releases/" "VERSION"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # target commit should be the commit with the new release manifest, not the commit when workflow was triggered
@@ -32,13 +34,14 @@ jobs:
           sha=$(git rev-parse HEAD)
           echo "TARGET_SHA=$sha" >> $GITHUB_ENV
       - name: Create GitHub Release
-        uses: actions/create-release@1e92f6fc665e271a5435631ba00711fdd83d9d27
+        uses: softprops/action-gh-release@b7e450da2a4b4cb4bfbae528f788167786cfcedf
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          commitish: ${{ env.TARGET_SHA }}
+          target_commitish: ${{ env.TARGET_SHA }}
           tag_name: ${{ github.event.inputs.tag }}
-          release_name: Release ${{ github.event.inputs.tag }}
+          name: Release ${{ github.event.inputs.tag }}
+          body: See the [CHANGELOG](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/${{ github.event.inputs.tag }}/CHANGELOG.md) for details.
       - name: Login to dockerhub to push the image
         run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
         env:

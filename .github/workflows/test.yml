@@ -1,8 +1,7 @@
 name: ci
 on:
-  push:
-    branches: [ master ]
   pull_request:
+  push:
     branches: [ master ]
 env:
   GOFLAGS: "-mod=vendor"
