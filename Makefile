@@ -31,7 +31,7 @@ all: test
 
 publish: clean ci compile build push
 
-ci: check-headers check-unused gofmt govet golint test
+ci: check-headers check-unused gofmt govet test
 
 .PHONY: check-unused
 check-unused:
@@ -90,10 +90,6 @@ endif
 .PHONY: govet
 govet:
 	@go vet $(shell go list ./... | grep -v vendor)
-
-.PHONY: golint
-golint:
-	@golint $(shell go list ./... | grep -v vendor)
 
 .PHONY: gofmt
 gofmt: # run in script cause gofmt will exit 0 even if files need formatting
