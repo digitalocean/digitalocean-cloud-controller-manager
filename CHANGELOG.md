@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.34 (beta) - Sept 7 2021
+
+* Update Kubernetes dependencies to 1.21.3 (@varshavaradarajan)
+
 ## v0.1.33 (beta) - June 24 2021
 
 * Update Kubernetes dependencies to 1.21.2 (@adamwg)
