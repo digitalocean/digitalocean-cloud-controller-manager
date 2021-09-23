@@ -123,6 +123,10 @@ const (
 	// Defaults to `lb-small`.
 	annDOSizeSlug = "service.beta.kubernetes.io/do-loadbalancer-size-slug"
 
+	// annDOSizeUnit is the annotation specifying the size of the LB.
+	// Options are 1-100 by default.
+	annDOSizeUnit = "service.beta.kubernetes.io/do-loadbalancer-size-unit"
+
 	// annDOStickySessionsType is the annotation specifying which sticky session type
 	// DO loadbalancer should use. Options are none and cookies. Defaults
 	// to none.
@@ -660,8 +664,12 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	algorithm := getAlgorithm(service)
 
-	sizeSlug, err := getSizeSlug(service)
+	sizeSlug := getSizeSlug(service)
+	sizeUnit, err := getSizeUnit(service)
 	if err != nil {
+		return nil, err
+	}
+	if err := validateSizes(sizeSlug, sizeUnit); err != nil {
 		return nil, err
 	}
 
@@ -690,6 +698,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		DropletIDs:             dropletIDs,
 		Region:                 l.region,
 		SizeSlug:               sizeSlug,
+		SizeUnit:               sizeUnit,
 		ForwardingRules:        forwardingRules,
 		HealthCheck:            healthCheck,
 		StickySessions:         stickySessions,
@@ -1095,19 +1104,37 @@ func getAlgorithm(service *v1.Service) string {
 	}
 }
 
-func getSizeSlug(service *v1.Service) (string, error) {
-	sizeSlug, ok := service.Annotations[annDOSizeSlug]
+func getSizeSlug(service *v1.Service) string {
+	sizeSlug, _ := service.Annotations[annDOSizeSlug]
+	return sizeSlug
+}
 
-	if !ok || sizeSlug == "" {
-		sizeSlug = "lb-small"
+func getSizeUnit(service *v1.Service) (uint32, error) {
+	sizeUnitStr, ok := service.Annotations[annDOSizeUnit]
+
+	if !ok || sizeUnitStr == "" {
+		sizeUnitStr = "0"
 	}
 
-	switch sizeSlug {
-	case "lb-small", "lb-medium", "lb-large":
-		return sizeSlug, nil
-	default:
-		return "", fmt.Errorf("invalid LB size slug provided: %s", sizeSlug)
+	sizeUnit, err := strconv.Atoi(sizeUnitStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid LB size unit provided: %s", sizeUnitStr)
 	}
+
+	return uint32(sizeUnit), nil
+}
+
+func validateSizes(sizeSlug string, sizeUnit uint32) error {
+	if sizeSlug != "" && sizeUnit > 0 {
+		return fmt.Errorf("only one of LB size slug and size unit can be provided")
+	} else if sizeSlug != "" {
+		switch sizeSlug {
+		case "lb-small", "lb-medium", "lb-large":
+		default:
+			return fmt.Errorf("invalid LB size slug provided: %s", sizeSlug)
+		}
+	}
+	return nil
 }
 
 // getStickySessionsType returns the sticky session type to use for

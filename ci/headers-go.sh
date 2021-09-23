@@ -36,9 +36,9 @@ FILES=$(find . -name "*.go" -not -path "./vendor/*")
 EXIT=0
 
 for FILE in $FILES; do
-        if head -n 1 "$FILE" | grep -q '// +build '; then
-                # Remove +build comment and subsequent blank line.
-                HEADERS=$(tail -n +3 "$FILE" | head -n 15)
+        if head -n 1 "$FILE" | grep -q '//go:build '; then
+                # Remove go:build and +build comments as well as blank line below.
+                HEADERS=$(tail -n +4 "$FILE" | head -n 15)
         else
                 HEADERS=$(head -n 15 "$FILE")
         fi
