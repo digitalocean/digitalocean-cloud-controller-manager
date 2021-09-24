@@ -120,11 +120,11 @@ const (
 
 	// annDOSizeSlug is the annotation specifying the size of the LB.
 	// Options are `lb-small`, `lb-medium`, and `lb-large`.
-	// Defaults to `lb-small`.
+	// Defaults to `lb-small`. Only one of annDOSizeSlug and annDOSizeUnit can be specified
 	annDOSizeSlug = "service.beta.kubernetes.io/do-loadbalancer-size-slug"
 
 	// annDOSizeUnit is the annotation specifying the size of the LB.
-	// Options are 1-100 by default.
+	// Options are 1-100 by default. Only one of annDOSizeUnit and annDOSizeSlug can be specified
 	annDOSizeUnit = "service.beta.kubernetes.io/do-loadbalancer-size-unit"
 
 	// annDOStickySessionsType is the annotation specifying which sticky session type
