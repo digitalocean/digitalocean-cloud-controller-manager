@@ -344,8 +344,8 @@ func Test_getSizeSlug(t *testing.T) {
 			}
 			if sizeSlug != test.sizeSlug {
 				t.Error("unexpected sizeSlug")
-				t.Logf("expected: %s", test.sizeSlug)
-				t.Logf("actual: %s", sizeSlug)
+				t.Logf("expected: %q", test.sizeSlug)
+				t.Logf("actual: %q", sizeSlug)
 			}
 		})
 	}
