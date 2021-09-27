@@ -245,6 +245,7 @@ func Test_getSizeSlug(t *testing.T) {
 		name     string
 		service  *v1.Service
 		sizeSlug string
+		err      error
 	}{
 		{
 			"sizeSlug should be lb-small",
@@ -258,6 +259,7 @@ func Test_getSizeSlug(t *testing.T) {
 				},
 			},
 			"lb-small",
+			nil,
 		},
 		{
 			"sizeSlug should be lb-medium",
@@ -271,9 +273,24 @@ func Test_getSizeSlug(t *testing.T) {
 				},
 			},
 			"lb-medium",
+			nil,
 		},
 		{
-			"empty sizeSlug should default to lb-small",
+			"sizeSlug should be lb-large",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOSizeSlug: "lb-large",
+					},
+				},
+			},
+			"lb-large",
+			nil,
+		},
+		{
+			"empty sizeSlug should return empty",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
@@ -284,6 +301,7 @@ func Test_getSizeSlug(t *testing.T) {
 				},
 			},
 			"",
+			nil,
 		},
 		{
 			"no sizeSlug specified should default to empty",
@@ -294,16 +312,40 @@ func Test_getSizeSlug(t *testing.T) {
 				},
 			},
 			"",
+			nil,
+		},
+		{
+			"invalid sizeSlug specified should return error",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOSizeSlug: "extra-large",
+					},
+				},
+			},
+			"",
+			fmt.Errorf("invalid LB size slug provided: extra-large"),
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			sizeSlug := getSizeSlug(test.service)
+			sizeSlug, err := getSizeSlug(test.service)
+			if test.err != nil && test.err.Error() != err.Error() {
+				t.Error("expected error")
+				t.Logf("expected: %v", test.err)
+				t.Logf("actual: %v", err)
+			} else if test.err == nil && err != nil {
+				t.Error("unexpected error")
+				t.Logf("expected: <nil>")
+				t.Logf("actual: %v", err)
+			}
 			if sizeSlug != test.sizeSlug {
 				t.Error("unexpected sizeSlug")
-				t.Logf("expected: %q", test.sizeSlug)
-				t.Logf("actual: %q", sizeSlug)
+				t.Logf("expected: %s", test.sizeSlug)
+				t.Logf("actual: %s", sizeSlug)
 			}
 		})
 	}
@@ -354,7 +396,21 @@ func Test_getSizeUnit(t *testing.T) {
 				},
 			},
 			0,
-			fmt.Errorf("invalid LB size unit provided: large"),
+			fmt.Errorf("invalid LB size unit \"large\" provided: strconv.Atoi: parsing \"large\": invalid syntax"),
+		},
+		{
+			"sizeUnit less than 0 returns error",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOSizeUnit: "-1",
+					},
+				},
+			},
+			0,
+			fmt.Errorf("LB size unit must be non-negative. -1 provided"),
 		},
 	}
 
@@ -374,55 +430,6 @@ func Test_getSizeUnit(t *testing.T) {
 				t.Error("unexpected sizeUnit")
 				t.Logf("expected: %d", test.sizeUnit)
 				t.Logf("actual: %d", sizeUnit)
-			}
-		})
-	}
-}
-
-func Test_validateSizes(t *testing.T) {
-	testcases := []struct {
-		name     string
-		sizeSlug string
-		sizeUnit uint32
-		err      error
-	}{
-		{
-			"setting both sizeSlug and sizeUnit returns error",
-			"lb-small",
-			3,
-			fmt.Errorf("only one of LB size slug and size unit can be provided"),
-		},
-		{
-			"invalid sizeSlug returns error",
-			"large",
-			0,
-			fmt.Errorf("invalid LB size slug provided: large"),
-		},
-		{
-			"valid sizeSlug ",
-			"lb-small",
-			0,
-			nil,
-		},
-		{
-			"valid sizeUnit",
-			"",
-			20,
-			nil,
-		},
-	}
-
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
-			err := validateSizes(test.sizeSlug, test.sizeUnit)
-			if test.err != nil && test.err.Error() != err.Error() {
-				t.Error("expected error")
-				t.Logf("expected: %v", test.err)
-				t.Logf("actual: %v", err)
-			} else if test.err == nil && err != nil {
-				t.Error("unexpected error")
-				t.Logf("expected: <nil>")
-				t.Logf("actual: %v", err)
 			}
 		})
 	}
@@ -3441,6 +3448,63 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			nil,
+		},
+		{
+			"invalid load balancer request with both size slug and size unit",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+						annDOSizeUnit: "2",
+						annDOSizeSlug: "lb-medium",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("only one of LB size slug and size unit can be provided"),
 		},
 		{
 			"successful load balancer request with cookies sticky sessions.",

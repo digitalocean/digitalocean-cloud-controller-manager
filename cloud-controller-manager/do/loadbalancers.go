@@ -120,11 +120,11 @@ const (
 
 	// annDOSizeSlug is the annotation specifying the size of the LB.
 	// Options are `lb-small`, `lb-medium`, and `lb-large`.
-	// Defaults to `lb-small`. Only one of annDOSizeSlug and annDOSizeUnit can be specified
+	// Defaults to `lb-small`. Only one of annDOSizeSlug and annDOSizeUnit can be specified.
 	annDOSizeSlug = "service.beta.kubernetes.io/do-loadbalancer-size-slug"
 
 	// annDOSizeUnit is the annotation specifying the size of the LB.
-	// Options are numbers greater than or equal to `1`. Only one of annDOSizeUnit and annDOSizeSlug can be specified
+	// Options are numbers greater than or equal to `1`. Only one of annDOSizeUnit and annDOSizeSlug can be specified.
 	annDOSizeUnit = "service.beta.kubernetes.io/do-loadbalancer-size-unit"
 
 	// annDOStickySessionsType is the annotation specifying which sticky session type
@@ -664,13 +664,18 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	algorithm := getAlgorithm(service)
 
-	sizeSlug := getSizeSlug(service)
+	sizeSlug, err := getSizeSlug(service)
+	if err != nil {
+		return nil, err
+	}
+
 	sizeUnit, err := getSizeUnit(service)
 	if err != nil {
 		return nil, err
 	}
-	if err := validateSizes(sizeSlug, sizeUnit); err != nil {
-		return nil, err
+
+	if sizeSlug != "" && sizeUnit > 0 {
+		return nil, fmt.Errorf("only one of LB size slug and size unit can be provided")
 	}
 
 	redirectHTTPToHTTPS, err := getRedirectHTTPToHTTPS(service)
@@ -1104,37 +1109,39 @@ func getAlgorithm(service *v1.Service) string {
 	}
 }
 
-func getSizeSlug(service *v1.Service) string {
+// getSizeSlug returns the load balancer size as a slug
+func getSizeSlug(service *v1.Service) (string, error) {
 	sizeSlug, _ := service.Annotations[annDOSizeSlug]
-	return sizeSlug
+
+	if sizeSlug != "" {
+		switch sizeSlug {
+		case "lb-small", "lb-medium", "lb-large":
+		default:
+			return "", fmt.Errorf("invalid LB size slug provided: %s", sizeSlug)
+		}
+	}
+
+	return sizeSlug, nil
 }
 
+// getSizeUnit returns the load balancer size as a number
 func getSizeUnit(service *v1.Service) (uint32, error) {
 	sizeUnitStr, ok := service.Annotations[annDOSizeUnit]
 
 	if !ok || sizeUnitStr == "" {
-		sizeUnitStr = "0"
+		return uint32(0), nil
 	}
 
 	sizeUnit, err := strconv.Atoi(sizeUnitStr)
 	if err != nil {
-		return 0, fmt.Errorf("invalid LB size unit provided: %s", sizeUnitStr)
+		return 0, fmt.Errorf("invalid LB size unit %q provided: %s", sizeUnitStr, err)
+	}
+
+	if sizeUnit < 0 {
+		return 0, fmt.Errorf("LB size unit must be non-negative. %d provided", sizeUnit)
 	}
 
 	return uint32(sizeUnit), nil
-}
-
-func validateSizes(sizeSlug string, sizeUnit uint32) error {
-	if sizeSlug != "" && sizeUnit > 0 {
-		return fmt.Errorf("only one of LB size slug and size unit can be provided")
-	} else if sizeSlug != "" {
-		switch sizeSlug {
-		case "lb-small", "lb-medium", "lb-large":
-		default:
-			return fmt.Errorf("invalid LB size slug provided: %s", sizeSlug)
-		}
-	}
-	return nil
 }
 
 // getStickySessionsType returns the sticky session type to use for
