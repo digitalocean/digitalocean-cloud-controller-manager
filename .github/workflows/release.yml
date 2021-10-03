@@ -17,10 +17,10 @@ jobs:
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           ref: master
-      - name: run make bump-version
+      - name: run make bump-version 
         run: make bump-version
         env:
-          NEW_VERSION: ${{ github.event.inputs.tag }}
+          NEW_VERSION: ${{ github.event.inputs.tag }} 
       - name: commit manifests
         uses: EndBug/add-and-commit@a988073222b8bd50f3ecfca9c0ab7dfbf0d08ceb
         with:
