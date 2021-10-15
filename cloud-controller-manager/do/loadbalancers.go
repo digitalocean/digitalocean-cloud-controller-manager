@@ -110,6 +110,11 @@ const (
 	// is passed.
 	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
 
+	// annDODisableLetsEncryptDNS is the annotation used to specify whether the
+	// DO loadbalancer should disable automatic DNS record creation for Let's
+	// Encrypt certificates that are added to it.
+	annDODisableLetsEncryptDNS = "service.beta.kubernetes.io/do-loadbalancer-disable-lets-encrypt-dns-records"
+
 	// annDOHostname is the annotation specifying the hostname to use for the LB.
 	annDOHostname = "service.beta.kubernetes.io/do-loadbalancer-hostname"
 
@@ -698,21 +703,24 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		tags = []string{buildK8sTag(l.resources.clusterID)}
 	}
 
+	disableLetsEncryptDNS := getDisableLetsEncryptDNS(service)
+
 	return &godo.LoadBalancerRequest{
-		Name:                   lbName,
-		DropletIDs:             dropletIDs,
-		Region:                 l.region,
-		SizeSlug:               sizeSlug,
-		SizeUnit:               sizeUnit,
-		ForwardingRules:        forwardingRules,
-		HealthCheck:            healthCheck,
-		StickySessions:         stickySessions,
-		Tags:                   tags,
-		Algorithm:              algorithm,
-		RedirectHttpToHttps:    redirectHTTPToHTTPS,
-		EnableProxyProtocol:    enableProxyProtocol,
-		EnableBackendKeepalive: enableBackendKeepalive,
-		VPCUUID:                l.resources.clusterVPCID,
+		Name:                         lbName,
+		DropletIDs:                   dropletIDs,
+		Region:                       l.region,
+		SizeSlug:                     sizeSlug,
+		SizeUnit:                     sizeUnit,
+		ForwardingRules:              forwardingRules,
+		HealthCheck:                  healthCheck,
+		StickySessions:               stickySessions,
+		Tags:                         tags,
+		Algorithm:                    algorithm,
+		RedirectHttpToHttps:          redirectHTTPToHTTPS,
+		EnableProxyProtocol:          enableProxyProtocol,
+		EnableBackendKeepalive:       enableBackendKeepalive,
+		VPCUUID:                      l.resources.clusterVPCID,
+		DisableLetsEncryptDNSRecords: godo.Bool(disableLetsEncryptDNS),
 	}, nil
 }
 
@@ -1087,6 +1095,13 @@ func getPorts(service *v1.Service, anno string) ([]int, error) {
 // rules.
 func getCertificateID(service *v1.Service) string {
 	return service.Annotations[annDOCertificateID]
+}
+
+// getDisableLetsEncryptDNS returns true if automatic DNS record creation for
+// Let's Encrypt certificates that are added to the load balancer should be disabled.
+func getDisableLetsEncryptDNS(service *v1.Service) bool {
+	disable, _, err := getBool(service.Annotations, annDODisableLetsEncryptDNS)
+	return err == nil && disable
 }
 
 // getTLSPassThrough returns true if there should be TLS pass through to

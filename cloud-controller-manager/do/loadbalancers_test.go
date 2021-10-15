@@ -557,6 +557,74 @@ func Test_getCertificateID(t *testing.T) {
 	}
 }
 
+func Test_getDisableLetsEncryptDNS(t *testing.T) {
+	testcases := []struct {
+		name                  string
+		service               *v1.Service
+		disableLetsEncryptDNS bool
+	}{
+		{
+			"DisableLetsEncryptDNS true",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODisableLetsEncryptDNS: "true",
+					},
+				},
+			},
+			true,
+		},
+		{
+			"DisableLetsEncryptDNS false",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODisableLetsEncryptDNS: "false",
+					},
+				},
+			},
+			false,
+		},
+		{
+			"DisableLetsEncryptDNS not defined",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			false,
+		},
+		{
+			"Service annotations nil",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			actual := getDisableLetsEncryptDNS(test.service)
+			if actual != test.disableLetsEncryptDNS {
+				t.Error("unexpected disable Let's Encrypt DNS")
+				t.Logf("expected: %t", test.disableLetsEncryptDNS)
+				t.Logf("actual: %t", actual)
+			}
+		})
+	}
+
+}
+
 func Test_getPorts(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -3067,6 +3135,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3143,6 +3212,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3219,6 +3289,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3294,6 +3365,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3370,6 +3442,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3446,6 +3519,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3582,6 +3656,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3663,6 +3738,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3753,6 +3829,99 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
+			},
+			nil,
+		},
+		{
+			"successful load balancer request with disable_lets_encrypt_dns_records",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:              "http",
+						annDOAlgorithm:             "round_robin",
+						annDORedirectHTTPToHTTPS:   "true",
+						annDOTLSPorts:              "443",
+						annDOCertificateID:         "test-certificate",
+						annDODisableLetsEncryptDNS: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+					},
+					{
+						EntryProtocol:  "https",
+						EntryPort:      443,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
+					},
+				},
+				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
+				Algorithm:           "round_robin",
+				RedirectHttpToHttps: true,
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+				DisableLetsEncryptDNSRecords: godo.Bool(true),
 			},
 			nil,
 		},
