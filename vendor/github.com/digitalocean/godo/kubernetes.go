@@ -71,6 +71,9 @@ type KubernetesClusterCreateRequest struct {
 	Tags        []string `json:"tags,omitempty"`
 	VPCUUID     string   `json:"vpc_uuid,omitempty"`
 
+	// Create cluster with highly available control plane
+	HA bool `json:"ha"`
+
 	NodePools []*KubernetesNodePoolCreateRequest `json:"node_pools,omitempty"`
 
 	MaintenancePolicy *KubernetesMaintenancePolicy `json:"maintenance_policy"`
@@ -189,6 +192,9 @@ type KubernetesCluster struct {
 	Endpoint      string   `json:"endpoint,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
 	VPCUUID       string   `json:"vpc_uuid,omitempty"`
+
+	// Cluster runs a highly available control plane
+	HA bool `json:"ha,omitempty"`
 
 	NodePools []*KubernetesNodePool `json:"node_pools,omitempty"`
 

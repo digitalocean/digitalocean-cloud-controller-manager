@@ -1,5 +1,17 @@
 # Change Log
 
+## [v1.69.1] - 2021-10-06
+
+- #484 - @sunny-b - k8s/godo: remove ha field from update request
+
+## [v1.69.0] - 2021-10-04
+
+- #482 - @dikshant - godo/load-balancers: add DisableLetsEncryptDNSRecords field for LBaaS
+
+## [v1.68.0] - 2021-09-29
+
+- #480 - @sunny-b - kubernetes: add support for HA control plane
+
 ## [v1.67.0] - 2021-09-22
 
 - #478 - @sunny-b - kubernetes: add supported_features field to the kubernetes/options response
