@@ -5,15 +5,8 @@
 ## Releases
 
 Cloud Controller Manager follows [semantic versioning](https://semver.org/).
-The current version is **`v0.1.33`**. This means that the project is still
-under active development and may not be production-ready. The plugin will be
-bumped to **`v1.0.0`** once the [DigitalOcean Kubernetes
-product](https://www.digitalocean.com/products/kubernetes/) is released and
-will continue following the rules below:
-
-* Bug fixes will be released as a `PATCH` update.
-* New features will be released as a `MINOR` update.
-* Significant breaking changes make a `MAJOR` update.
+Although the version is still below v1, the project is considered
+production-ready.
 
 Because of the fast Kubernetes release cycles, CCM (Cloud Controller Manager)
 will **only** support the version that is _also_ supported on [DigitalOcean Kubernetes
