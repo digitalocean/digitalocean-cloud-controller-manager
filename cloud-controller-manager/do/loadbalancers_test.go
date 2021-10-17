@@ -3067,6 +3067,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3143,6 +3144,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3219,6 +3221,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3294,6 +3297,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3370,6 +3374,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3446,6 +3451,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3582,6 +3588,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3663,6 +3670,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
 		},
@@ -3753,6 +3761,99 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
+			},
+			nil,
+		},
+		{
+			"successful load balancer request with disable_lets_encrypt_dns_records",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:                     "http",
+						annDOAlgorithm:                    "round_robin",
+						annDORedirectHTTPToHTTPS:          "true",
+						annDOTLSPorts:                     "443",
+						annDOCertificateID:                "test-certificate",
+						annDODisableLetsEncryptDNSRecords: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "http",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+					},
+					{
+						EntryProtocol:  "https",
+						EntryPort:      443,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
+					},
+				},
+				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
+				Algorithm:           "round_robin",
+				RedirectHttpToHttps: true,
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+				DisableLetsEncryptDNSRecords: godo.Bool(true),
 			},
 			nil,
 		},
@@ -5060,6 +5161,84 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 			wantLoadBalancerID := lb.ID
 			if gotLoadBalancerID != wantLoadBalancerID {
 				t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
+			}
+		})
+	}
+}
+
+func Test_getDisableLetsEncryptDNSRecords(t *testing.T) {
+
+	testcases := []struct {
+		name                          string
+		service                       *v1.Service
+		wantErr                       bool
+		wantDisableLetsEncryptRecords bool
+	}{
+		{
+			name: "enabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODisableLetsEncryptDNSRecords: "true",
+					},
+				},
+			},
+			wantErr:                       false,
+			wantDisableLetsEncryptRecords: true,
+		},
+		{
+			name: "disabled",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODisableLetsEncryptDNSRecords: "false",
+					},
+				},
+			},
+			wantErr:                       false,
+			wantDisableLetsEncryptRecords: false,
+		},
+		{
+			name: "annotation missing",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			wantErr:                       false,
+			wantDisableLetsEncryptRecords: false,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODisableLetsEncryptDNSRecords: "42",
+					},
+				},
+			},
+			wantErr:                       true,
+			wantDisableLetsEncryptRecords: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			gotDisableLetsEncryptDNSRecords, err := getDisableLetsEncryptDNSRecords(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			// check for enable, disable
+			if gotDisableLetsEncryptDNSRecords != test.wantDisableLetsEncryptRecords {
+				t.Fatalf("got disable let's encrypt DNS records %t, want %t", gotDisableLetsEncryptDNSRecords, test.wantDisableLetsEncryptRecords)
 			}
 		})
 	}

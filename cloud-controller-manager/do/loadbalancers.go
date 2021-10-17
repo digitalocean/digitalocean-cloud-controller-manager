@@ -146,6 +146,10 @@ const (
 	// should be redirected to Https. Defaults to false
 	annDORedirectHTTPToHTTPS = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
 
+	// annDODisableLetsEncryptDNSRecords is the annotation specifying whether automatic DNS record creation should
+	// be disabled when a Let's Encrypt cert is added to a load balancer
+	annDODisableLetsEncryptDNSRecords = "service.beta.kubernetes.io/do-loadbalancer-disable-lets-encrypt-dns-records"
+
 	// annDOEnableProxyProtocol is the annotation specifying whether PROXY protocol should
 	// be enabled. Defaults to false.
 	annDOEnableProxyProtocol = "service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol"
@@ -693,26 +697,32 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		return nil, err
 	}
 
+	disableLetsEncryptDNSRecords, err := getDisableLetsEncryptDNSRecords(service)
+	if err != nil {
+		return nil, err
+	}
+
 	var tags []string
 	if l.resources.clusterID != "" {
 		tags = []string{buildK8sTag(l.resources.clusterID)}
 	}
 
 	return &godo.LoadBalancerRequest{
-		Name:                   lbName,
-		DropletIDs:             dropletIDs,
-		Region:                 l.region,
-		SizeSlug:               sizeSlug,
-		SizeUnit:               sizeUnit,
-		ForwardingRules:        forwardingRules,
-		HealthCheck:            healthCheck,
-		StickySessions:         stickySessions,
-		Tags:                   tags,
-		Algorithm:              algorithm,
-		RedirectHttpToHttps:    redirectHTTPToHTTPS,
-		EnableProxyProtocol:    enableProxyProtocol,
-		EnableBackendKeepalive: enableBackendKeepalive,
-		VPCUUID:                l.resources.clusterVPCID,
+		Name:                         lbName,
+		DropletIDs:                   dropletIDs,
+		Region:                       l.region,
+		SizeSlug:                     sizeSlug,
+		SizeUnit:                     sizeUnit,
+		ForwardingRules:              forwardingRules,
+		HealthCheck:                  healthCheck,
+		StickySessions:               stickySessions,
+		Tags:                         tags,
+		Algorithm:                    algorithm,
+		RedirectHttpToHttps:          redirectHTTPToHTTPS,
+		EnableProxyProtocol:          enableProxyProtocol,
+		EnableBackendKeepalive:       enableBackendKeepalive,
+		VPCUUID:                      l.resources.clusterVPCID,
+		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
 	}, nil
 }
 
@@ -1197,6 +1207,17 @@ func getEnableProxyProtocol(service *v1.Service) (bool, error) {
 		return false, fmt.Errorf("failed to get proxy protocol configuration setting: %s", err)
 	}
 	return enableProxyProtocol, nil
+}
+
+// getDisableLetsEncryptDNSRecords returns whether DNS records should be automatically created
+// for Let's Encrypt certs added to the LB
+func getDisableLetsEncryptDNSRecords(service *v1.Service) (bool, error) {
+	disableLetsEncryptDNSRecords, _, err := getBool(service.Annotations, annDODisableLetsEncryptDNSRecords)
+	if err != nil {
+		return false, fmt.Errorf("failed to get disable lets encrypt dns records configuration setting: %s", err)
+	}
+
+	return disableLetsEncryptDNSRecords, nil
 }
 
 // getEnableBackendKeepalive returns whether HTTP keepalive to target droplets should be enabled.
