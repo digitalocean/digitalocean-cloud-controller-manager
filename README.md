@@ -171,18 +171,24 @@ This will create a binary with version `dev` and docker image pushed to
 
 ## Release a new version
 
-To create the docker image and generate the manifests, go to the actions page on Github and click on Run Workflow . Specify the github tag that you want to create.
-Make sure that the tag is prefixed with `v`
+### Github Action (preferred)
+
+To create the docker image and generate the manifests, go to the actions page on Github and click on Run Workflow . Specify the github `<tag>` that you want to create.
+Make sure that `<tag>` is prefixed with `v`
 
 The workflow does the following:
 
-Runs make bump-version with the specified tag
-Creates the ccm related manifests file as <tag>.yaml
-Commits the manifest file under releases/ directory in the repo
-Creates release and tags the new commit with the input tag specified when workflow is triggered
-Login with dockerhub credentials specified as secrets
-Builds the docker image digitalocean/digitalocean-cloud-controller-manager:<tag>
-Pushes digitalocean/digitalocean-cloud-controller-manager:<tag> to dockerhub
+* Runs `make bump-version` with `<tag>`
+* Creates the ccm related manifests file as `<tag>.yaml`
+* Commits the manifest file under `releases/` directory in the repo
+* Creates release and tags the new commit with the `<tag>` specified when workflow is triggered
+* Logs in with dockerhub credentials specified as secrets
+* Builds the docker image `digitalocean/digitalocean-cloud-controller-manager:<tag>`
+* Pushes `digitalocean/digitalocean-cloud-controller-manager:<tag>` to dockerhub
+
+### Manual (deprecated)
+
+NOTE: this workflow is deprecated, please prefer the Github Action workflow described above.
 
 To manually release a new version, first bump the version:
 
