@@ -103,7 +103,11 @@ Specifies which algorithm the Load Balancer should use. Options are `round_robin
 
 ## service.beta.kubernetes.io/do-loadbalancer-size-slug
 
-Specifies which size the Load Balancer should be created with. Options are `lb-small`, `lb-medium`, and `lb-large`. Defaults to `lb-small`.
+Specifies which size the Load Balancer should be created with. Options are `lb-small`, `lb-medium`, and `lb-large`. Only one of `do-loadbalancer-size-slug` and `do-loadbalancer-size-unit` can be specified. Defaults to `lb-small`.
+
+## "service.beta.kubernetes.io/do-loadbalancer-size-unit"
+
+Specifies the number of nodes to create the load balancer with. Options are numbers greater than or equal to `1`. Only one of `do-loadbalancer-size-unit` and `do-loadbalancer-size-slug` can be specified. Defaults to `1`
 
 ## service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type
 
@@ -129,6 +133,10 @@ Indicates whether or not http traffic should be redirected to https. Options are
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+## service.beta.kubernetes.io/do-loadbalancer-disable-lets-encrypt-dns-records
+
+Specifies whether automatic DNS record creation should be disabled when a Let's Encrypt cert is added to a load balancer
 
 ## service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol
 
