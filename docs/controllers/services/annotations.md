@@ -107,7 +107,7 @@ Specifies which size the Load Balancer should be created with. Options are `lb-s
 
 ## "service.beta.kubernetes.io/do-loadbalancer-size-unit"
 
-Specifies the number of nodes to create the load balancer with. Options are numbers greater than or equal to `1`. Only one of `do-loadbalancer-size-unit` and `do-loadbalancer-size-slug` can be specified. Defaults to `1`
+Specifies the number of nodes to create the load balancer with. Options are numbers greater than or equal to `1`. Only one of `do-loadbalancer-size-unit` and `do-loadbalancer-size-slug` can be specified. Defaults to `1`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type
 
@@ -136,7 +136,7 @@ You have to supply the value as string (ex. `"true"`, not `true`), otherwise you
 
 ## service.beta.kubernetes.io/do-loadbalancer-disable-lets-encrypt-dns-records
 
-Specifies whether automatic DNS record creation should be disabled when a Let's Encrypt cert is added to a load balancer
+Specifies whether automatic DNS record creation should be disabled when a Let's Encrypt cert is added to a load balancer. Defaults to `"false"`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol
 
