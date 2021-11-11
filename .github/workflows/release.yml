@@ -48,3 +48,11 @@ jobs:
           DOCKER_USER: ${{ secrets.DockerHubUser }}
       - name: Publish Docker Image
         run: make publish
+      - name: Publish Docker Image to ccp-infra
+        run: |
+          echo "${{ secrets.RegistryToken }}" | docker login registry.digitalocean.com --username ${REGISTRY_TOKEN} --password-stdin
+          docker tag digitalocean/digitalocean-cloud-controller-manager:${TAG} registry.digitalocean.com/ccp-infra/digitalocean-cloud-controller-manager:${TAG}
+          docker push registry.digitalocean.com/ccp-infra/digitalocean-cloud-controller-manager:${TAG}
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+          REGISTRY_TOKEN: ${{ secrets.RegistryToken }}
