@@ -55,6 +55,9 @@ const (
 	// should be changed appropriately.
 	minRetryDelay = 5 * time.Second
 	maxRetryDelay = 300 * time.Second
+	// ToBeDeletedTaint is a taint used by the CLuster Autoscaler before marking a node for deletion. Defined in
+	// https://github.com/kubernetes/autoscaler/blob/e80ab518340f88f364fe3ef063f8303755125971/cluster-autoscaler/utils/deletetaint/delete.go#L36
+	ToBeDeletedTaint = "ToBeDeletedByClusterAutoscaler"
 )
 
 type cachedService struct {
@@ -671,6 +674,14 @@ func (s *Controller) getNodeConditionPredicate() NodeConditionPredicate {
 			return false
 		}
 
+		// Remove nodes that are about to be deleted by the cluster autoscaler.
+		for _, taint := range node.Spec.Taints {
+			if taint.Key == ToBeDeletedTaint {
+				klog.V(4).Infof("Ignoring node %v with autoscaler taint %+v", node.Name, taint)
+				return false
+			}
+		}
+
 		// If we have no info, don't accept
 		if len(node.Status.Conditions) == 0 {
 			return false
@@ -716,7 +727,7 @@ func nodeReadyConditionStatus(node *v1.Node) v1.ConditionStatus {
 func (s *Controller) nodeSyncInternal(workers int) {
 	startTime := time.Now()
 	defer func() {
-		latency := time.Now().Sub(startTime).Seconds()
+		latency := time.Since(startTime).Seconds()
 		klog.V(4).Infof("It took %v seconds to finish nodeSyncInternal", latency)
 		nodeSyncLatency.Observe(latency)
 	}()
@@ -785,7 +796,7 @@ func (s *Controller) updateLoadBalancerHosts(services []*v1.Service, workers int
 func (s *Controller) lockedUpdateLoadBalancerHosts(service *v1.Service, hosts []*v1.Node) error {
 	startTime := time.Now()
 	defer func() {
-		latency := time.Now().Sub(startTime).Seconds()
+		latency := time.Since(startTime).Seconds()
 		klog.V(4).Infof("It took %v seconds to update load balancer hosts for service %s/%s", latency, service.Namespace, service.Name)
 		updateLoadBalancerHostLatency.Observe(latency)
 	}()
