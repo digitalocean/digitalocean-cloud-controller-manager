@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## v0.1.35 (beta) - <TODO>
+## v0.1.36 (beta) - <TODO>
 
 * Update Kubernetes dependencies to 1.22.5 (@cshoop)
 
