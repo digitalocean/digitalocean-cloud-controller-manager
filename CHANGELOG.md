@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v0.1.36 (beta) - January 14, 2022
+
+* Update Kubernetes dependencies to 1.22.5 (@cshoop)
+
 ## v0.1.35 (beta) - Oct 18 2021
 
 * Add annotation for specifiying load balancer size unit.
