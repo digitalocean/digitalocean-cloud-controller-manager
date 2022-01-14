@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v0.1.35 (beta) - Oct 18 2021
+
+* Add annotation for specifiying load balancer size unit.
+* Add annotation for disabling automatic DNS record creation for load balancer Let's Encrypt certs.
+
 ## v0.1.34 (beta) - Sept 7 2021
 
 * Update Kubernetes dependencies to 1.21.3 (@varshavaradarajan)
