@@ -29,7 +29,7 @@ PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-contr
 
 all: test
 
-publish: clean ci compile build push
+publish: clean ci build push
 
 ci: check-headers check-unused gofmt govet test
 
@@ -71,7 +71,7 @@ compile:
 	  go build -ldflags "$(LDFLAGS)" ${PKG}
 
 .PHONY: build
-build:
+build: compile
 	@echo "==> Building the docker image"
 	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
