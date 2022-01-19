@@ -18,6 +18,7 @@ else
   GIT_TREE_STATE=dirty
 endif
 
+SHELL = bash
 COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
@@ -69,6 +70,7 @@ compile:
 	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GOFLAGS=-mod=vendor golang:$(GO_VERSION) \
 	  go build -ldflags "$(LDFLAGS)" ${PKG}
+	@echo "==> built the project"
 
 .PHONY: build
 build: compile
