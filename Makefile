@@ -18,18 +18,19 @@ else
   GIT_TREE_STATE=dirty
 endif
 
+SHELL = bash
 COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
-GO_VERSION ?= 1.15.2
+GO_VERSION ?= 1.17.6
 
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do.version=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
 PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 
 all: test
 
-publish: clean ci compile build push
+publish: clean ci build push
 
 ci: check-headers check-unused gofmt govet test
 
@@ -69,9 +70,10 @@ compile:
 	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GOFLAGS=-mod=vendor golang:$(GO_VERSION) \
 	  go build -ldflags "$(LDFLAGS)" ${PKG}
+	@echo "==> built the project"
 
 .PHONY: build
-build:
+build: compile
 	@echo "==> Building the docker image"
 	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
 
