@@ -21,6 +21,8 @@ jobs:
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           ref: master
+      - name: Publish Docker Image
+        run: make publish
       - name: run make bump-version
         run: make bump-version
         env:
@@ -50,5 +52,3 @@ jobs:
         run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
         env:
           DOCKER_USER: ${{ secrets.DockerHubUser }}
-      - name: Publish Docker Image
-        run: make publish
