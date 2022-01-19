@@ -26,6 +26,8 @@ jobs:
         env:
           DOCKER_USER: ${{ secrets.DockerHubUser }}
       - name: Publish Docker Image
+        env:
+          VERSION: ${{ github.event.inputs.tag }}
         run: make publish
       - name: run make bump-version
         run: make bump-version
