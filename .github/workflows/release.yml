@@ -21,6 +21,10 @@ jobs:
         uses: actions/checkout@5a4ac9002d0be2fb38bd78e4b4dbde5606d7042f
         with:
           ref: master
+      - name: Login to dockerhub to push the image
+        run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
+        env:
+          DOCKER_USER: ${{ secrets.DockerHubUser }}
       - name: Publish Docker Image
         run: make publish
       - name: run make bump-version
@@ -48,7 +52,3 @@ jobs:
           tag_name: ${{ github.event.inputs.tag }}
           name: Release ${{ github.event.inputs.tag }}
           body: See the [CHANGELOG](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/${{ github.event.inputs.tag }}/CHANGELOG.md) for details.
-      - name: Login to dockerhub to push the image
-        run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
-        env:
-          DOCKER_USER: ${{ secrets.DockerHubUser }}
