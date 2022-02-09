@@ -121,6 +121,53 @@ func newFakeDroplet() *godo.Droplet {
 	}
 }
 
+func newFakeNonUniqueDroplets() []godo.Droplet {
+	return []godo.Droplet{
+		{
+			ID:       123,
+			Name:     "test-droplet",
+			SizeSlug: "2gb",
+			Networks: &godo.Networks{
+				V4: []godo.NetworkV4{
+					{
+						IPAddress: "10.0.0.0",
+						Type:      "private",
+					},
+					{
+						IPAddress: "99.99.99.99",
+						Type:      "public",
+					},
+				},
+			},
+			Region: &godo.Region{
+				Name: "test-region",
+				Slug: "test1",
+			},
+		},
+		{
+			ID:       456,
+			Name:     "test-droplet",
+			SizeSlug: "2gb",
+			Networks: &godo.Networks{
+				V4: []godo.NetworkV4{
+					{
+						IPAddress: "10.0.0.1",
+						Type:      "private",
+					},
+					{
+						IPAddress: "99.99.99.98",
+						Type:      "public",
+					},
+				},
+			},
+			Region: &godo.Region{
+				Name: "test-region",
+				Slug: "test1",
+			},
+		},
+	}
+}
+
 func newFakeShutdownDroplet() *godo.Droplet {
 	return &godo.Droplet{
 		ID:       123,
@@ -187,6 +234,25 @@ func TestNodeAddresses(t *testing.T) {
 	}
 }
 
+func TestNodeAddressesNonUniqueDroplets(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		resp := newFakeOKResponse()
+		return newFakeNonUniqueDroplets(), resp, nil
+	}
+
+	res := &resources{gclient: newFakeDropletClient(fake)}
+	instances := newInstances(res, "nyc1")
+
+	_, err := instances.NodeAddresses(context.TODO(), "test-droplet")
+	expectedErr := fmt.Errorf("multiple droplets with the same node name `test-droplet` exist: [123 456]")
+	if !reflect.DeepEqual(err, expectedErr) {
+		t.Errorf("actual err: %v", err)
+		t.Errorf("expected err: %v", expectedErr)
+		t.Error("unexpected err")
+	}
+}
+
 func TestNodeAddressesByProviderID(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
@@ -246,6 +312,29 @@ func TestInstanceID(t *testing.T) {
 	}
 }
 
+func TestInstanceIDNonUniqueDroplets(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		resp := newFakeOKResponse()
+		return newFakeNonUniqueDroplets(), resp, nil
+	}
+
+	res := &resources{gclient: newFakeDropletClient(fake)}
+	instances := newInstances(res, "nyc1")
+
+	id, err := instances.InstanceID(context.TODO(), "test-droplet")
+	if id != "" {
+		t.Errorf("expected id to be empty")
+	}
+
+	expectedErr := fmt.Errorf("multiple droplets with the same node name `test-droplet` exist: [123 456]")
+	if !reflect.DeepEqual(err, expectedErr) {
+		t.Errorf("actual err: %v", err)
+		t.Errorf("expected err: %v", expectedErr)
+		t.Error("unexpected err")
+	}
+}
+
 func TestInstanceType(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
@@ -266,6 +355,25 @@ func TestInstanceType(t *testing.T) {
 
 	if instanceType != "2gb" {
 		t.Errorf("expected type 2gb, got: %s", instanceType)
+	}
+}
+
+func TestInstanceTypeNonUniqueDroplets(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		resp := newFakeOKResponse()
+		return newFakeNonUniqueDroplets(), resp, nil
+	}
+
+	res := &resources{gclient: newFakeDropletClient(fake)}
+	instances := newInstances(res, "nyc1")
+
+	_, err := instances.InstanceType(context.TODO(), "test-droplet")
+	expectedErr := fmt.Errorf("multiple droplets with the same node name `test-droplet` exist: [123 456]")
+	if !reflect.DeepEqual(err, expectedErr) {
+		t.Errorf("actual err: %v", err)
+		t.Errorf("expected err: %v", expectedErr)
+		t.Error("unexpected err")
 	}
 }
 

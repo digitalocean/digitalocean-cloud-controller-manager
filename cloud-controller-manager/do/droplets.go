@@ -186,24 +186,51 @@ func dropletByID(ctx context.Context, client *godo.Client, id int) (*godo.Drople
 // considered.
 func dropletByName(ctx context.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
 	// TODO (andrewsykim): list by tag once a tagging format is determined
+	needed := []*godo.Droplet{}
 	droplets, err := allDropletList(ctx, client)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, droplet := range droplets {
+		droplet := droplet
 		if droplet.Name == string(nodeName) {
-			return &droplet, nil
+			needed = append(needed, &droplet)
 		}
 		addresses, _ := nodeAddresses(&droplet)
 		for _, address := range addresses {
 			if address.Address == string(nodeName) {
-				return &droplet, nil
+				if !alreadyAdded(needed, droplet) {
+					needed = append(needed, &droplet)
+				}
 			}
 		}
 	}
+	if len(needed) == 0 {
+		return nil, cloudprovider.InstanceNotFound
+	}
+	if len(needed) != 1 {
+		return nil, fmt.Errorf("multiple droplets with the same node name `%s` exist: %v", nodeName, dropletIDs(needed))
+	}
 
-	return nil, cloudprovider.InstanceNotFound
+	return needed[0], nil
+}
+
+func dropletIDs(needed []*godo.Droplet) []int {
+	ids := []int{}
+	for _, droplet := range needed {
+		ids = append(ids, droplet.ID)
+	}
+	return ids
+}
+
+func alreadyAdded(droplets []*godo.Droplet, droplet godo.Droplet) bool {
+	for _, d := range droplets {
+		if d.ID == droplet.ID {
+			return true
+		}
+	}
+	return false
 }
 
 // dropletIDFromProviderID returns a droplet's ID from providerID.
