@@ -721,6 +721,20 @@ func Test_getProtocol(t *testing.T) {
 			nil,
 		},
 		{
+			"udp protocol specified",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "udp",
+					},
+				},
+			},
+			"udp",
+			nil,
+		},
+		{
 			"https protocol specified",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1783,7 +1797,7 @@ func Test_buildForwardingRules(t *testing.T) {
 					Ports: []v1.ServicePort{
 						{
 							Name:     "test",
-							Protocol: "UDP",
+							Protocol: "FOOBAR",
 							Port:     int32(80),
 							NodePort: int32(30000),
 						},
@@ -1791,7 +1805,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			fmt.Errorf("only TCP protocol is supported, got: %q", "UDP"),
+			fmt.Errorf("only TCP or UDP protocol is supported, got: %q", "FOOBAR"),
 		},
 		{
 			"invalid TLS config, set both certificate id and tls pass through",
@@ -1963,6 +1977,222 @@ func Test_buildForwardingRules(t *testing.T) {
 			},
 			nil,
 			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 443"),
+		},
+		{
+			"UDP ports are okay",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOUDPPorts: "8888,443,448",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-udp-1",
+							Protocol: "UDP",
+							Port:     int32(8888),
+							NodePort: int32(18441),
+						},
+						{
+							Name:     "test-udp-2",
+							Protocol: "UDP",
+							Port:     int32(443),
+							NodePort: int32(18442),
+						},
+						{
+							Name:     "test-udp-3",
+							Protocol: "UDP",
+							Port:     int32(448),
+							NodePort: int32(18443),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      8888,
+					TargetProtocol: "udp",
+					TargetPort:     18441,
+				},
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      443,
+					TargetProtocol: "udp",
+					TargetPort:     18442,
+				},
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      448,
+					TargetProtocol: "udp",
+					TargetPort:     18443,
+				},
+			},
+			nil,
+		},
+		{
+			"UDP and HTTP2 ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTP2Ports:     "4443,443",
+						annDOUDPPorts:       "4443,443",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http2-1",
+							Protocol: "TCP",
+							Port:     int32(4443),
+							NodePort: int32(10443),
+						},
+						{
+							Name:     "test-http2-2",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(10444),
+						},
+						{
+							Name:     "test-udp-1",
+							Protocol: "UDP",
+							Port:     int32(4443),
+							NodePort: int32(10445),
+						},
+						{
+							Name:     "test-udp-2",
+							Protocol: "UDP",
+							Port:     int32(443),
+							NodePort: int32(10446),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      4443,
+					TargetProtocol: "http2",
+					TargetPort:     10443,
+					TlsPassthrough: true,
+				},
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "http2",
+					TargetPort:     10444,
+					TlsPassthrough: true,
+				},
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      4443,
+					TargetProtocol: "udp",
+					TargetPort:     10445,
+				},
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      443,
+					TargetProtocol: "udp",
+					TargetPort:     10446,
+				},
+			},
+			nil,
+		},
+		{
+			"UDP and HTTP ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTPPorts: "8888",
+						annDOUDPPorts:  "8888",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http",
+							Protocol: "TCP",
+							Port:     int32(8888),
+							NodePort: int32(10443),
+						},
+						{
+							Name:     "test-udp",
+							Protocol: "UDP",
+							Port:     int32(8888),
+							NodePort: int32(18443),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http",
+					EntryPort:      8888,
+					TargetProtocol: "http",
+					TargetPort:     10443,
+				},
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      8888,
+					TargetProtocol: "udp",
+					TargetPort:     18443,
+				},
+			},
+			nil,
+		},
+		{
+			"UDP and HTTPS ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPorts:       "8888",
+						annDOUDPPorts:       "8888",
+						annDOTLSPassThrough: "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http",
+							Protocol: "TCP",
+							Port:     int32(8888),
+							NodePort: int32(10443),
+						},
+						{
+							Name:     "test-udp",
+							Protocol: "UDP",
+							Port:     int32(8888),
+							NodePort: int32(18443),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "https",
+					EntryPort:      8888,
+					TargetProtocol: "https",
+					TargetPort:     10443,
+					TlsPassthrough: true,
+				},
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      8888,
+					TargetProtocol: "udp",
+					TargetPort:     18443,
+				},
+			},
+			nil,
 		},
 	}
 

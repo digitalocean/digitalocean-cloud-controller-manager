@@ -85,6 +85,11 @@ const (
 	// value must be between 2 and 10. Defaults to 5.
 	annDOHealthCheckHealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold"
 
+	// annDOUDPPorts is the annotation used to specify which ports of the load balancer
+	// should use the UDP protocol. This is a comma separated list of ports
+	// (e.g., 53,67).
+	annDOUDPPorts = "service.beta.kubernetes.io/do-loadbalancer-udp-ports"
+
 	// annDOHTTPPorts is the annotation used to specify which ports of the load balancer
 	// should use the HTTP protocol. This is a comma separated list of ports
 	// (e.g., 80,8080).
@@ -184,12 +189,14 @@ const (
 
 	// Protocol values.
 	protocolTCP   = "tcp"
+	protocolUDP   = "udp"
 	protocolHTTP  = "http"
 	protocolHTTPS = "https"
 	protocolHTTP2 = "http2"
 
 	// Port protocol values.
 	portProtocolTCP = "TCP"
+	portProtocolUDP = "UDP"
 
 	defaultSecurePort = 443
 )
@@ -778,6 +785,11 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
+	udpPorts, err := getUDPPorts(service)
+	if err != nil {
+		return nil, err
+	}
+
 	httpPorts, err := getHTTPPorts(service)
 	if err != nil {
 		return nil, err
@@ -793,6 +805,8 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
+	// we don't pass UDP ports here since we can allow duplicate
+	// tcp {http/2, http, https} and udp ports
 	portDups := findDups(httpPorts, httpsPorts, http2Ports)
 	if len(portDups) > 0 {
 		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: %s", strings.Join(portDups, ", "))
@@ -806,6 +820,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		httpsPorts = append(httpsPorts, defaultSecurePort)
 	}
 
+	udpPortMap := map[int32]bool{}
+	for _, port := range udpPorts {
+		udpPortMap[int32(port)] = true
+	}
 	httpPortMap := map[int32]bool{}
 	for _, port := range httpPorts {
 		httpPortMap[int32(port)] = true
@@ -823,14 +841,23 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		protocol := defaultProtocol
 		// Set protocols explicitly if correspondingly configured ports
 		// are found.
+		if udpPortMap[port.Port] {
+			protocol = protocolUDP
+		}
+
+		// we have to delete the ports after we add them to prevent
+		// them from overriding a port that is found in the udp port map
 		if httpPortMap[port.Port] {
 			protocol = protocolHTTP
+			delete(httpPortMap, port.Port)
 		}
 		if httpsPortMap[port.Port] {
 			protocol = protocolHTTPS
+			delete(httpsPortMap, port.Port)
 		}
 		if http2PortMap[port.Port] {
 			protocol = protocolHTTP2
+			delete(http2PortMap, port.Port)
 		}
 
 		forwardingRule, err := buildForwardingRule(service, &port, protocol, certificateID, tlsPassThrough)
@@ -846,8 +873,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, certificateID string, tlsPassThrough bool) (*godo.ForwardingRule, error) {
 	var forwardingRule godo.ForwardingRule
 
-	if port.Protocol != portProtocolTCP {
-		return nil, fmt.Errorf("only TCP protocol is supported, got: %q", port.Protocol)
+	switch port.Protocol {
+	case portProtocolTCP, portProtocolUDP:
+	default:
+		return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
 	}
 
 	forwardingRule.EntryProtocol = protocol
@@ -923,7 +952,7 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	switch protocol {
-	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2:
+	case protocolTCP, protocolUDP, protocolHTTP, protocolHTTPS, protocolHTTP2:
 	default:
 		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOProtocol)
 	}
@@ -1063,6 +1092,12 @@ func getHTTPPorts(service *v1.Service) ([]int, error) {
 // HTTP2.
 func getHTTP2Ports(service *v1.Service) ([]int, error) {
 	return getPorts(service, annDOHTTP2Ports)
+}
+
+// getUDPPorts returns the ports for the given service that are set to use
+// udp.
+func getUDPPorts(service *v1.Service) ([]int, error) {
+	return getPorts(service, annDOUDPPorts)
 }
 
 // getHTTPSPorts returns the ports for the given service that are set to use
