@@ -21,9 +21,10 @@ github.com/coreos/go-systemd/v22/journal
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/digitalocean/godo v1.69.0
+# github.com/digitalocean/godo v1.75.0
 ## explicit
 github.com/digitalocean/godo
+github.com/digitalocean/godo/metrics
 # github.com/emicklei/go-restful v2.9.5+incompatible
 github.com/emicklei/go-restful
 github.com/emicklei/go-restful/log

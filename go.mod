@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/digitalocean/godo v1.69.0
+	github.com/digitalocean/godo v1.75.0
 	github.com/go-ini/ini v1.39.0 // indirect
 	github.com/google/go-cmp v0.5.5
 	github.com/minio/minio-go v6.0.10+incompatible
