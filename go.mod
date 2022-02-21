@@ -8,7 +8,7 @@ require (
 	github.com/go-ini/ini v1.39.0 // indirect
 	github.com/google/go-cmp v0.5.5
 	github.com/minio/minio-go v6.0.10+incompatible
-	github.com/mitchellh/copystructure v1.0.0
+	github.com/mitchellh/copystructure v1.2.0
 	github.com/prometheus/client_golang v1.11.0
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d

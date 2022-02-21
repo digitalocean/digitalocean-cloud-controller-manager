@@ -106,12 +106,12 @@ github.com/minio/minio-go/pkg/encrypt
 github.com/minio/minio-go/pkg/s3signer
 github.com/minio/minio-go/pkg/s3utils
 github.com/minio/minio-go/pkg/set
-# github.com/mitchellh/copystructure v1.0.0
+# github.com/mitchellh/copystructure v1.2.0
 ## explicit
 github.com/mitchellh/copystructure
 # github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
-# github.com/mitchellh/reflectwalk v1.0.0
+# github.com/mitchellh/reflectwalk v1.0.2
 github.com/mitchellh/reflectwalk
 # github.com/moby/term v0.0.0-20210610120745-9d4ed1856297
 github.com/moby/term
