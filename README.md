@@ -44,7 +44,7 @@ The solution is to change the service port to a different, non-conflicting one.
 
 ### Basics
 
-* Go: min `v1.12.x`
+* Go: min `v1.17.x`
 
 This project uses [Go modules](https://github.com/golang/go/wiki/Modules) for dependency management and employs vendoring. Please ensure to run `make vendor` after any dependency modifications.
 
@@ -99,7 +99,7 @@ DO_ACCESS_TOKEN=<your_access_token>                           \
 PUBLIC_ACCESS_FIREWALL_NAME=firewall_name                     \
 PUBLIC_ACCESS_FIREWALL_TAGS=worker-droplet                    \
 digitalocean-cloud-controller-manager                         \
-  --kubeconfig <path to your kubeconfig file>                 \                                     
+  --kubeconfig <path to your kubeconfig file>                 \
   --leader-elect=false --v=5 --cloud-provider=digitalocean
 ```
 
@@ -135,7 +135,7 @@ cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
 DO_ACCESS_TOKEN=your_access_token                  \
 METRICS_ADDR=<host>:<port>                         \
 digitalocean-cloud-controller-manager              \
-  --kubeconfig <path to your kubeconfig file>      \                                                
+  --kubeconfig <path to your kubeconfig file>      \
   --leader-elect=false --v=5 --cloud-provider=digitalocean
 ```
 
