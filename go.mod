@@ -9,9 +9,9 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/minio/minio-go v6.0.10+incompatible
 	github.com/mitchellh/copystructure v1.0.0
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.12.1
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
