@@ -28,7 +28,11 @@ spec:
         - key: "CriticalAddonsOnly"
           operator: "Exists"
         # cloud controller manages should be able to run on masters
+        # TODO: remove this when ccm is not supported on k8s <= 1.23
         - key: "node-role.kubernetes.io/master"
+          effect: NoSchedule
+        # k8s clusters 1.24+ uses control-plane name instead of master
+        - key: "node-role.kubernetes.io/control-plane"
           effect: NoSchedule
       containers:
       - image: digitalocean/digitalocean-cloud-controller-manager:v0.1.36
