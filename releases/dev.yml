@@ -14,12 +14,11 @@ spec:
     metadata:
       labels:
         app: digitalocean-cloud-controller-manager
-      annotations:
-        scheduler.alpha.kubernetes.io/critical-pod: ''
     spec:
       dnsPolicy: Default
       hostNetwork: true
       serviceAccountName: cloud-controller-manager
+      priorityClassName: system-cluster-critical
       tolerations:
         # this taint is set by all kubelets running `--cloud-provider=external`
         # so we should tolerate it to schedule the digitalocean ccm
