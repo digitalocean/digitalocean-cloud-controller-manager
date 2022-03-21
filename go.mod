@@ -17,7 +17,7 @@ require (
 	k8s.io/client-go v0.22.6
 	k8s.io/cloud-provider v0.22.6
 	k8s.io/component-base v0.22.6
-	k8s.io/klog/v2 v2.9.0
+	k8s.io/klog/v2 v2.60.1
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 )
 
@@ -35,7 +35,7 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible // indirect
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/go-ini/ini v1.39.0 // indirect
-	github.com/go-logr/logr v0.4.0 // indirect
+	github.com/go-logr/logr v1.2.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
