@@ -857,7 +857,7 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	switch port.Protocol {
 	case portProtocolTCP:
 	case portProtocolUDP:
-		protocol = strings.ToLower(portProtocolUDP)
+		protocol = protocolUDP
 	default:
 		return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
 	}
