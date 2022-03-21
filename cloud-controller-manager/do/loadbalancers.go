@@ -85,11 +85,6 @@ const (
 	// value must be between 2 and 10. Defaults to 5.
 	annDOHealthCheckHealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold"
 
-	// annDOUDPPorts is the annotation used to specify which ports of the load balancer
-	// should use the UDP protocol. This is a comma separated list of ports
-	// (e.g., 53,67).
-	annDOUDPPorts = "service.beta.kubernetes.io/do-loadbalancer-udp-ports"
-
 	// annDOHTTPPorts is the annotation used to specify which ports of the load balancer
 	// should use the HTTP protocol. This is a comma separated list of ports
 	// (e.g., 80,8080).
@@ -785,11 +780,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	udpPorts, err := getUDPPorts(service)
-	if err != nil {
-		return nil, err
-	}
-
 	httpPorts, err := getHTTPPorts(service)
 	if err != nil {
 		return nil, err
@@ -820,10 +810,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		httpsPorts = append(httpsPorts, defaultSecurePort)
 	}
 
-	udpPortMap := map[int32]bool{}
-	for _, port := range udpPorts {
-		udpPortMap[int32(port)] = true
-	}
 	httpPortMap := map[int32]bool{}
 	for _, port := range httpPorts {
 		httpPortMap[int32(port)] = true
@@ -839,11 +825,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	for _, port := range service.Spec.Ports {
 		protocol := defaultProtocol
-		// Set protocols explicitly if correspondingly configured ports
-		// are found.
-		if udpPortMap[port.Port] {
-			protocol = protocolUDP
-		}
 
 		// we have to delete the ports after we add them to prevent
 		// them from overriding a port that is found in the udp port map
@@ -874,7 +855,9 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	var forwardingRule godo.ForwardingRule
 
 	switch port.Protocol {
-	case portProtocolTCP, portProtocolUDP:
+	case portProtocolTCP:
+	case portProtocolUDP:
+		protocol = strings.ToLower(portProtocolUDP)
 	default:
 		return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
 	}
@@ -1092,12 +1075,6 @@ func getHTTPPorts(service *v1.Service) ([]int, error) {
 // HTTP2.
 func getHTTP2Ports(service *v1.Service) ([]int, error) {
 	return getPorts(service, annDOHTTP2Ports)
-}
-
-// getUDPPorts returns the ports for the given service that are set to use
-// udp.
-func getUDPPorts(service *v1.Service) ([]int, error) {
-	return getPorts(service, annDOUDPPorts)
 }
 
 // getHTTPSPorts returns the ports for the given service that are set to use

@@ -1982,11 +1982,9 @@ func Test_buildForwardingRules(t *testing.T) {
 			"UDP ports are okay",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOUDPPorts: "8888,443,448",
-					},
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
 				},
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
@@ -2041,7 +2039,6 @@ func Test_buildForwardingRules(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOHTTP2Ports:     "4443,443",
-						annDOUDPPorts:       "4443,443",
 						annDOTLSPassThrough: "true",
 					},
 				},
@@ -2112,7 +2109,6 @@ func Test_buildForwardingRules(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOHTTPPorts: "8888",
-						annDOUDPPorts:  "8888",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2156,7 +2152,6 @@ func Test_buildForwardingRules(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOTLSPorts:       "8888",
-						annDOUDPPorts:       "8888",
 						annDOTLSPassThrough: "true",
 					},
 				},
