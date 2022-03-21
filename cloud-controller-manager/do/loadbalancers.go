@@ -823,9 +823,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	for _, port := range service.Spec.Ports {
 		protocol := defaultProtocol
-
-		// we have to delete the ports after we add them to prevent
-		// them from overriding a port that is found in the udp port map
 		if httpPortMap[port.Port] {
 			protocol = protocolHTTP
 		}
