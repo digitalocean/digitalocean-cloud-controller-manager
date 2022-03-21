@@ -795,8 +795,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	// we don't pass UDP ports here since we can allow duplicate
-	// tcp {http/2, http, https} and udp ports
 	portDups := findDups(httpPorts, httpsPorts, http2Ports)
 	if len(portDups) > 0 {
 		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: %s", strings.Join(portDups, ", "))
@@ -830,15 +828,12 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		// them from overriding a port that is found in the udp port map
 		if httpPortMap[port.Port] {
 			protocol = protocolHTTP
-			delete(httpPortMap, port.Port)
 		}
 		if httpsPortMap[port.Port] {
 			protocol = protocolHTTPS
-			delete(httpsPortMap, port.Port)
 		}
 		if http2PortMap[port.Port] {
 			protocol = protocolHTTP2
-			delete(http2PortMap, port.Port)
 		}
 
 		forwardingRule, err := buildForwardingRule(service, &port, protocol, certificateID, tlsPassThrough)
