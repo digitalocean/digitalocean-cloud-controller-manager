@@ -721,20 +721,6 @@ func Test_getProtocol(t *testing.T) {
 			nil,
 		},
 		{
-			"udp protocol specified",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol: "udp",
-					},
-				},
-			},
-			"udp",
-			nil,
-		},
-		{
 			"https protocol specified",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{

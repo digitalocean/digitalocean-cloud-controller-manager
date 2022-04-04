@@ -833,6 +833,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 			protocol = protocolHTTP2
 		}
 
+		if port.Protocol == v1.ProtocolUDP {
+			protocol = protocolUDP
+		}
+
 		forwardingRule, err := buildForwardingRule(service, &port, protocol, certificateID, tlsPassThrough)
 		if err != nil {
 			return nil, err
@@ -847,9 +851,7 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	var forwardingRule godo.ForwardingRule
 
 	switch port.Protocol {
-	case portProtocolTCP:
-	case portProtocolUDP:
-		protocol = protocolUDP
+	case portProtocolTCP, portProtocolUDP:
 	default:
 		return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
 	}
@@ -927,7 +929,7 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	switch protocol {
-	case protocolTCP, protocolUDP, protocolHTTP, protocolHTTPS, protocolHTTP2:
+	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2:
 	default:
 		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOProtocol)
 	}
@@ -1125,7 +1127,7 @@ func getAlgorithm(service *v1.Service) string {
 
 // getSizeSlug returns the load balancer size as a slug
 func getSizeSlug(service *v1.Service) (string, error) {
-	sizeSlug, _ := service.Annotations[annDOSizeSlug]
+	sizeSlug := service.Annotations[annDOSizeSlug]
 
 	if sizeSlug != "" {
 		switch sizeSlug {
