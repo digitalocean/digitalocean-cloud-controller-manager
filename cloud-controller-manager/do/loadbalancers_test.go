@@ -3360,6 +3360,147 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			nil,
 		},
 		{
+			"successful load balancer request using udp",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http2",
+						annDOCertificateID:   "test-certificate",
+						annDOHealthCheckPath: "/health",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "UDP",
+							Port:     int32(443),
+							NodePort: int32(30001),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "udp",
+						EntryPort:      443,
+						TargetProtocol: "udp",
+						TargetPort:     30001,
+					},
+					{
+						EntryProtocol:  "http2",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
+						TlsPassthrough: false,
+					},
+				},
+				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				Algorithm:   "round_robin",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
+			},
+			nil,
+		},
+		{
+			"invalid load balancer request using udp without a valid healthcheck",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "UDP",
+							Port:     int32(443),
+							NodePort: int32(30001),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("healthcheck port has to be of type protocol TCP, HTTP or HTTPS"),
+		},
+		{
 			"successful load balancer request with custom health checks",
 			[]godo.Droplet{
 				{

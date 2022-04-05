@@ -956,14 +956,22 @@ func healthCheckPort(service *v1.Service) (int, error) {
 
 	if len(ports) == 1 {
 		for _, servicePort := range service.Spec.Ports {
-			if int(servicePort.Port) == ports[0] {
+			if int(servicePort.Port) == ports[0] && servicePort.Protocol != v1.ProtocolUDP {
 				return int(servicePort.NodePort), nil
 			}
 		}
 		return 0, fmt.Errorf("specified health check port %d does not exist on service %s/%s", ports[0], service.Namespace, service.Name)
 	}
 
-	return int(service.Spec.Ports[0].NodePort), nil
+	// return the first TCP port found as the healthcheck port
+	for _, p := range service.Spec.Ports {
+		if p.Protocol == v1.ProtocolTCP {
+			return int(p.NodePort), nil
+		}
+	}
+
+	// Otherwise no TCP ports were found
+	return 0, errors.New("healthcheck port has to be of type protocol TCP, HTTP or HTTPS")
 }
 
 // healthCheckProtocol returns the health check protocol as specified in the service,
