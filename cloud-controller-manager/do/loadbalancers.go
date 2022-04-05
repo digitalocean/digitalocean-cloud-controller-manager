@@ -795,7 +795,14 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	portDups := findDups(httpPorts, httpsPorts, http2Ports)
+	var udpPorts []int
+	for _, port := range service.Spec.Ports {
+		if port.Protocol == v1.ProtocolUDP {
+			udpPorts = append(udpPorts, int(port.Port))
+		}
+	}
+
+	portDups := findDups(httpPorts, httpsPorts, http2Ports, udpPorts)
 	if len(portDups) > 0 {
 		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: %s", strings.Join(portDups, ", "))
 	}

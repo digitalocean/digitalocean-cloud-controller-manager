@@ -17,7 +17,7 @@ If no custom name is specified, a default name is chosen consisting of the chara
 
 ## service.beta.kubernetes.io/do-loadbalancer-protocol
 
-The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `udp`, `http`, `https`, and `http2`. Defaults to `tcp`. Note that if UDP is supported a health check configuration configured against a TCP/HTTP/HTTPS service is still required. In order to use UDP protocol with a Load Balancer, please reach out to support with a ticket to enable it.
+The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `udp`, `http`, `https`, and `http2`. Defaults to `tcp`. Note that if UDP is supported a health check configuration configured against a TCP/HTTP/HTTPS service is still required. In order to use UDP protocol with a Load Balancer, please reach out to support with a ticket to enable it. Note: currently, a port cannot be shared between TCP and UDP due to a [bug in Kubernetes](https://github.com/kubernetes/kubernetes/issues/39188).
 
 Certain annotations may override the default protocol. See the more specific descriptions below.
 
