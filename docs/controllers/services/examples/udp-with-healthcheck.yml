@@ -46,5 +46,5 @@ spec:
         ports:
         - containerPort: 10001
           protocol: TCP
-        - containerPort: 10001
+        - containerPort: 10002
           protocol: UDP
