@@ -808,7 +808,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	portDups := findDups(httpPorts, httpsPorts, http2Ports, udpPorts)
 	if len(portDups) > 0 {
-		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: %s", strings.Join(portDups, ", "))
+		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: %s", strings.Join(portDups, ", "))
 	}
 
 	certificateID := getCertificateID(service)

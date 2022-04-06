@@ -1924,7 +1924,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 8080"),
+			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: 8080"),
 		},
 		{
 			"UDP and HTTPS ports shared with an annotation returns error",
@@ -1955,7 +1955,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New(`ports from annotations "service.beta.kubernetes.io/do-loadbalancer-*-ports" cannot be shared but found: 8888`),
+			errors.New(`ports from annotations "service.beta.kubernetes.io/do-loadbalancer-*-ports" and protocol UDP cannot be shared but found: 8888`),
 		},
 		{
 			"UDP and TCP ports shared returns error",
