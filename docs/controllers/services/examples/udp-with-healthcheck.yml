@@ -1,0 +1,50 @@
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: udp-with-healthcheck-lb
+  annotations:
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-port: "10001"
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol: "tcp"
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds: "3"
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-response-timeout-seconds: "4"
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-unhealthy-threshold: "3"
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold: "5"
+spec:
+  type: LoadBalancer
+  selector:
+    app: tcp-udp-server
+  ports:
+    - name: tcp
+      protocol: TCP
+      port: 10001
+      targetPort: 10001
+    - name: udp
+      protocol: UDP
+      port: 10002
+      targetPort: 10002
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-udp-server-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tcp-udp-server
+  template:
+    metadata:
+      labels:
+        app: tcp-udp-server
+    spec:
+      containers:
+      - name: tcp-udp-server
+        image: example.com/example/test-tcp-udp-server:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 10001
+          protocol: TCP
+        - containerPort: 10002
+          protocol: UDP

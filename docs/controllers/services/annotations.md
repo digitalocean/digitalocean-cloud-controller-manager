@@ -39,6 +39,8 @@ The health check protocol to use to check if a backend droplet is healthy. Defau
 
 The first node port on the service is used as health check port.
 
+Note that while UDP is not a supported healthcheck protocol, if your load balancer has UDP service ports you must configure a TCP service as a health check for the load balancer to work properly.
+
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds
 
 The number of seconds between between two consecutive health checks. The value must be between 3 and 300. If not specified, the default value is 3.

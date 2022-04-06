@@ -1783,7 +1783,7 @@ func Test_buildForwardingRules(t *testing.T) {
 					Ports: []v1.ServicePort{
 						{
 							Name:     "test",
-							Protocol: "UDP",
+							Protocol: "FOOBAR",
 							Port:     int32(80),
 							NodePort: int32(30000),
 						},
@@ -1791,7 +1791,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			fmt.Errorf("only TCP protocol is supported, got: %q", "UDP"),
+			fmt.Errorf("only TCP or UDP protocol is supported, got: %q", "FOOBAR"),
 		},
 		{
 			"invalid TLS config, set both certificate id and tls pass through",
@@ -1924,45 +1924,66 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 8080"),
+			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: 8080"),
 		},
 		{
-			"HTTPS and HTTP2 ports shared",
+			"UDP and HTTPS ports shared with an annotation returns error",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOTLSPorts:       "443,8443",
-						annDOHTTP2Ports:     "4443,443",
+						annDOTLSPorts:       "8888",
 						annDOTLSPassThrough: "true",
 					},
 				},
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
-							Name:     "test-https-1",
+							Name:     "test-http",
 							Protocol: "TCP",
-							Port:     int32(443),
+							Port:     int32(8888),
 							NodePort: int32(10443),
 						},
 						{
-							Name:     "test-https-2",
-							Protocol: "TCP",
-							Port:     int32(8443),
+							Name:     "test-udp",
+							Protocol: "UDP",
+							Port:     int32(8888),
 							NodePort: int32(18443),
-						},
-						{
-							Name:     "test-http2",
-							Protocol: "TCP",
-							Port:     int32(4443),
-							NodePort: int32(14443),
 						},
 					},
 				},
 			},
 			nil,
-			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 443"),
+			errors.New(`ports from annotations "service.beta.kubernetes.io/do-loadbalancer-*-ports" and protocol UDP cannot be shared but found: 8888`),
+		},
+		{
+			"UDP and TCP ports shared returns error",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test-http",
+							Protocol: "TCP",
+							Port:     int32(8888),
+							NodePort: int32(10443),
+						},
+						{
+							Name:     "test-udp",
+							Protocol: "UDP",
+							Port:     int32(8888),
+							NodePort: int32(18443),
+						},
+					},
+				},
+			},
+			nil,
+			errors.New(`cannot share port: 8888 between TCP and UDP`),
 		},
 	}
 
@@ -3147,6 +3168,147 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				DisableLetsEncryptDNSRecords: godo.Bool(false),
 			},
 			nil,
+		},
+		{
+			"successful load balancer request using udp",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:        "http2",
+						annDOCertificateID:   "test-certificate",
+						annDOHealthCheckPath: "/health",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "UDP",
+							Port:     int32(443),
+							NodePort: int32(30001),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			&godo.LoadBalancerRequest{
+				Name:       "afoobar123",
+				DropletIDs: []int{100, 101, 102},
+				Region:     "nyc3",
+				ForwardingRules: []godo.ForwardingRule{
+					{
+						EntryProtocol:  "udp",
+						EntryPort:      443,
+						TargetProtocol: "udp",
+						TargetPort:     30001,
+					},
+					{
+						EntryProtocol:  "http2",
+						EntryPort:      80,
+						TargetProtocol: "http",
+						TargetPort:     30000,
+						CertificateID:  "test-certificate",
+						TlsPassthrough: false,
+					},
+				},
+				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				Algorithm:   "round_robin",
+				StickySessions: &godo.StickySessions{
+					Type: "none",
+				},
+				DisableLetsEncryptDNSRecords: godo.Bool(false),
+			},
+			nil,
+		},
+		{
+			"invalid load balancer request using udp without a valid healthcheck",
+			[]godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "UDP",
+							Port:     int32(443),
+							NodePort: int32(30001),
+						},
+					},
+				},
+			},
+			[]*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("no health check port of protocol TCP found"),
 		},
 		{
 			"successful load balancer request with custom health checks",

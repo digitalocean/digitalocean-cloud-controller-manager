@@ -184,12 +184,14 @@ const (
 
 	// Protocol values.
 	protocolTCP   = "tcp"
+	protocolUDP   = "udp"
 	protocolHTTP  = "http"
 	protocolHTTPS = "https"
 	protocolHTTP2 = "http2"
 
 	// Port protocol values.
 	portProtocolTCP = "TCP"
+	portProtocolUDP = "UDP"
 
 	defaultSecurePort = 443
 )
@@ -793,9 +795,20 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	portDups := findDups(httpPorts, httpsPorts, http2Ports)
+	var udpPorts []int
+	tcpPortMap := map[int32]bool{}
+	for _, port := range service.Spec.Ports {
+		switch port.Protocol {
+		case v1.ProtocolTCP:
+			tcpPortMap[port.Port] = true
+		case v1.ProtocolUDP:
+			udpPorts = append(udpPorts, int(port.Port))
+		}
+	}
+
+	portDups := findDups(httpPorts, httpsPorts, http2Ports, udpPorts)
 	if len(portDups) > 0 {
-		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: %s", strings.Join(portDups, ", "))
+		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: %s", strings.Join(portDups, ", "))
 	}
 
 	certificateID := getCertificateID(service)
@@ -821,8 +834,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 	for _, port := range service.Spec.Ports {
 		protocol := defaultProtocol
-		// Set protocols explicitly if correspondingly configured ports
-		// are found.
 		if httpPortMap[port.Port] {
 			protocol = protocolHTTP
 		}
@@ -831,6 +842,13 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		}
 		if http2PortMap[port.Port] {
 			protocol = protocolHTTP2
+		}
+
+		if port.Protocol == v1.ProtocolUDP {
+			if tcpPortMap[port.Port] {
+				return nil, fmt.Errorf("cannot share port: %d between TCP and UDP", port.Port)
+			}
+			protocol = protocolUDP
 		}
 
 		forwardingRule, err := buildForwardingRule(service, &port, protocol, certificateID, tlsPassThrough)
@@ -846,8 +864,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, certificateID string, tlsPassThrough bool) (*godo.ForwardingRule, error) {
 	var forwardingRule godo.ForwardingRule
 
-	if port.Protocol != portProtocolTCP {
-		return nil, fmt.Errorf("only TCP protocol is supported, got: %q", port.Protocol)
+	switch port.Protocol {
+	case portProtocolTCP, portProtocolUDP:
+	default:
+		return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
 	}
 
 	forwardingRule.EntryProtocol = protocol
@@ -951,13 +971,24 @@ func healthCheckPort(service *v1.Service) (int, error) {
 	if len(ports) == 1 {
 		for _, servicePort := range service.Spec.Ports {
 			if int(servicePort.Port) == ports[0] {
+				if servicePort.Protocol == v1.ProtocolUDP {
+					return 0, fmt.Errorf("health check port: %d, cannot be of protocol type UDP", servicePort.Port)
+				}
 				return int(servicePort.NodePort), nil
 			}
 		}
 		return 0, fmt.Errorf("specified health check port %d does not exist on service %s/%s", ports[0], service.Namespace, service.Name)
 	}
 
-	return int(service.Spec.Ports[0].NodePort), nil
+	// return the first TCP port found as the healthcheck port
+	for _, p := range service.Spec.Ports {
+		if p.Protocol == v1.ProtocolTCP {
+			return int(p.NodePort), nil
+		}
+	}
+
+	// Otherwise no TCP ports were found
+	return 0, errors.New("no health check port of protocol TCP found")
 }
 
 // healthCheckProtocol returns the health check protocol as specified in the service,
@@ -1121,7 +1152,7 @@ func getAlgorithm(service *v1.Service) string {
 
 // getSizeSlug returns the load balancer size as a slug
 func getSizeSlug(service *v1.Service) (string, error) {
-	sizeSlug, _ := service.Annotations[annDOSizeSlug]
+	sizeSlug := service.Annotations[annDOSizeSlug]
 
 	if sizeSlug != "" {
 		switch sizeSlug {
