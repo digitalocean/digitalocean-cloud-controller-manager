@@ -796,8 +796,12 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 	}
 
 	var udpPorts []int
+	tcpPortMap := map[int32]bool{}
 	for _, port := range service.Spec.Ports {
-		if port.Protocol == v1.ProtocolUDP {
+		switch port.Protocol {
+		case v1.ProtocolTCP:
+			tcpPortMap[port.Port] = true
+		case v1.ProtocolUDP:
 			udpPorts = append(udpPorts, int(port.Port))
 		}
 	}
@@ -841,6 +845,9 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		}
 
 		if port.Protocol == v1.ProtocolUDP {
+			if tcpPortMap[port.Port] {
+				return nil, errors.New("cannot share a port between TCP and UDP")
+			}
 			protocol = protocolUDP
 		}
 
