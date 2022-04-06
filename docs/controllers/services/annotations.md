@@ -17,7 +17,7 @@ If no custom name is specified, a default name is chosen consisting of the chara
 
 ## service.beta.kubernetes.io/do-loadbalancer-protocol
 
-The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `udp`, `http`, `https`, and `http2`. Defaults to `tcp`. Note that if UDP is supported a health check configuration configured against a TCP/HTTP/HTTPS service is still required. In order to use UDP protocol with a Load Balancer, please reach out to support with a ticket to enable it. Note: currently, a port cannot be shared between TCP and UDP due to a [bug in Kubernetes](https://github.com/kubernetes/kubernetes/issues/39188).
+The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `http`, `https`, and `http2`. Defaults to `tcp`.
 
 Certain annotations may override the default protocol. See the more specific descriptions below.
 
@@ -38,6 +38,8 @@ The path used to check if a backend droplet is healthy. Defaults to "/".
 The health check protocol to use to check if a backend droplet is healthy. Defaults to `tcp` if not specified. Options are `tcp`, `http`, and `https`.
 
 The first node port on the service is used as health check port.
+
+Note that while UDP is not a supported healthcheck protocol, if your load balancer has UDP service ports you must configure a TCP service as a health check for the load balancer to work properly.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds
 
