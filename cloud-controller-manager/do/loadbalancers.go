@@ -846,7 +846,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 
 		if port.Protocol == v1.ProtocolUDP {
 			if tcpPortMap[port.Port] {
-				return nil, errors.New("cannot share a port between TCP and UDP")
+				return nil, fmt.Errorf("cannot share port: %d between TCP and UDP", port.Port)
 			}
 			protocol = protocolUDP
 		}
@@ -970,7 +970,10 @@ func healthCheckPort(service *v1.Service) (int, error) {
 
 	if len(ports) == 1 {
 		for _, servicePort := range service.Spec.Ports {
-			if int(servicePort.Port) == ports[0] && servicePort.Protocol != v1.ProtocolUDP {
+			if int(servicePort.Port) == ports[0] {
+				if servicePort.Protocol == v1.ProtocolUDP {
+					return 0, fmt.Errorf("health check port: %d, cannot be of protocol type UDP", servicePort.Port)
+				}
 				return int(servicePort.NodePort), nil
 			}
 		}
@@ -985,7 +988,7 @@ func healthCheckPort(service *v1.Service) (int, error) {
 	}
 
 	// Otherwise no TCP ports were found
-	return 0, errors.New("healthcheck port has to be of type protocol TCP, HTTP or HTTPS")
+	return 0, errors.New("no health check port of protocol TCP found")
 }
 
 // healthCheckProtocol returns the health check protocol as specified in the service,

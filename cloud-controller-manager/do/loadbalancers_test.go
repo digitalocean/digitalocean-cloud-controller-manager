@@ -1983,7 +1983,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New(`cannot share a port between TCP and UDP`),
+			errors.New(`cannot share port: 8888 between TCP and UDP`),
 		},
 	}
 
@@ -3308,7 +3308,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			nil,
-			fmt.Errorf("healthcheck port has to be of type protocol TCP, HTTP or HTTPS"),
+			fmt.Errorf("no health check port of protocol TCP found"),
 		},
 		{
 			"successful load balancer request with custom health checks",
