@@ -30,7 +30,7 @@ PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-contr
 
 all: test
 
-publish: clean ci build push
+publish: clean build push
 
 ci: check-headers check-unused gofmt govet test
 
