@@ -50,13 +50,13 @@ bump-version:
 	@(echo ${NEW_VERSION} | grep -E "^v") || ( echo "NEW_VERSION must be a semver ('v' prefix is required)"; exit 1 )
 	@echo "Bumping VERSION from $(VERSION) to $(NEW_VERSION)"
 	@echo $(NEW_VERSION) > VERSION
-	@cp releases/${VERSION}.yml releases/${NEW_VERSION}.yml
-	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' releases/${NEW_VERSION}.yml
-	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' docs/getting-started.md
-	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' README.md
-	@sed -i'' -e 's/${VERSION}/${NEW_VERSION}/g' docs/example-manifests/cloud-controller-manager.yml
-	git add --intent-to-add releases/${NEW_VERSION}.yml
-	@rm -f docs/example-manifests/cloud-controller-manager.yml-e README.md-e docs/getting-started.md-e releases/${NEW_VERSION}.yml-e
+	@cp releases/dev.yml releases/${NEW_VERSION}.yml
+	@sed -i.sedbak 's#image: digitalocean/digitalocean-cloud-controller-manager:dev#image: digitalocean/digitalocean-cloud-controller-manager:${NEW_VERSION}#g' releases/${NEW_VERSION}.yml
+	@git add --intent-to-add releases/${NEW_VERSION}.yml
+	$(eval NEW_DATE = $(shell  date '+%B %e, %Y'))
+	@sed -i.sedbak 's/## unreleased/## ${NEW_VERSION} (beta) - ${NEW_DATE}/g' CHANGELOG.md
+	@echo -e '## unreleased\n' | cat - CHANGELOG.md > temp && mv temp CHANGELOG.md
+	@rm -f releases/${NEW_VERSION}.yml.sedbak CHANGELOG.md.sedbak
 
 .PHONY: clean
 clean:
