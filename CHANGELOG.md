@@ -1,4 +1,9 @@
-# CHANGELOG
+## unreleased
+
+* add UDP protocol support (@dikshant)
+* Bump k8s.io/klog/v2 from 2.9.0 to 2.50.2
+* Update godo to v1.78.0 (@cpanato)
+* Update Kubernetes dependencies (@cpanato)
 
 ## v0.1.36 (beta) - January 14, 2022
 
@@ -6,8 +11,8 @@
 
 ## v0.1.35 (beta) - Oct 18 2021
 
-* Add annotation for specifiying load balancer size unit.
-* Add annotation for disabling automatic DNS record creation for load balancer Let's Encrypt certs.
+* Add annotation for specifying load balancer size unit (@wez470)
+* Add annotation for disabling automatic DNS record creation for load balancer Let's Encrypt certs (@wez470)
 
 ## v0.1.34 (beta) - Sept 7 2021
 
