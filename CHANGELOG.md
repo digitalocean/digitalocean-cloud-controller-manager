@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.37 (beta) - April 11, 2022
+
 * add UDP protocol support (@dikshant)
 * Bump k8s.io/klog/v2 from 2.9.0 to 2.50.2
 * Update godo to v1.78.0 (@cpanato)
