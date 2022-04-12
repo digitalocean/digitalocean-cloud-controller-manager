@@ -37,7 +37,7 @@ jobs:
         uses: EndBug/add-and-commit@050a66787244b10a4874a2a5f682130263edc192
         with:
           message: "create release manifests for ${{ github.event.inputs.tag }}"
-          add: "releases/ VERSION"
+          add: "releases/ VERSION CHANGELOG.md"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # target commit should be the commit with the new release manifest, not the commit when workflow was triggered
