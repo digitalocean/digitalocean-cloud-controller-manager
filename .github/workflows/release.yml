@@ -18,7 +18,7 @@ jobs:
         with:
           go-version: ^1.17
       - name: Check out code into the Go module directory
-        uses: actions/checkout@a12a3943b4bdde767164f792f33f40b04645d846
+        uses: actions/checkout@dcd71f646680f2efd8db4afa5ad64fdcba30e748
         with:
           ref: master
       - name: Login to dockerhub to push the image
