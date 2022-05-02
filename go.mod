@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/digitalocean/godo v1.79.0
-	github.com/google/go-cmp v0.5.7
+	github.com/google/go-cmp v0.5.8
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/prometheus/client_golang v1.12.1
@@ -91,7 +91,6 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac // indirect
 	golang.org/x/tools v0.1.6-0.20210820212750-d4cc65f0b2ff // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20210831024726-fe130286e0e2 // indirect
 	google.golang.org/grpc v1.40.0 // indirect
