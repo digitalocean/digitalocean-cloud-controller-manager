@@ -167,3 +167,11 @@ See also the [elaborate example](/docs/controllers/services/examples/README.md#c
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+## service.kubernetes.io/do-loadbalancer-protect
+
+Indicates whether the managed load-balancer should be protected. Protected load-balancers get all features, but won't be deleted when the LoadBalancer service is removed from your cluster. This is useful for cases where you provision the LoadBalancer through other automation. Options are `"true"` or `"false"`. Defaults to `"false"`.
+
+**Note**
+
+You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
