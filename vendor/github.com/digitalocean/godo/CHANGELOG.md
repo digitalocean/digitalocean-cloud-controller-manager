@@ -1,5 +1,29 @@
 # Change Log
 
+## [v1.83.0] - 2022-08-10
+
+- #546 - @DWizGuy58 - Add support for database options
+
+## [v1.82.0] - 2022-08-04
+
+- #544 - @andrewsomething - apps: Add URN() method.
+- #542 - @andrewsomething - databases: Support advanced config endpoints.
+- #543 - @nicktate - Ntate/detection models
+- #541 - @andrewsomething - droplets: Support listing Droplets filtered by name.
+- #540 - @bentranter - Update links to API documentation
+
+## [v1.81.0] - 2022-06-15
+
+- #532 - @senorprogrammer - Add support for Reserved IP addresses
+- #538 - @bentranter - util: update droplet create example
+- #537 - @rpmoore - Adding project_id to databases
+- #536 - @andrewsomething - account: Now may include info on current team.
+- #535 - @ElanHasson - APPS-5636 Update App Platform for functions and Starter Tier App Proposals.
+
+## [v1.80.0] - 2022-05-23
+
+- #533 - @ElanHasson - APPS-5636 - App Platform updates
+
 ## [v1.79.0] - 2022-04-29
 
 - #530 - @anitgandhi - monitoring: alerts for Load Balancers TLS conns/s utilization
