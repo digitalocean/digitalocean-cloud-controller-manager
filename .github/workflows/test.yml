@@ -15,7 +15,7 @@ jobs:
         with:
           fetch-depth: 1
       - name: Install go
-        uses: actions/setup-go@v3.1.0
+        uses: actions/setup-go@fcdc43634adb5f7ae75a9d7a9b9361790f7293e2
         with:
           go-version-file: go.mod
 
