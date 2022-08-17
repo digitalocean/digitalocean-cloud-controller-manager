@@ -16,7 +16,7 @@ jobs:
       - name: Check out code into the Go module directory
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b
         with:
-          ref: ${{ github.event.inputs.tag }}
+          ref: master
       - name: Install go
         uses: actions/setup-go@fcdc43634adb5f7ae75a9d7a9b9361790f7293e2
         with:
