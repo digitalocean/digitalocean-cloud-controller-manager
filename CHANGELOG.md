@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.39 (beta) - August 17, 2022
+
 ## v0.1.37 (beta) - April 11, 2022
 
 * add UDP protocol support (@dikshant)
