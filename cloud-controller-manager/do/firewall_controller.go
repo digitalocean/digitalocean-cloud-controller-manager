@@ -322,9 +322,9 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 	}
 }
 
-//isManaged returns if the given Service should be firewall-managed based on the
-//configuration annotation. An omitted annotation applies the default behavior
-//of managing firewall rules for the Service.
+// isManaged returns if the given Service should be firewall-managed based on the
+// configuration annotation. An omitted annotation applies the default behavior
+// of managing firewall rules for the Service.
 func isManaged(service *v1.Service) (bool, error) {
 	val, found, err := getBool(service.Annotations, annotationDOFirewallManaged)
 	if err != nil {

@@ -40,7 +40,8 @@ func dropletRegion() (string, error) {
 // httpGet is a convienance function to do an http GET on a provided url
 // and return the string version of the response body.
 // In this package it is used for retrieving droplet metadata
-//     e.g. http://169.254.169.254/metadata/v1/id"
+//
+//	e.g. http://169.254.169.254/metadata/v1/id"
 func httpGet(url string) (string, error) {
 	resp, err := http.Get(url)
 	if err != nil {
