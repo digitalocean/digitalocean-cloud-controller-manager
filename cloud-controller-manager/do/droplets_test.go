@@ -33,6 +33,7 @@ import (
 type fakeDropletService struct {
 	listFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	listByTagFunc      func(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listByNameFunc     func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	getFunc            func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
 	createFunc         func(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
 	createMultipleFunc func(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
@@ -51,6 +52,10 @@ func (f *fakeDropletService) List(ctx context.Context, opt *godo.ListOptions) ([
 
 func (f *fakeDropletService) ListByTag(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	return f.listByTagFunc(ctx, tag, opt)
+}
+
+func (f *fakeDropletService) ListByName(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	return f.listByNameFunc(ctx, name, opt)
 }
 
 func (f *fakeDropletService) Get(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
@@ -151,6 +156,13 @@ var _ cloudprovider.Instances = new(instances)
 func TestNodeAddresses(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		droplets := []godo.Droplet{*droplet}
+
+		resp := newFakeOKResponse()
+		return droplets, resp, nil
+	}
+	fake.listByNameFunc = func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 		droplet := newFakeDroplet()
 		droplets := []godo.Droplet{*droplet}
 
