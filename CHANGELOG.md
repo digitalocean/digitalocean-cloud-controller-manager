@@ -1,6 +1,12 @@
 ## unreleased
 
 ## v0.1.39 (beta) - August 17, 2022
+* Updates kubernetes dependencies:
+  - k8s.io/api@v0.24.3
+  - k8s.io/apimachinery@v0.24.3
+  - k8s.io/client-go@v0.24.3 
+  - k8s.io/cloud-provider@v0.24.3
+  - k8s.io/component-base@v0.24.3
 
 ## v0.1.37 (beta) - April 11, 2022
 
