@@ -18,7 +18,7 @@ jobs:
         with:
           ref: master
       - name: Install go
-        uses: actions/setup-go@fcdc43634adb5f7ae75a9d7a9b9361790f7293e2
+        uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f
         with:
           go-version-file: go.mod
       - name: Login to dockerhub to push the image
