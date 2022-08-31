@@ -17,11 +17,14 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 
+	"github.com/digitalocean/godo"
+	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 )
 
@@ -29,12 +32,34 @@ const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
 
 // dropletRegion returns the region of the currently running program.
 func dropletRegion() (string, error) {
-	// FAKE_REGION can be specified for local testing.
-	if region := os.Getenv("FAKE_REGION"); region != "" {
-		klog.Warningf("Using fake region %q from environment variable FAKE_REGION -- this should only be set for testing purposes!", region)
-		return region, nil
+	// REGION can be specified for local testing.
+	region := os.Getenv("REGION")
+	if region == "" {
+		return httpGet(dropletRegionMetadataURL)
 	}
-	return httpGet(dropletRegionMetadataURL)
+
+	if !validRegion(region) {
+		return "", errors.New("invalid region specified")
+	}
+
+	klog.Warningf("Using region %q from environment variable", region)
+	return region, nil
+}
+
+// checks whether the given region is a valid DO region
+func validRegion(region string) bool {
+	regionsService := godo.RegionsServiceOp{}
+	regions, _, err := regionsService.List(context.Background(), &godo.ListOptions{})
+	if err != nil {
+		klog.Errorf("Failed to get a list of regions; %v", err)
+	}
+
+	for _, reg := range regions {
+		if reg.Name == region {
+			return true
+		}
+	}
+	return false
 }
 
 // httpGet is a convienance function to do an http GET on a provided url
