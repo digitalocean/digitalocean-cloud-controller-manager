@@ -62,14 +62,15 @@ package-hosted directory like this:
 
 ```bash
 cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
-FAKE_REGION=fra1 DO_ACCESS_TOKEN=your_access_token go run main.go \
+REGION=fra1 DO_ACCESS_TOKEN=your_access_token go run main.go \
   --kubeconfig <path to your kubeconfig file>                     \
   --leader-elect=false --v=5 --cloud-provider=digitalocean
 ```
 
-The `FAKE_REGION` environment variable takes a (valid) DigitalOcean region. It
-is needed to keep `digitalocean-cloud-controller-manager` from trying to access
-the DigitalOcean metadata service which is only available on droplets. Overall,
+The `REGION` environment variable takes a valid DigitalOcean region.
+It can be set to keep `digitalocean-cloud-controller-manager` from trying to access
+the DigitalOcean metadata service which is only available on droplets.
+It can also be set for local development purposes. Overall,
 which region you choose should not matter a lot as long as you pick one.
 
 You might also need to provide your DigitalOcean access token in
