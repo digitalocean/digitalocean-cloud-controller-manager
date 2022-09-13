@@ -28,17 +28,23 @@ import (
 	"k8s.io/klog/v2"
 )
 
-const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
+const (
+	dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
+	resultsPerPage           = 50
+)
 
 // dropletRegion returns the region of the currently running program.
-func dropletRegion() (string, error) {
-	// REGION can be specified for local testing.
+func dropletRegion(regionsService godo.RegionsService) (string, error) {
 	region := os.Getenv("REGION")
 	if region == "" {
 		return httpGet(dropletRegionMetadataURL)
 	}
 
-	if !validRegion(region) {
+	validRegion, err := isValidRegion(region, regionsService)
+	if err != nil {
+		return "", err
+	}
+	if !validRegion {
 		return "", errors.New("invalid region specified")
 	}
 
@@ -46,23 +52,28 @@ func dropletRegion() (string, error) {
 	return region, nil
 }
 
-// checks whether the given region is a valid DO region
-func validRegion(region string) bool {
-	regionsService := godo.RegionsServiceOp{}
-	regions, _, err := regionsService.List(context.Background(), &godo.ListOptions{})
+// isValidRegion checks whether the given region is a valid DO region
+func isValidRegion(region string, regionsService godo.RegionsService) (bool, error) {
+	listOptions := &godo.ListOptions{
+		Page:    1,
+		PerPage: resultsPerPage,
+	}
+
+	regions, _, err := regionsService.List(context.Background(), listOptions)
 	if err != nil {
-		klog.Errorf("Failed to get a list of regions; %v", err)
+		return false, err
 	}
 
 	for _, reg := range regions {
 		if reg.Name == region {
-			return true
+			return true, nil
 		}
 	}
-	return false
+
+	return false, nil
 }
 
-// httpGet is a convienance function to do an http GET on a provided url
+// httpGet is a convenience function to do an http GET on a provided url
 // and return the string version of the response body.
 // In this package it is used for retrieving droplet metadata
 //

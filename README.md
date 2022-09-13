@@ -70,6 +70,7 @@ REGION=fra1 DO_ACCESS_TOKEN=your_access_token go run main.go \
 The `REGION` environment variable takes a valid DigitalOcean region.
 It can be set to keep `digitalocean-cloud-controller-manager` from trying to access
 the DigitalOcean metadata service which is only available on droplets.
+If the REGION variable is set, then the DO Regions service will be used to validate the specified region.
 It can also be set for local development purposes. Overall,
 which region you choose should not matter a lot as long as you pick one.
 

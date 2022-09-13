@@ -109,9 +109,9 @@ func newCloud() (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("failed to create godo client: %s", err)
 	}
 
-	region, err := dropletRegion()
+	region, err := dropletRegion(doClient.Regions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get region from droplet metadata: %s", err)
+		return nil, fmt.Errorf("failed to determine region; %v", err)
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
