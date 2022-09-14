@@ -46,7 +46,7 @@ func dropletRegion(regionsService godo.RegionsService) (string, error) {
 		return "", fmt.Errorf("failed to determine if region is valid: %s", err)
 	}
 	if !validRegion {
-		return "", errors.New(fmt.Sprintf("invalid region specified: %s", region))
+		return "", fmt.Errorf("invalid region specified: %s", region)
 	}
 
 	klog.Infof("Using region %q from environment variable", region)
@@ -74,7 +74,7 @@ func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	list := make([]godo.Region, 0)
+	var list []godo.Region
 
 	listOptions := &godo.ListOptions{
 		Page:    1,
@@ -84,7 +84,7 @@ func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
 	for {
 		regions, resp, err := regionsService.List(ctx, listOptions)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("regions list request failed: %w", err)
 		}
 
 		if resp == nil {
@@ -100,7 +100,7 @@ func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
 
 		page, err := resp.Links.CurrentPage()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get current page number in pagination: %w", err)
 		}
 
 		listOptions.Page = page + 1
