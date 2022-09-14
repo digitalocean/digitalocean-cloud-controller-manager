@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/digitalocean/godo"
 	"github.com/pkg/errors"
@@ -42,24 +43,19 @@ func dropletRegion(regionsService godo.RegionsService) (string, error) {
 
 	validRegion, err := isValidRegion(region, regionsService)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to determine if region is valid: %s", err)
 	}
 	if !validRegion {
-		return "", errors.New("invalid region specified")
+		return "", errors.New(fmt.Sprintf("invalid region specified: %s", region))
 	}
 
-	klog.Warningf("Using region %q from environment variable", region)
+	klog.Infof("Using region %q from environment variable", region)
 	return region, nil
 }
 
 // isValidRegion checks whether the given region is a valid DO region
 func isValidRegion(region string, regionsService godo.RegionsService) (bool, error) {
-	listOptions := &godo.ListOptions{
-		Page:    1,
-		PerPage: resultsPerPage,
-	}
-
-	regions, _, err := regionsService.List(context.Background(), listOptions)
+	regions, err := listAllRegions(regionsService)
 	if err != nil {
 		return false, err
 	}
@@ -71,6 +67,46 @@ func isValidRegion(region string, regionsService godo.RegionsService) (bool, err
 	}
 
 	return false, nil
+}
+
+func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	list := make([]godo.Region, 0)
+
+	listOptions := &godo.ListOptions{
+		Page:    1,
+		PerPage: resultsPerPage,
+	}
+
+	for {
+		regions, resp, err := regionsService.List(ctx, listOptions)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, errors.New("regions list request returned no response")
+		}
+
+		list = append(list, regions...)
+
+		// if we are at the last page, break out the for loop
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		listOptions.Page = page + 1
+	}
+
+	return list, nil
 }
 
 // httpGet is a convenience function to do an http GET on a provided url

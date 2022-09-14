@@ -111,7 +111,7 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	region, err := dropletRegion(doClient.Regions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to determine region; %v", err)
+		return nil, fmt.Errorf("failed to determine region: %v", err)
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
