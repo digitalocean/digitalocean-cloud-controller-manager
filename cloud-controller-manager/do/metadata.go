@@ -84,7 +84,7 @@ func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
 	for {
 		regions, resp, err := regionsService.List(ctx, listOptions)
 		if err != nil {
-			return nil, fmt.Errorf("regions list request failed: %w", err)
+			return nil, fmt.Errorf("regions list request failed: %s", err.Error())
 		}
 
 		if resp == nil {
@@ -100,7 +100,7 @@ func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
 
 		page, err := resp.Links.CurrentPage()
 		if err != nil {
-			return nil, fmt.Errorf("failed to get current page number in pagination: %w", err)
+			return nil, fmt.Errorf("failed to get current page number in pagination: %s", err)
 		}
 
 		listOptions.Page = page + 1
