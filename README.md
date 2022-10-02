@@ -36,9 +36,9 @@ Other than that, the only safe place to make load-balancer configuration changes
 
 ### DO load-balancer entry port restrictions
 
-For technical reasons, the ports 50053, 50054, and 50055 cannot be used as load-balancer entry ports (i.e., the port that the load-balancer listens on for requests). Trying to use one of the affected ports as a service port causes a _422 entry port is invalid_ HTTP error response to be returned by the DO API (and surfaced as a Kubernetes event).
+For technical reasons, the ports 50053, 50054, and 50055 cannot be used as load-balancer entry ports (i.e., the port that the load-balancer listens on for requests). Trying to use one of the affected ports as a service port can cause a _422 entry port is invalid_ HTTP error response to be returned by the DO API (and surfaced as a Kubernetes event).
 
-The solution is to change the service port to a different, non-conflicting one.
+The solution is to change the service port into a different, non-conflicting one.
 
 ## Development
 
@@ -57,7 +57,7 @@ make ci
 ### Run Locally
 
 If you want to run `digitalocean-cloud-controller-manager` locally against a
-particular cluster, keep your kubeconfig ready and start the binary in the main
+particular cluster, then keep your kubeconfig ready and start the binary in the main
 package-hosted directory like this:
 
 ```bash
