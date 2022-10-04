@@ -61,7 +61,7 @@ func isValidRegion(region string, regionsService godo.RegionsService) (bool, err
 	}
 
 	for _, reg := range regions {
-		if reg.Name == region {
+		if reg.Slug == region {
 			return true, nil
 		}
 	}
