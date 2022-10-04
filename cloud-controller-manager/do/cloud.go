@@ -23,6 +23,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -54,6 +55,7 @@ const (
 	metricsAddrEnv              string = "METRICS_ADDR"
 	publicAccessFirewallNameEnv string = "PUBLIC_ACCESS_FIREWALL_NAME"
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
+	godoRateLimiterQPSEnv       string = "GODO_RATE_LIMITER_QPS"
 )
 
 var version string
@@ -101,6 +103,14 @@ func newCloud() (cloudprovider.Interface, error) {
 
 	tokenSource := &tokenSource{
 		AccessToken: token,
+	}
+
+	if qpsRaw := os.Getenv(godoRateLimiterQPSEnv); qpsRaw != "" {
+		qps, err := strconv.ParseFloat(qpsRaw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse value from environment variable %s: %s", godoRateLimiterQPSEnv, err)
+		}
+		opts = append(opts, godo.SetStaticRateLimit(qps))
 	}
 
 	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
