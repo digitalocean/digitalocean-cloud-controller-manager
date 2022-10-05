@@ -54,6 +54,7 @@ const (
 	metricsAddrEnv              string = "METRICS_ADDR"
 	publicAccessFirewallNameEnv string = "PUBLIC_ACCESS_FIREWALL_NAME"
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
+	regionEnv                   string = "REGION"
 )
 
 var version string

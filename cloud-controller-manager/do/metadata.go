@@ -36,7 +36,7 @@ const (
 
 // dropletRegion returns the region of the currently running program.
 func dropletRegion(regionsService godo.RegionsService) (string, error) {
-	region := os.Getenv("REGION")
+	region := os.Getenv(regionEnv)
 	if region == "" {
 		return httpGet(dropletRegionMetadataURL)
 	}
