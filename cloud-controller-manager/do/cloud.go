@@ -54,6 +54,7 @@ const (
 	metricsAddrEnv              string = "METRICS_ADDR"
 	publicAccessFirewallNameEnv string = "PUBLIC_ACCESS_FIREWALL_NAME"
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
+	regionEnv                   string = "REGION"
 )
 
 var version string
@@ -109,9 +110,9 @@ func newCloud() (cloudprovider.Interface, error) {
 		return nil, fmt.Errorf("failed to create godo client: %s", err)
 	}
 
-	region, err := dropletRegion()
+	region, err := dropletRegion(doClient.Regions)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get region from droplet metadata: %s", err)
+		return nil, fmt.Errorf("failed to determine region: %v", err)
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)

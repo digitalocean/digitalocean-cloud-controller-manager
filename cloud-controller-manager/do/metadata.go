@@ -17,27 +17,99 @@ limitations under the License.
 package do
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/digitalocean/godo"
+	"github.com/pkg/errors"
 	"k8s.io/klog/v2"
 )
 
-const dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
+const (
+	dropletRegionMetadataURL = "http://169.254.169.254/metadata/v1/region"
+	resultsPerPage           = 50
+)
 
 // dropletRegion returns the region of the currently running program.
-func dropletRegion() (string, error) {
-	// FAKE_REGION can be specified for local testing.
-	if region := os.Getenv("FAKE_REGION"); region != "" {
-		klog.Warningf("Using fake region %q from environment variable FAKE_REGION -- this should only be set for testing purposes!", region)
-		return region, nil
+func dropletRegion(regionsService godo.RegionsService) (string, error) {
+	region := os.Getenv(regionEnv)
+	if region == "" {
+		return httpGet(dropletRegionMetadataURL)
 	}
-	return httpGet(dropletRegionMetadataURL)
+
+	validRegion, err := isValidRegion(region, regionsService)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine if region is valid: %s", err)
+	}
+	if !validRegion {
+		return "", fmt.Errorf("invalid region specified: %s", region)
+	}
+
+	klog.Infof("Using region %q from environment variable", region)
+	return region, nil
 }
 
-// httpGet is a convienance function to do an http GET on a provided url
+// isValidRegion checks whether the given region is a valid DO region
+func isValidRegion(region string, regionsService godo.RegionsService) (bool, error) {
+	regions, err := listAllRegions(regionsService)
+	if err != nil {
+		return false, err
+	}
+
+	for _, reg := range regions {
+		if reg.Slug == region {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func listAllRegions(regionsService godo.RegionsService) ([]godo.Region, error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	var list []godo.Region
+
+	listOptions := &godo.ListOptions{
+		Page:    1,
+		PerPage: resultsPerPage,
+	}
+
+	for {
+		regions, resp, err := regionsService.List(ctx, listOptions)
+		if err != nil {
+			return nil, fmt.Errorf("regions list request failed: %s", err.Error())
+		}
+
+		if resp == nil {
+			return nil, errors.New("regions list request returned no response")
+		}
+
+		list = append(list, regions...)
+
+		// if we are at the last page, break out the for loop
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current page number in pagination: %s", err)
+		}
+
+		listOptions.Page = page + 1
+	}
+
+	return list, nil
+}
+
+// httpGet is a convenience function to do an http GET on a provided url
 // and return the string version of the response body.
 // In this package it is used for retrieving droplet metadata
 //
