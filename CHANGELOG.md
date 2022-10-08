@@ -1,5 +1,7 @@
 ## unreleased
 
+* Support specifying region explicitly (@shatoboar)
+
 ## v0.1.39 (beta) - August 17, 2022
 * Updates kubernetes dependencies:
   - k8s.io/api@v0.24.3
