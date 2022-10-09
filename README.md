@@ -80,14 +80,14 @@ the cloud controller to start, but in that case, you will not be able to
 validate integration with DigitalOcean API.
 
 Please note that if you use a Kubernetes cluster created on DigitalOcean, there
-will be a cloud controller manager running in the cluster already, so you local
+will be a cloud controller manager running in the cluster already, so your local
 one will compete for API access with it.
 
 ### Optional features
 
 #### Add Public Access Firewall
 
-You can have `digitalocan-cloud-controller-manager` manage a DigitalOcean Firewall
+You can have `digitalocean-cloud-controller-manager` manage a DigitalOcean Firewall
 that will dynamically adjust rules for accessing NodePorts: once a Service of type
 `NodePort` is created, the firewall controller will update the firewall to public
 allow access to just that NodePort. Likewise, access is automatically retracted
@@ -145,7 +145,7 @@ The `METRICS_ADDR` environment variable takes a valid endpoint that you'd
 like to use to serve your Prometheus metrics. To be valid it should be in the
 form `<host>:<port>`.
 
-After you have started up `digitalocan-cloud-controller-manager`, run the
+After you have started up `digitalocean-cloud-controller-manager`, run the
 following curl command to view the Prometheus metrics output:
 
 ```bash
