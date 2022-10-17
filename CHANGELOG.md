@@ -1,5 +1,6 @@
 ## unreleased
 
+* Update Go to v1.19 (@timoreimann)
 * Support specifying region explicitly (@shatoboar)
 
 ## v0.1.39 (beta) - August 17, 2022
