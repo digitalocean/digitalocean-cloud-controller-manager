@@ -107,6 +107,8 @@ Specifies which algorithm the Load Balancer should use. Options are `round_robin
 
 Specifies which size the Load Balancer should be created with. Options are `lb-small`, `lb-medium`, and `lb-large`. Only one of `do-loadbalancer-size-slug` and `do-loadbalancer-size-unit` can be specified. Defaults to `lb-small`.
 
+DEPRECATED: Use `do-loadbalancer-size-unit` instead.
+
 ## "service.beta.kubernetes.io/do-loadbalancer-size-unit"
 
 Specifies the number of nodes to create the load balancer with. Options are numbers greater than or equal to `1`. Only one of `do-loadbalancer-size-unit` and `do-loadbalancer-size-slug` can be specified. Defaults to `1`.
