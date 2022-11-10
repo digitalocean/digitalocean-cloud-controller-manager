@@ -17,11 +17,11 @@ If no custom name is specified, a default name is chosen consisting of the chara
 
 ## service.beta.kubernetes.io/do-loadbalancer-protocol
 
-The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `http`, `https`, and `http2`. Defaults to `tcp`.
+The default protocol for DigitalOcean Load Balancers. Options are `tcp`, `http`, `https`, `http2`, `http3`. Defaults to `tcp`.
 
 Certain annotations may override the default protocol. See the more specific descriptions below.
 
-If `https` or `http2` is specified, then either `service.beta.kubernetes.io/do-loadbalancer-certificate-id` or `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` must be specified as well.
+If `https`, `http2`, or `http3` is specified, then either `service.beta.kubernetes.io/do-loadbalancer-certificate-id` or `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` must be specified as well.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-port
 
@@ -61,7 +61,7 @@ The number of times a health check must pass for a backend Droplet to be marked 
 
 Specify which ports of the loadbalancer should use the HTTP protocol. This is a comma separated list of ports (e.g. 80,8080).
 
-Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-tls-ports`, and `service.beta.kubernetes.io/do-loadbalancer-http2-ports`.
+Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-tls-ports`, `service.beta.kubernetes.io/do-loadbalancer-http2-ports`, and `service.beta.kubernetes.io/do-loadbalancer-http3-port`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-tls-ports
 
@@ -69,9 +69,9 @@ Specify which ports of the loadbalancer should use the HTTPS protocol. This is a
 
 If specified, exactly one of `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` and `service.beta.kubernetes.io/do-loadbalancer-certificate-id` must also be provided.
 
-If no HTTPS port is specified but one of `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` or `service.beta.kubernetes.io/do-loadbalancer-certificate-id` is, then port 443 is assumed to be used for HTTPS. This does not hold if `service.beta.kubernetes.io/do-loadbalancer-http2-ports` already specifies 443.
+If no HTTPS port is specified but one of `service.beta.kubernetes.io/do-loadbalancer-tls-passthrough` or `service.beta.kubernetes.io/do-loadbalancer-certificate-id` is, then port 443 is assumed to be used for HTTPS. This does not hold if `service.beta.kubernetes.io/do-loadbalancer-http2-ports` or `service.beta.kubernetes.io/do-loadbalancer-http3-port` already specifies 443.
 
-Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-http-ports`, and `service.beta.kubernetes.io/do-loadbalancer-http2-ports`.
+Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-http-ports`, `service.beta.kubernetes.io/do-loadbalancer-http2-ports`, and `service.beta.kubernetes.io/do-loadbalancer-http3-port`.
 
 ## service.beta.kubernetes.io/do-loadbalancer-http2-ports
 
@@ -81,7 +81,15 @@ If specified, exactly one of `service.beta.kubernetes.io/do-loadbalancer-tls-pas
 
 The annotation is required for implicit HTTP2 usage, i.e., when `service.beta.kubernetes.io/do-loadbalancer-protocol` is not set to `http2`. (Unlike `service.beta.kubernetes.io/do-loadbalancer-tls-ports`, no default port is assumed for HTTP2 in order to retain compatibility with the semantics of implicit HTTPS usage.)
 
-Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-http-ports`, and `service.beta.kubernetes.io/do-loadbalancer-tls-ports`.
+Ports must not be shared between this annotation, `service.beta.kubernetes.io/do-loadbalancer-http-ports`, `service.beta.kubernetes.io/do-loadbalancer-http3-port`, and `service.beta.kubernetes.io/do-loadbalancer-tls-ports`.
+
+## service.beta.kubernetes.io/do-loadbalancer-http3-port
+
+Specify which port of the loadbalancer should use the HTTP3 protocol. Unlike other annotations, this is a single value, NOT multiple comma-separated values.
+
+If specified, `service.beta.kubernetes.io/do-loadbalancer-certificate-id` must also be provided. In addition, either `service.beta.kubernetes.io/do-loadbalancer-tls-ports` OR `service.beta.kubernetes.io/do-loadbalancer-http2-ports` must be provided.
+
+The annotation is required for implicit HTTP3 usage, i.e., when `service.beta.kubernetes.io/do-loadbalancer-protocol` is not set to `http3`. (Unlike `service.beta.kubernetes.io/do-loadbalancer-tls-ports`, no default port is assumed for HTTP3 in order to retain compatibility with the semantics of implicit HTTPS usage.)
 
 ## service.beta.kubernetes.io/do-loadbalancer-tls-passthrough
 
