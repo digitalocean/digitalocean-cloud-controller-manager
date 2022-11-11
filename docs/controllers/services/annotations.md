@@ -177,3 +177,7 @@ See also the [elaborate example](/docs/controllers/services/examples/README.md#c
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+## service.beta.kubernetes.io/do-loadbalancer-http-idle-timeout-seconds
+
+Specifies the http idle timeout configuration in seconds. The ranges for this value are between 30 seconds and 10 minutes (600 seconds) The default value if not specified is 60 seconds

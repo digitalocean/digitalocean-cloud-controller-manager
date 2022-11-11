@@ -5615,3 +5615,69 @@ func Test_getDisableLetsEncryptDNSRecords(t *testing.T) {
 		})
 	}
 }
+
+func Test_getHTTPIdleTimeoutSeconds(t *testing.T) {
+
+	expectedIdleTimeout := uint64(120)
+	testcases := []struct {
+		name                string
+		service             *v1.Service
+		wantErr             bool
+		expectedIdleTimeout *uint64
+	}{
+		{
+			name: "annotation set to 120",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHttpIdleTimeoutSeconds: "120",
+					},
+				},
+			},
+			wantErr:             false,
+			expectedIdleTimeout: &expectedIdleTimeout,
+		},
+		{
+			name: "annotation not set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			wantErr:             false,
+			expectedIdleTimeout: nil,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHttpIdleTimeoutSeconds: "abcd",
+					},
+				},
+			},
+			wantErr:             true,
+			expectedIdleTimeout: nil,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			httpIdleTimeout, err := getHttpIdleTimeoutSeconds(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			// check for enable, disable
+			if httpIdleTimeout != nil && test.expectedIdleTimeout != nil && *httpIdleTimeout != *test.expectedIdleTimeout {
+				t.Fatalf("got http idle timeout seconds %v, want %v", httpIdleTimeout, test.expectedIdleTimeout)
+			}
+		})
+	}
+}

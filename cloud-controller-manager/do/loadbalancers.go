@@ -167,6 +167,10 @@ const (
 	// disowned. Defaults to false.
 	annDODisownLB = "service.kubernetes.io/do-loadbalancer-disown"
 
+	// annDOHttpIdleTimeoutSeconds is the annotation for specifying the http idle timeout configuration in seconds
+	// this defaults to 60
+	annDOHttpIdleTimeoutSeconds = "service.beta.kubernetes.io/do-loadbalancer-http-idle-timeout-seconds"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -710,6 +714,11 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		return nil, err
 	}
 
+	httpIdleTimeoutSeconds, err := getHttpIdleTimeoutSeconds(service)
+	if err != nil {
+		return nil, err
+	}
+
 	var tags []string
 	if l.resources.clusterID != "" {
 		tags = []string{buildK8sTag(l.resources.clusterID)}
@@ -731,6 +740,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		EnableBackendKeepalive:       enableBackendKeepalive,
 		VPCUUID:                      l.resources.clusterVPCID,
 		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
+		HTTPIdleTimeoutSeconds:       httpIdleTimeoutSeconds,
 	}, nil
 }
 
@@ -1319,6 +1329,22 @@ func getEnableBackendKeepalive(service *v1.Service) (bool, error) {
 		return false, fmt.Errorf("failed to get backend keepalive configuration setting: %s", err)
 	}
 	return enableBackendKeepalive, nil
+}
+
+func getHttpIdleTimeoutSeconds(service *v1.Service) (*uint64, error) {
+	httpIdleTimeoutSeconds, ok := service.Annotations[annDOHttpIdleTimeoutSeconds]
+
+	if !ok {
+		return nil, nil
+	}
+
+	httpIdleTimeout, err := strconv.ParseUint(httpIdleTimeoutSeconds, 10, 64)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse LB http_idle_timeout_seconds: %s", err)
+	}
+
+	return &httpIdleTimeout, nil
 }
 
 func getLoadBalancerID(service *v1.Service) string {
