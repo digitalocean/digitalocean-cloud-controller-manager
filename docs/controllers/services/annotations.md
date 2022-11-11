@@ -177,3 +177,8 @@ See also the [elaborate example](/docs/controllers/services/examples/README.md#c
 **Note**
 
 You have to supply the value as string (ex. `"true"`, not `true`), otherwise you might run into a [k8s bug that throws away all annotations on your `Service` resource](https://github.com/kubernetes/kubernetes/issues/59113).
+
+
+## service.beta.kubernetes.io/do-loadbalancer-project-id
+
+Indicates which project to associate the Load Balancer with. If not specified, the Load Balancer will be placed in your default project.

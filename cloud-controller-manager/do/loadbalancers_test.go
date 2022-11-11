@@ -557,6 +557,58 @@ func Test_getCertificateID(t *testing.T) {
 	}
 }
 
+func Test_getProjectID(t *testing.T) {
+	testcases := []struct {
+		name      string
+		service   *v1.Service
+		projectID string
+	}{
+		{
+			"project ID set",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOLBProjectID: "test-projectID",
+					},
+				},
+			},
+			"test-projectID",
+		},
+		{
+			"project ID not set",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			"",
+		},
+		{
+			"service annotation nil",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+			},
+			"",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			projectID := getProjectID(test.service)
+			if projectID != test.projectID {
+				t.Errorf("project ID did not match. expected %v, got %v", test.projectID, projectID)
+			}
+		})
+	}
+}
+
 func Test_getPorts(t *testing.T) {
 	tests := []struct {
 		name      string

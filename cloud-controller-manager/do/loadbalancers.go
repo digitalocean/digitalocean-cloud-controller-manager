@@ -167,6 +167,10 @@ const (
 	// disowned. Defaults to false.
 	annDODisownLB = "service.kubernetes.io/do-loadbalancer-disown"
 
+	// annDOLBProjectID is the annotation specifying the project id of the load balancer
+	// defaults to the users default project
+	annDOLBProjectID = "service.beta.kubernetes.io/do-loadbalancer-project-id"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -705,6 +709,8 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		return nil, err
 	}
 
+	projectID := getProjectID(service)
+
 	disableLetsEncryptDNSRecords, err := getDisableLetsEncryptDNSRecords(service)
 	if err != nil {
 		return nil, err
@@ -731,6 +737,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		EnableBackendKeepalive:       enableBackendKeepalive,
 		VPCUUID:                      l.resources.clusterVPCID,
 		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
+		ProjectID:                    projectID,
 	}, nil
 }
 
@@ -1319,6 +1326,10 @@ func getEnableBackendKeepalive(service *v1.Service) (bool, error) {
 		return false, fmt.Errorf("failed to get backend keepalive configuration setting: %s", err)
 	}
 	return enableBackendKeepalive, nil
+}
+
+func getProjectID(service *v1.Service) string {
+	return service.Annotations[annDOLBProjectID]
 }
 
 func getLoadBalancerID(service *v1.Service) string {
