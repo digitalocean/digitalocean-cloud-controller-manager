@@ -13,11 +13,11 @@ require (
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	k8s.io/api v0.25.3
-	k8s.io/apimachinery v0.25.3
-	k8s.io/client-go v0.25.3
+	k8s.io/api v0.25.4
+	k8s.io/apimachinery v0.25.4
+	k8s.io/client-go v0.25.4
 	k8s.io/cloud-provider v0.25.3
-	k8s.io/component-base v0.25.3
+	k8s.io/component-base v0.25.4
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
 )
