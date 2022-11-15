@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.40 (beta) - November 15, 2022
+
 * Support setting DO API rate limit (@timoreimann)
 * Update Go to v1.19 (@timoreimann)
 * Support specifying region explicitly (@shatoboar)
