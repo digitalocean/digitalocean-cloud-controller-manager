@@ -688,6 +688,130 @@ func Test_getHTTP2Ports(t *testing.T) {
 	}
 }
 
+func Test_getHTTP3Ports(t *testing.T) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			UID:  "abc123",
+			Annotations: map[string]string{
+				annDOHTTP3Port: "443",
+			},
+		},
+	}
+
+	gotPort, err := getHTTP3Port(svc)
+	if err != nil {
+		t.Fatalf("got error %q", err)
+	}
+
+	wantPort := 443
+	if !reflect.DeepEqual(gotPort, wantPort) {
+		t.Errorf("got ports %v, want %v", gotPort, wantPort)
+	}
+}
+
+func Test_buildHTTP3ForwardingRule(t *testing.T) {
+	t.Run("with tls passthrough returns error", func(t *testing.T) {
+		got, err := buildHTTP3ForwardingRule(&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "abc123",
+				Annotations: map[string]string{
+					annDOHTTP3Port:      "443",
+					annDOTLSPassThrough: "true",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name:     "test",
+						Protocol: "TCP",
+						Port:     int32(443),
+						NodePort: int32(30000),
+					},
+				},
+			},
+		})
+
+		if err.Error() != "TLS passthrough is not allowed to be used in conjunction with HTTP3" {
+			t.Fatalf("expected error, got: %v", err)
+		}
+
+		if got != nil {
+			t.Fatalf("expected nil forwarding rule, got: %v", got)
+		}
+	})
+
+	t.Run("without cert id returns error", func(t *testing.T) {
+		got, err := buildHTTP3ForwardingRule(&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "abc123",
+				Annotations: map[string]string{
+					annDOHTTP3Port: "443",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name:     "test",
+						Protocol: "TCP",
+						Port:     int32(443),
+						NodePort: int32(30000),
+					},
+				},
+			},
+		})
+
+		if err.Error() != "certificate ID is required for HTTP3" {
+			t.Fatalf("expected error, got: %v", err)
+		}
+
+		if got != nil {
+			t.Fatalf("expected nil forwarding rule, got: %v", got)
+		}
+	})
+
+	t.Run("success", func(t *testing.T) {
+		got, err := buildHTTP3ForwardingRule(&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "abc123",
+				Annotations: map[string]string{
+					annDOHTTP3Port:     "443",
+					annDOCertificateID: "test-cert-id",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name:     "test",
+						Protocol: "TCP",
+						Port:     int32(443),
+						NodePort: int32(30000),
+					},
+				},
+			},
+		})
+
+		if err != nil {
+			t.Fatalf("expected nil err, got: %v", err)
+		}
+
+		expected := &godo.ForwardingRule{
+			EntryProtocol:  "http3",
+			EntryPort:      443,
+			TargetProtocol: "http",
+			TargetPort:     30000,
+			TlsPassthrough: false,
+			CertificateID:  "test-cert-id",
+		}
+		if !reflect.DeepEqual(expected, got) {
+			t.Fatalf("expected: %v, got: %v", expected, got)
+		}
+	})
+}
+
 func Test_getProtocol(t *testing.T) {
 	testcases := []struct {
 		name     string
@@ -1925,6 +2049,92 @@ func Test_buildForwardingRules(t *testing.T) {
 			},
 			nil,
 			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: 8080"),
+		},
+		{
+			"HTTPS and HTTP3 ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOTLSPorts:      "443",
+						annDOHTTP3Port:     "443",
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(18080),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "https",
+					EntryPort:      443,
+					TargetProtocol: "http",
+					TargetPort:     18080,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "http3",
+					EntryPort:      443,
+					TargetProtocol: "http",
+					TargetPort:     18080,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"HTTP2 and HTTP3 ports shared",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTP2Ports:    "443",
+						annDOHTTP3Port:     "443",
+						annDOCertificateID: "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(18080),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "http",
+					TargetPort:     18080,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+				{
+					EntryProtocol:  "http3",
+					EntryPort:      443,
+					TargetProtocol: "http",
+					TargetPort:     18080,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
 		},
 		{
 			"UDP and HTTPS ports shared with an annotation returns error",

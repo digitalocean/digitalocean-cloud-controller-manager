@@ -100,6 +100,11 @@ const (
 	// (e.g., 443,6443,7443).
 	annDOHTTP2Ports = "service.beta.kubernetes.io/do-loadbalancer-http2-ports"
 
+	// annDOHTTP3Port is the annotation used to specify which port of the load balancer
+	// should use the HTTP3 protocol. Unlike the other annotations, this is for a single
+	// port, as the Load Balancer configuration only allows one HTTP3 forwarding rule.
+	annDOHTTP3Port = "service.beta.kubernetes.io/do-loadbalancer-http3-port"
+
 	// annDOTLSPassThrough is the annotation used to specify whether the
 	// DO loadbalancer should pass encrypted data to backend droplets.
 	// This is optional and defaults to false.
@@ -188,6 +193,7 @@ const (
 	protocolHTTP  = "http"
 	protocolHTTPS = "https"
 	protocolHTTP2 = "http2"
+	protocolHTTP3 = "http3"
 
 	// Port protocol values.
 	portProtocolTCP = "TCP"
@@ -770,6 +776,38 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	}, nil
 }
 
+func buildHTTP3ForwardingRule(service *v1.Service) (*godo.ForwardingRule, error) {
+	http3Port, err := getHTTP3Port(service)
+	if err != nil {
+		return nil, err
+	}
+	if http3Port == -1 {
+		return nil, nil
+	}
+
+	certificateID := getCertificateID(service)
+	if getTLSPassThrough(service) {
+		return nil, errors.New("TLS passthrough is not allowed to be used in conjunction with HTTP3")
+	}
+	if certificateID == "" {
+		return nil, errors.New("certificate ID is required for HTTP3")
+	}
+
+	for _, port := range service.Spec.Ports {
+		if port.Port == int32(http3Port) {
+			return &godo.ForwardingRule{
+				EntryProtocol:  protocolHTTP3,
+				EntryPort:      http3Port,
+				CertificateID:  certificateID,
+				TargetProtocol: protocolHTTP,
+				TargetPort:     int(port.NodePort),
+			}, nil
+		}
+	}
+
+	return nil, nil
+}
+
 // buildForwardingRules returns the forwarding rules of the Load Balancer of
 // service.
 func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
@@ -806,6 +844,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		}
 	}
 
+	// NOTE: HTTP3 ports are intentionally not included because a shared port with HTTPS or HTTP2 is required
 	portDups := findDups(httpPorts, httpsPorts, http2Ports, udpPorts)
 	if len(portDups) > 0 {
 		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: %s", strings.Join(portDups, ", "))
@@ -856,6 +895,12 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 			return nil, err
 		}
 		forwardingRules = append(forwardingRules, *forwardingRule)
+	}
+
+	if h3, err := buildHTTP3ForwardingRule(service); err != nil {
+		return nil, fmt.Errorf("failed to construct http3 forwarding rule: %w", err)
+	} else if h3 != nil {
+		forwardingRules = append(forwardingRules, *h3)
 	}
 
 	return forwardingRules, nil
@@ -1094,6 +1139,21 @@ func getHTTPPorts(service *v1.Service) ([]int, error) {
 // HTTP2.
 func getHTTP2Ports(service *v1.Service) ([]int, error) {
 	return getPorts(service, annDOHTTP2Ports)
+}
+
+// getHTTP3Port returns the port for the given service that is set to use HTTP3 as the entry protocol.
+func getHTTP3Port(service *v1.Service) (int, error) {
+	portStr, ok := service.Annotations[annDOHTTP3Port]
+	if !ok {
+		return -1, nil
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return -1, err
+	}
+
+	return port, nil
 }
 
 // getHTTPSPorts returns the ports for the given service that are set to use
