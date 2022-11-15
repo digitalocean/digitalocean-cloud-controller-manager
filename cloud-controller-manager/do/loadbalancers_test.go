@@ -5194,6 +5194,25 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 			},
 			err: nil,
 		},
+		{
+			name: "LB is protected",
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+			},
+			deleteFn: func(context.Context, string) (*godo.Response, error) {
+				return newFakeNotOKResponse(), errors.New("delete should not have been invoked")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtectLB: "true",
+					},
+				},
+			},
+			err: nil,
+		},
 	}
 
 	for _, test := range tests {

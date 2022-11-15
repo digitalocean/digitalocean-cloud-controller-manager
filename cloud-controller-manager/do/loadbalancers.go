@@ -162,6 +162,10 @@ const (
 	// disowned. Defaults to false.
 	annDODisownLB = "service.kubernetes.io/do-loadbalancer-disown"
 
+	// annDOProtect is the annotation specifying that the load-balancer should not be deleted
+	// Defaults to false.
+	annDOProtectLB = "service.kubernetes.io/do-loadbalancer-protect"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -463,10 +467,21 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 //
 // EnsureLoadBalancerDeleted will not modify service.
 func (l *loadBalancers) EnsureLoadBalancerDeleted(ctx context.Context, clusterName string, service *v1.Service) error {
+	lbIsProtected, err := isProtectedLB(service)
+	if err != nil {
+		return err
+	}
+
+	if lbIsProtected {
+		klog.Infof("Short-circuiting EnsureLoadBalancerDeleted because the service %q is protected", service.Name)
+		return nil
+	}
+
 	lbIsDisowned, err := getDisownLB(service)
 	if err != nil {
 		return err
 	}
+
 	if lbIsDisowned {
 		klog.Infof("Short-circuiting EnsureLoadBalancerDeleted because service %q is disowned", service.Name)
 		return nil
@@ -1273,6 +1288,16 @@ func getDisownLB(service *v1.Service) (bool, error) {
 		return false, fmt.Errorf("failed to get disown LB configuration setting: %s", err)
 	}
 	return disownLB, nil
+}
+
+// isProtectedLB returns whether the load-balancer is protected from deletion.
+// False is returned if not specified.
+func isProtectedLB(service *v1.Service) (bool, error) {
+	protectedLB, _, err := getBool(service.Annotations, annDOProtectLB)
+	if err != nil {
+		return false, fmt.Errorf("failed to get protected LB configuration setting: %s", err)
+	}
+	return protectedLB, nil
 }
 
 func findDups(lists ...[]int) []string {
