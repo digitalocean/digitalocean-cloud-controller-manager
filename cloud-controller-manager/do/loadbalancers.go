@@ -1333,13 +1333,11 @@ func getEnableBackendKeepalive(service *v1.Service) (bool, error) {
 
 func getHttpIdleTimeoutSeconds(service *v1.Service) (*uint64, error) {
 	httpIdleTimeoutSeconds, ok := service.Annotations[annDOHttpIdleTimeoutSeconds]
-
 	if !ok {
 		return nil, nil
 	}
 
 	httpIdleTimeout, err := strconv.ParseUint(httpIdleTimeoutSeconds, 10, 64)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse LB http_idle_timeout_seconds: %s", err)
 	}
