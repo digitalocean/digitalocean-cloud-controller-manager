@@ -1339,7 +1339,7 @@ func getHttpIdleTimeoutSeconds(service *v1.Service) (*uint64, error) {
 
 	httpIdleTimeout, err := strconv.ParseUint(httpIdleTimeoutSeconds, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse LB http_idle_timeout_seconds: %s", err)
+		return nil, fmt.Errorf("failed to parse provided LB HTTP idle timeout seconds value '%s': %s", httpIdleTimeoutSeconds, err)
 	}
 
 	return &httpIdleTimeout, nil
