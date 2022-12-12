@@ -57,6 +57,7 @@ const (
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
 	regionEnv                   string = "REGION"
 	doAPIRateLimitQPSEnv        string = "DO_API_RATE_LIMIT_QPS"
+	doIPAddrFamiliesEnv         string = "DO_IP_ADDR_FAMILIES"
 )
 
 var version string
