@@ -118,6 +118,12 @@ func newFakeDroplet() *godo.Droplet {
 					Type:      "public",
 				},
 			},
+			V6: []godo.NetworkV6{
+				{
+					IPAddress: "2a01::10",
+					Type:      "public",
+				},
+			},
 		},
 		Region: &godo.Region{
 			Name: "test-region",
@@ -140,6 +146,12 @@ func newFakeShutdownDroplet() *godo.Droplet {
 				},
 				{
 					IPAddress: "99.99.99.99",
+					Type:      "public",
+				},
+			},
+			V6: []godo.NetworkV6{
+				{
+					IPAddress: "2a01::10",
 					Type:      "public",
 				},
 			},
@@ -186,6 +198,10 @@ func TestNodeAddresses(t *testing.T) {
 			Type:    v1.NodeExternalIP,
 			Address: "99.99.99.99",
 		},
+		{
+			Type:    "public",
+			Address: "2a01::10",
+		},
 	}
 
 	addresses, err := instances.NodeAddresses(context.TODO(), "test-droplet")
@@ -221,6 +237,10 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 		{
 			Type:    v1.NodeExternalIP,
 			Address: "99.99.99.99",
+		},
+		{
+			Type:    "public",
+			Address: "2a01::10",
 		},
 	}
 

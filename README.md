@@ -62,7 +62,7 @@ package-hosted directory like this:
 
 ```bash
 cd cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
-REGION=fra1 DO_ACCESS_TOKEN=your_access_token go run main.go \
+REGION=fra1 DO_ACCESS_TOKEN=your_access_token DO_IP_ADDR_FAMILIES=ipv4 go run main.go \
   --kubeconfig <path to your kubeconfig file>                     \
   --leader-elect=false --v=5 --cloud-provider=digitalocean
 ```
@@ -78,6 +78,11 @@ You might also need to provide your DigitalOcean access token in
 `DO_ACCESS_TOKEN` environment variable. The token does not need to be valid for
 the cloud controller to start, but in that case, you will not be able to
 validate integration with DigitalOcean API.
+
+The `DO_IP_ADDR_FAMILIES` is used to configure the required IP familes and the
+order in which address should be populated in nodes status. The accepted values
+are one of the `{"", "ipv4", "ipv6", "ipv4,ipv6", "ipv6,ipv4"}`.IPv4 is the 
+default, if not set or empty.
 
 Please note that if you use a Kubernetes cluster created on DigitalOcean, there
 will be a cloud controller manager running in the cluster already, so your local
