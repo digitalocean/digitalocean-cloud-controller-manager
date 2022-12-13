@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/digitalocean/godo"
@@ -130,9 +129,21 @@ func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadB
 func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
-	ipFamilies := os.Getenv(doIPAddrFamiliesEnv)
 
-	if strings.Contains(ipFamilies, "ipv4") || ipFamilies == "" {
+	for _, i := range strings.Split(ipFamilies, ",") {
+		addr, err := discoverAddress(droplet, i)
+		if err != nil {
+			return nil, fmt.Errorf("could not get addresses for %s : %v", i, err)
+		}
+		addresses = append(addresses, addr...)
+	}
+
+	return addresses, nil
+}
+
+func discoverAddress(droplet *godo.Droplet, family string) ([]v1.NodeAddress, error) {
+	var addresses []v1.NodeAddress
+	if family == "ipv4" || family == "" {
 		privateIP, err := droplet.PrivateIPv4()
 		if err != nil || privateIP == "" {
 			return nil, fmt.Errorf("could not get private ip: %v", err)
@@ -144,13 +155,15 @@ func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 			return nil, fmt.Errorf("could not get public ip: %v", err)
 		}
 		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIP})
+		return addresses, nil
 	}
-	if strings.Contains(ipFamilies, "ipv6") {
+	if family == "ipv6" {
 		publicIPv6, err := droplet.PublicIPv6()
 		if err != nil || publicIPv6 == "" {
 			return nil, fmt.Errorf("could not get public ipv6: %v", err)
 		}
 		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv6})
+		return addresses, nil
 	}
 
 	return addresses, nil
