@@ -171,6 +171,18 @@ const (
 	// this defaults to 60
 	annDOHttpIdleTimeoutSeconds = "service.beta.kubernetes.io/do-loadbalancer-http-idle-timeout-seconds"
 
+	// annDODenyRules is the annotation used to specify DENY rules for the load-balancer's firewall
+	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
+	// Supports ip and cidr types
+	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
+	annDODenyRules = "service.beta.kubernetes.io/do-loadbalancer-deny-rules"
+
+	// annDOAllowRules is the annotation used to specify ALLOW rules for the load-balancer's firewall
+	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
+	// Supports ip and cidr types
+	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
+	annDOAllowRules = "service.beta.kubernetes.io/do-loadbalancer-allow-rules"
+
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
 	defaultActiveTimeout = 90
@@ -741,6 +753,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		VPCUUID:                      l.resources.clusterVPCID,
 		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
 		HTTPIdleTimeoutSeconds:       httpIdleTimeoutSeconds,
+		Firewall:                     buildFirewall(service),
 	}, nil
 }
 
@@ -939,6 +952,19 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	}
 
 	return &forwardingRule, nil
+}
+
+func buildFirewall(service *v1.Service) *godo.LBFirewall {
+	denyRules := getStrings(service, annDODenyRules)
+	allowRules := getStrings(service, annDOAllowRules)
+	if len(denyRules) == 0 && len(allowRules) == 0 {
+		return nil
+	}
+
+	return &godo.LBFirewall{
+		Deny:  denyRules,
+		Allow: allowRules,
+	}
 }
 
 func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Service, port int32, certificateID string, tlsPassThrough bool) error {
@@ -1192,6 +1218,16 @@ func getPorts(service *v1.Service, anno string) ([]int, error) {
 	}
 
 	return portsInt, nil
+}
+
+// getStrings returns the strings for the given service and annotation.
+func getStrings(service *v1.Service, anno string) []string {
+	vals, ok := service.Annotations[anno]
+	if !ok || len(vals) == 0 {
+		return nil
+	}
+
+	return strings.Split(vals, ",")
 }
 
 // getCertificateID returns the certificate ID of service to use for fowarding
