@@ -181,3 +181,19 @@ You have to supply the value as string (ex. `"true"`, not `true`), otherwise you
 ## service.beta.kubernetes.io/do-loadbalancer-http-idle-timeout-seconds
 
 Specifies the HTTP idle timeout configuration in seconds. If not specified, the default is 60 seconds.
+
+## service.beta.kubernetes.io/do-loadbalancer-deny-rules
+
+Specifies the comma seperated DENY firewall rules for the load-balancer, supports IP and CIDR based rules
+
+**Note**
+
+Rules must be in the format `{type}:{source}` (ex. `ip:1.2.3.4,cidr:2.3.0.0/16`)
+
+## service.beta.kubernetes.io/do-loadbalancer-deny-rules
+
+Specifies the comma seperated ALLOW firewall rules for the load-balancer, supports IP and CIDR based rules
+
+**Note**
+
+Rules must be in the format `{type}:{source}` (ex. `ip:1.2.3.4,cidr:2.3.0.0/16`)
