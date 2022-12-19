@@ -5730,6 +5730,23 @@ func Test_buildFirewall(t *testing.T) {
 				Allow: []string{"ip:1.2.3.4", "ip:1.2.3.5"},
 			},
 		},
+		{
+			name: "handles whitespace in annotations",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODenyRules:  "    cidr:1.2.0.0/16      ",
+						annDOAllowRules: "  ip:1.2.3.4,     ip:1.2.3.5   ",
+					},
+				},
+			},
+			expectedFirewall: &godo.LBFirewall{
+				Deny:  []string{"cidr:1.2.0.0/16"},
+				Allow: []string{"ip:1.2.3.4", "ip:1.2.3.5"},
+			},
+		},
 	}
 
 	for _, test := range testcases {

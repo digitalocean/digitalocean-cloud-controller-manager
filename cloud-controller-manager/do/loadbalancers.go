@@ -173,13 +173,11 @@ const (
 
 	// annDODenyRules is the annotation used to specify DENY rules for the load-balancer's firewall
 	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
-	// Supports ip and cidr types
 	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
 	annDODenyRules = "service.beta.kubernetes.io/do-loadbalancer-deny-rules"
 
 	// annDOAllowRules is the annotation used to specify ALLOW rules for the load-balancer's firewall
 	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
-	// Supports ip and cidr types
 	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
 	annDOAllowRules = "service.beta.kubernetes.io/do-loadbalancer-allow-rules"
 
@@ -1227,7 +1225,11 @@ func getStrings(service *v1.Service, anno string) []string {
 		return nil
 	}
 
-	return strings.Split(vals, ",")
+	pieces := strings.Split(vals, ",")
+	for i := range pieces {
+		pieces[i] = strings.TrimSpace(pieces[i])
+	}
+	return pieces
 }
 
 // getCertificateID returns the certificate ID of service to use for fowarding
