@@ -5681,3 +5681,85 @@ func Test_getHTTPIdleTimeoutSeconds(t *testing.T) {
 		})
 	}
 }
+
+func Test_buildFirewall(t *testing.T) {
+	testcases := []struct {
+		name             string
+		service          *v1.Service
+		expectedFirewall *godo.LBFirewall
+	}{
+		{
+			name: "annotation not set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			expectedFirewall: nil,
+		},
+		{
+			name: "annotations empty",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODenyRules:  "",
+						annDOAllowRules: "",
+					},
+				},
+			},
+			expectedFirewall: nil,
+		},
+		{
+			name: "annotations set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODenyRules:  "cidr:1.2.0.0/16",
+						annDOAllowRules: "ip:1.2.3.4,ip:1.2.3.5",
+					},
+				},
+			},
+			expectedFirewall: &godo.LBFirewall{
+				Deny:  []string{"cidr:1.2.0.0/16"},
+				Allow: []string{"ip:1.2.3.4", "ip:1.2.3.5"},
+			},
+		},
+		{
+			name: "handles whitespace in annotations",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODenyRules:  "    cidr:1.2.0.0/16      ",
+						annDOAllowRules: "  ip:1.2.3.4,     ip:1.2.3.5   ",
+					},
+				},
+			},
+			expectedFirewall: &godo.LBFirewall{
+				Deny:  []string{"cidr:1.2.0.0/16"},
+				Allow: []string{"ip:1.2.3.4", "ip:1.2.3.5"},
+			},
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			firewall := buildFirewall(test.service)
+
+			if test.expectedFirewall == nil && firewall != nil {
+				t.Errorf("expected nil firewall, got %v", firewall)
+			}
+
+			if test.expectedFirewall != nil && (!reflect.DeepEqual(test.expectedFirewall.Allow, firewall.Allow) || !reflect.DeepEqual(test.expectedFirewall.Deny, firewall.Deny)) {
+				t.Fatalf("got firewall %v, want %v", firewall, test.expectedFirewall)
+			}
+		})
+	}
+}
