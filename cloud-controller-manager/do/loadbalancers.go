@@ -36,132 +36,133 @@ import (
 )
 
 const (
-	// annoDOLoadBalancerID is the annotation specifying the load-balancer ID
+	// annDOLoadBalancerID is the annotation specifying the load-balancer ID
 	// used to enable fast retrievals of load-balancers from the API by UUID.
-	annoDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
+	annDOLoadBalancerID = "kubernetes.digitalocean.com/load-balancer-id"
 
-	// annoDOLoadBalancerName is the annotation used to specify a custom name
+	annDOLoadBalancerBase = "service.beta.kubernetes.io/do-loadbalancer-"
+
+	// annDOLoadBalancerName is the annotation used to specify a custom name
 	// for the load balancer.
-	annoDOLoadBalancerName = "service.beta.kubernetes.io/do-loadbalancer-name"
+	annDOLoadBalancerName = annDOLoadBalancerBase + "name"
 
 	// annDOProtocol is the annotation used to specify the default protocol
 	// for DO load balancers. For ports specified in annDOTLSPorts, this protocol
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
-	annDOProtocol = "service.beta.kubernetes.io/do-loadbalancer-protocol"
+	annDOProtocol = annDOLoadBalancerBase + "protocol"
 
 	// annDOHealthCheckPath is the annotation used to specify the health check path
 	// for DO load balancers. Defaults to '/'.
-	annDOHealthCheckPath = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-path"
+	annDOHealthCheckPath = annDOLoadBalancerBase + "healthcheck-path"
 
 	// annDOHealthCheckPort is the annotation used to specify the health check port
 	// for DO load balancers. Defaults to the first Service Port
-	annDOHealthCheckPort = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-port"
+	annDOHealthCheckPort = annDOLoadBalancerBase + "healthcheck-port"
 
 	// annDOHealthCheckProtocol is the annotation used to specify the health check protocol
-	// for DO load balancers. Defaults to the protocol used in
-	// 'service.beta.kubernetes.io/do-loadbalancer-protocol'.
-	annDOHealthCheckProtocol = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol"
+	// for DO load balancers. Defaults to the protocol used in annDOProtocol.
+	annDOHealthCheckProtocol = annDOLoadBalancerBase + "healthcheck-protocol"
 
 	// annDOHealthCheckIntervalSeconds is the annotation used to specify the
 	// number of seconds between between two consecutive health checks. The
 	// value must be between 3 and 300. Defaults to 3.
-	annDOHealthCheckIntervalSeconds = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds"
+	annDOHealthCheckIntervalSeconds = annDOLoadBalancerBase + "healthcheck-check-interval-seconds"
 
 	// annDOHealthCheckResponseTimeoutSeconds is the annotation used to specify the
 	// number of seconds the Load Balancer instance will wait for a response
 	// until marking a health check as failed. The value must be between 3 and
 	// 300. Defaults to 5.
-	annDOHealthCheckResponseTimeoutSeconds = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-response-timeout-seconds"
+	annDOHealthCheckResponseTimeoutSeconds = annDOLoadBalancerBase + "healthcheck-response-timeout-seconds"
 
 	// annDOHealthCheckUnhealthyThreshold is the annotation used to specify the
 	// number of times a health check must fail for a backend Droplet to be
 	// marked "unhealthy" and be removed from the pool for the given service.
 	// The value must be between 2 and 10. Defaults to 3.
-	annDOHealthCheckUnhealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-unhealthy-threshold"
+	annDOHealthCheckUnhealthyThreshold = annDOLoadBalancerBase + "healthcheck-unhealthy-threshold"
 
 	// annDOHealthCheckHealthyThreshold is the annotation used to specify the
 	// number of times a health check must pass for a backend Droplet to be
 	// marked "healthy" for the given service and be re-added to the pool. The
 	// value must be between 2 and 10. Defaults to 5.
-	annDOHealthCheckHealthyThreshold = "service.beta.kubernetes.io/do-loadbalancer-healthcheck-healthy-threshold"
+	annDOHealthCheckHealthyThreshold = annDOLoadBalancerBase + "healthcheck-healthy-threshold"
 
 	// annDOHTTPPorts is the annotation used to specify which ports of the load balancer
 	// should use the HTTP protocol. This is a comma separated list of ports
 	// (e.g., 80,8080).
-	annDOHTTPPorts = "service.beta.kubernetes.io/do-loadbalancer-http-ports"
+	annDOHTTPPorts = annDOLoadBalancerBase + "http-ports"
 
 	// annDOTLSPorts is the annotation used to specify which ports of the load balancer
 	// should use the HTTPS protocol. This is a comma separated list of ports
 	// (e.g., 443,6443,7443).
-	annDOTLSPorts = "service.beta.kubernetes.io/do-loadbalancer-tls-ports"
+	annDOTLSPorts = annDOLoadBalancerBase + "tls-ports"
 
 	// annDOHTTP2Ports is the annotation used to specify which ports of the load balancer
 	// should use the HTTP2 protocol. This is a comma separated list of ports
 	// (e.g., 443,6443,7443).
-	annDOHTTP2Ports = "service.beta.kubernetes.io/do-loadbalancer-http2-ports"
+	annDOHTTP2Ports = annDOLoadBalancerBase + "http2-ports"
 
 	// annDOHTTP3Port is the annotation used to specify which port of the load balancer
 	// should use the HTTP3 protocol. Unlike the other annotations, this is for a single
 	// port, as the Load Balancer configuration only allows one HTTP3 forwarding rule.
-	annDOHTTP3Port = "service.beta.kubernetes.io/do-loadbalancer-http3-port"
+	annDOHTTP3Port = annDOLoadBalancerBase + "http3-port"
 
 	// annDOTLSPassThrough is the annotation used to specify whether the
 	// DO loadbalancer should pass encrypted data to backend droplets.
 	// This is optional and defaults to false.
-	annDOTLSPassThrough = "service.beta.kubernetes.io/do-loadbalancer-tls-passthrough"
+	annDOTLSPassThrough = annDOLoadBalancerBase + "tls-passthrough"
 
 	// annDOCertificateID is the annotation specifying the certificate ID
 	// used for https protocol. This annotation is required if annDOTLSPorts
 	// is passed.
-	annDOCertificateID = "service.beta.kubernetes.io/do-loadbalancer-certificate-id"
+	annDOCertificateID = annDOLoadBalancerBase + "certificate-id"
 
 	// annDOHostname is the annotation specifying the hostname to use for the LB.
-	annDOHostname = "service.beta.kubernetes.io/do-loadbalancer-hostname"
+	annDOHostname = annDOLoadBalancerBase + "hostname"
 
 	// annDOAlgorithm is the annotation specifying which algorithm DO load balancer
 	// should use. Options are round_robin and least_connections. Defaults
 	// to round_robin.
-	annDOAlgorithm = "service.beta.kubernetes.io/do-loadbalancer-algorithm"
+	annDOAlgorithm = annDOLoadBalancerBase + "algorithm"
 
 	// annDOSizeSlug is the annotation specifying the size of the LB.
 	// Options are `lb-small`, `lb-medium`, and `lb-large`.
 	// Defaults to `lb-small`. Only one of annDOSizeSlug and annDOSizeUnit can be specified.
-	annDOSizeSlug = "service.beta.kubernetes.io/do-loadbalancer-size-slug"
+	annDOSizeSlug = annDOLoadBalancerBase + "size-slug"
 
 	// annDOSizeUnit is the annotation specifying the size of the LB.
 	// Options are numbers greater than or equal to `1`. Only one of annDOSizeUnit and annDOSizeSlug can be specified.
-	annDOSizeUnit = "service.beta.kubernetes.io/do-loadbalancer-size-unit"
+	annDOSizeUnit = annDOLoadBalancerBase + "size-unit"
 
 	// annDOStickySessionsType is the annotation specifying which sticky session type
 	// DO loadbalancer should use. Options are none and cookies. Defaults
 	// to none.
-	annDOStickySessionsType = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-type"
+	annDOStickySessionsType = annDOLoadBalancerBase + "sticky-sessions-type"
 
 	// annDOStickySessionsCookieName is the annotation specifying what cookie name to use for
 	// DO loadbalancer sticky session. This annotation is required if
 	// annDOStickySessionType is set to cookies.
-	annDOStickySessionsCookieName = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-name"
+	annDOStickySessionsCookieName = annDOLoadBalancerBase + "sticky-sessions-cookie-name"
 
 	// annDOStickySessionsCookieTTL is the annotation specifying TTL of cookie used for
 	// DO load balancer sticky session. This annotation is required if
 	// annDOStickySessionType is set to cookies.
-	annDOStickySessionsCookieTTL = "service.beta.kubernetes.io/do-loadbalancer-sticky-sessions-cookie-ttl"
+	annDOStickySessionsCookieTTL = annDOLoadBalancerBase + "sticky-sessions-cookie-ttl"
 
 	// annDORedirectHTTPToHTTPS is the annotation specifying whether or not Http traffic
 	// should be redirected to Https. Defaults to false
-	annDORedirectHTTPToHTTPS = "service.beta.kubernetes.io/do-loadbalancer-redirect-http-to-https"
+	annDORedirectHTTPToHTTPS = annDOLoadBalancerBase + "redirect-http-to-https"
 
 	// annDODisableLetsEncryptDNSRecords is the annotation specifying whether automatic DNS record creation should
 	// be disabled when a Let's Encrypt cert is added to a load balancer
-	annDODisableLetsEncryptDNSRecords = "service.beta.kubernetes.io/do-loadbalancer-disable-lets-encrypt-dns-records"
+	annDODisableLetsEncryptDNSRecords = annDOLoadBalancerBase + "disable-lets-encrypt-dns-records"
 
 	// annDOEnableProxyProtocol is the annotation specifying whether PROXY protocol should
 	// be enabled. Defaults to false.
-	annDOEnableProxyProtocol = "service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol"
+	annDOEnableProxyProtocol = annDOLoadBalancerBase + "enable-proxy-protocol"
 
 	// annDOEnableBackendKeepalive is the annotation specifying whether HTTP keepalive connections
 	// should be enabled to backend target droplets. Defaults to false.
-	annDOEnableBackendKeepalive = "service.beta.kubernetes.io/do-loadbalancer-enable-backend-keepalive"
+	annDOEnableBackendKeepalive = annDOLoadBalancerBase + "enable-backend-keepalive"
 
 	// annDODisownLB is the annotation specifying if a load-balancer should be
 	// disowned. Defaults to false.
@@ -169,17 +170,17 @@ const (
 
 	// annDOHttpIdleTimeoutSeconds is the annotation for specifying the http idle timeout configuration in seconds
 	// this defaults to 60
-	annDOHttpIdleTimeoutSeconds = "service.beta.kubernetes.io/do-loadbalancer-http-idle-timeout-seconds"
+	annDOHttpIdleTimeoutSeconds = annDOLoadBalancerBase + "http-idle-timeout-seconds"
 
 	// annDODenyRules is the annotation used to specify DENY rules for the load-balancer's firewall
 	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
 	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
-	annDODenyRules = "service.beta.kubernetes.io/do-loadbalancer-deny-rules"
+	annDODenyRules = annDOLoadBalancerBase + "deny-rules"
 
 	// annDOAllowRules is the annotation used to specify ALLOW rules for the load-balancer's firewall
 	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
 	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
-	annDOAllowRules = "service.beta.kubernetes.io/do-loadbalancer-allow-rules"
+	annDOAllowRules = annDOLoadBalancerBase + "allow-rules"
 
 	// defaultActiveTimeout is the number of seconds to wait for a load balancer to
 	// reach the active state.
@@ -299,7 +300,7 @@ func (l *loadBalancers) GetLoadBalancerName(_ context.Context, clusterName strin
 }
 
 func getLoadBalancerName(service *v1.Service) string {
-	name := service.Annotations[annoDOLoadBalancerName]
+	name := service.Annotations[annDOLoadBalancerName]
 
 	if len(name) > 0 {
 		return name
@@ -354,7 +355,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		}
 		logLBInfo("CREATE", lbRequest, 2)
 
-		updateServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
+		updateServiceAnnotation(service, annDOLoadBalancerID, lb.ID)
 
 	default:
 		// unrecoverable LB retrieval error
@@ -521,7 +522,7 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 		return nil, err
 	}
 
-	updateServiceAnnotation(service, annoDOLoadBalancerID, lb.ID)
+	updateServiceAnnotation(service, annDOLoadBalancerID, lb.ID)
 
 	return lb, nil
 }
@@ -1384,7 +1385,7 @@ func getHttpIdleTimeoutSeconds(service *v1.Service) (*uint64, error) {
 }
 
 func getLoadBalancerID(service *v1.Service) string {
-	return service.ObjectMeta.Annotations[annoDOLoadBalancerID]
+	return service.ObjectMeta.Annotations[annDOLoadBalancerID]
 }
 
 // getDisownLB returns whether the load-balancer should be disowned.
