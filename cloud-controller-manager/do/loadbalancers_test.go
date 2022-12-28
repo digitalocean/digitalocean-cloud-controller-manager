@@ -2062,7 +2062,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: 8080"),
+			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 8080"),
 		},
 		{
 			"HTTPS and HTTP3 ports shared",
@@ -2149,65 +2149,6 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-		},
-		{
-			"UDP and HTTPS ports shared with an annotation returns error",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOTLSPorts:       "8888",
-						annDOTLSPassThrough: "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test-http",
-							Protocol: "TCP",
-							Port:     int32(8888),
-							NodePort: int32(10443),
-						},
-						{
-							Name:     "test-udp",
-							Protocol: "UDP",
-							Port:     int32(8888),
-							NodePort: int32(18443),
-						},
-					},
-				},
-			},
-			nil,
-			errors.New(`ports from annotations "service.beta.kubernetes.io/do-loadbalancer-*-ports" and protocol UDP cannot be shared but found: 8888`),
-		},
-		{
-			"UDP and TCP ports shared returns error",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					UID:         "abc123",
-					Annotations: map[string]string{},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test-http",
-							Protocol: "TCP",
-							Port:     int32(8888),
-							NodePort: int32(10443),
-						},
-						{
-							Name:     "test-udp",
-							Protocol: "UDP",
-							Port:     int32(8888),
-							NodePort: int32(18443),
-						},
-					},
-				},
-			},
-			nil,
-			errors.New(`cannot share port: 8888 between TCP and UDP`),
 		},
 	}
 

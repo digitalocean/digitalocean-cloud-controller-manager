@@ -160,6 +160,14 @@ spec:
           protocol: TCP
 ```
 
+## UDP Support
+
+If your load balancer has UDP service ports you must configure a TCP service as a health check for the load balancer to work properly.
+
+There is currently a [bug in Kubernetes](https://github.com/kubernetes/kubernetes/issues/39188) that prevents using the same port number across TCP and UDP. However, it only exhibits when updating an _existing_ service; to work around this, simply delete and recreate the service with the additional port(s).
+
+NOTE: This will cause the associated Load Balancer to be deleted and re-created as well, so the IP address of the Load Balancer may change. You can follow the steps below to work around that.
+
 ## Changing ownership of a load-balancer (for migration purposes)
 
 In general, multiple services (within the same cluster or across multiple clusters) should not be referencing the same [load-balancer ID](/docs/getting-started.md#load-balancer-id-annotations) to avoid conflicting reconciliation. However, at times this may be desired in order to pass ownership of a load-balancer from one Service to another. A common use case is to migrate a load-balancer from one cluster to a new one in order to preserve its IP address.

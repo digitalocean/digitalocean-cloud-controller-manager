@@ -855,21 +855,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, err
 	}
 
-	var udpPorts []int
-	tcpPortMap := map[int32]bool{}
-	for _, port := range service.Spec.Ports {
-		switch port.Protocol {
-		case v1.ProtocolTCP:
-			tcpPortMap[port.Port] = true
-		case v1.ProtocolUDP:
-			udpPorts = append(udpPorts, int(port.Port))
-		}
-	}
-
 	// NOTE: HTTP3 ports are intentionally not included because a shared port with HTTPS or HTTP2 is required
-	portDups := findDups(httpPorts, httpsPorts, http2Ports, udpPorts)
+	portDups := findDups(httpPorts, httpsPorts, http2Ports)
 	if len(portDups) > 0 {
-		return nil, fmt.Errorf("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: %s", strings.Join(portDups, ", "))
+		return nil, fmt.Errorf("ports from annotations \"%s*-ports\" cannot be shared but found: %s", annDOLoadBalancerBase, strings.Join(portDups, ", "))
 	}
 
 	certificateID := getCertificateID(service)
@@ -906,9 +895,6 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		}
 
 		if port.Protocol == v1.ProtocolUDP {
-			if tcpPortMap[port.Port] {
-				return nil, fmt.Errorf("cannot share port: %d between TCP and UDP", port.Port)
-			}
 			protocol = protocolUDP
 		}
 
