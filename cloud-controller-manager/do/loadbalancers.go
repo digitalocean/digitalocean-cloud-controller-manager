@@ -1022,7 +1022,7 @@ func getProtocol(service *v1.Service) (string, error) {
 	}
 
 	switch protocol {
-	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2:
+	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2, protocolHTTP3:
 	default:
 		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOProtocol)
 	}

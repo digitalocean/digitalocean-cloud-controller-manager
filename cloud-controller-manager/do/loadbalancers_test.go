@@ -873,6 +873,20 @@ func Test_getProtocol(t *testing.T) {
 			nil,
 		},
 		{
+			"http3 protocol specified",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol: "http3",
+					},
+				},
+			},
+			"http3",
+			nil,
+		},
+		{
 			"invalid protocol",
 			&v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
