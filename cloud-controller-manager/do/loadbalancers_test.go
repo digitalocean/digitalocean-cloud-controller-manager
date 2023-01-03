@@ -2062,7 +2062,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" and protocol UDP cannot be shared but found: 8080"),
+			errors.New("ports from annotations \"service.beta.kubernetes.io/do-loadbalancer-*-ports\" cannot be shared but found: 8080"),
 		},
 		{
 			"HTTPS and HTTP3 ports shared",
@@ -2149,65 +2149,6 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-		},
-		{
-			"UDP and HTTPS ports shared with an annotation returns error",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOTLSPorts:       "8888",
-						annDOTLSPassThrough: "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test-http",
-							Protocol: "TCP",
-							Port:     int32(8888),
-							NodePort: int32(10443),
-						},
-						{
-							Name:     "test-udp",
-							Protocol: "UDP",
-							Port:     int32(8888),
-							NodePort: int32(18443),
-						},
-					},
-				},
-			},
-			nil,
-			errors.New(`ports from annotations "service.beta.kubernetes.io/do-loadbalancer-*-ports" and protocol UDP cannot be shared but found: 8888`),
-		},
-		{
-			"UDP and TCP ports shared returns error",
-			&v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test",
-					UID:         "abc123",
-					Annotations: map[string]string{},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test-http",
-							Protocol: "TCP",
-							Port:     int32(8888),
-							NodePort: int32(10443),
-						},
-						{
-							Name:     "test-udp",
-							Protocol: "UDP",
-							Port:     int32(8888),
-							NodePort: int32(18443),
-						},
-					},
-				},
-			},
-			nil,
-			errors.New(`cannot share port: 8888 between TCP and UDP`),
 		},
 	}
 
@@ -4655,8 +4596,8 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Namespace: v1.NamespaceDefault,
 					UID:       "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:          "http",
-						annoDOLoadBalancerName: "my-load-balancer-123",
+						annDOProtocol:         "http",
+						annDOLoadBalancerName: "my-load-balancer-123",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4698,7 +4639,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Namespace: v1.NamespaceDefault,
 					UID:       "foobar123",
 					Annotations: map[string]string{
-						annoDOLoadBalancerName: "my-load-balancer-123",
+						annDOLoadBalancerName: "my-load-balancer-123",
 					},
 				},
 			},
@@ -4731,8 +4672,8 @@ func Test_GetLoadBalancer(t *testing.T) {
 					Namespace: v1.NamespaceDefault,
 					UID:       "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "load-balancer-id",
+						annDOProtocol:       "http",
+						annDOLoadBalancerID: "load-balancer-id",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4832,7 +4773,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 					t.Fatalf("failed to get service from kube client: %s", err)
 				}
 
-				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+				gotLoadBalancerID := svc.Annotations[annDOLoadBalancerID]
 				wantLoadBalancerID := "load-balancer-id"
 				if gotLoadBalancerID != wantLoadBalancerID {
 					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
@@ -4962,8 +4903,8 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "load-balancer-id",
+						annDOProtocol:       "http",
+						annDOLoadBalancerID: "load-balancer-id",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -5111,8 +5052,8 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annoDOLoadBalancerID: "load-balancer-id",
+						annDOProtocol:       "http",
+						annDOLoadBalancerID: "load-balancer-id",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -5301,7 +5242,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					t.Fatalf("failed to get service from kube client: %s", err)
 				}
 
-				gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+				gotLoadBalancerID := svc.Annotations[annDOLoadBalancerID]
 				wantLoadBalancerID := "load-balancer-id"
 				if test.newLoadBalancerID != nil {
 					wantLoadBalancerID = *test.newLoadBalancerID
@@ -5470,7 +5411,7 @@ func TestGetLoadBalancerName(t *testing.T) {
 					Name:      "test",
 					Namespace: v1.NamespaceDefault,
 					Annotations: map[string]string{
-						annoDOLoadBalancerName: "my-load-balancer-name-123",
+						annDOLoadBalancerName: "my-load-balancer-name-123",
 					},
 				},
 			},
@@ -5543,7 +5484,7 @@ func TestEnsureLoadBalancerIDAnnotation(t *testing.T) {
 				t.Fatalf("failed to get service from kube client: %s", err)
 			}
 
-			gotLoadBalancerID := svc.Annotations[annoDOLoadBalancerID]
+			gotLoadBalancerID := svc.Annotations[annDOLoadBalancerID]
 			wantLoadBalancerID := lb.ID
 			if gotLoadBalancerID != wantLoadBalancerID {
 				t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)

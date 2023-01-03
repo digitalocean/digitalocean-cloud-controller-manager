@@ -86,8 +86,8 @@ func createService(lbID string) *v1.Service {
 			Name: "test",
 			UID:  "foobar123",
 			Annotations: map[string]string{
-				annDOProtocol:        "http",
-				annoDOLoadBalancerID: lbID,
+				annDOProtocol:       "http",
+				annDOLoadBalancerID: lbID,
 			},
 		},
 		Spec: v1.ServiceSpec{

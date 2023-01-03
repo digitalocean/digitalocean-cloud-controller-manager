@@ -111,6 +111,8 @@ Specifies the hostname used for the Service `status.Hostname` instead of assigni
 
 Specifies which algorithm the Load Balancer should use. Options are `round_robin`, `least_connections`. Defaults to `round_robin`.
 
+DEPRECATED: Specifying this annotation does nothing, as the algorithm field on the API is ignored.
+
 ## service.beta.kubernetes.io/do-loadbalancer-size-slug
 
 Specifies which size the Load Balancer should be created with. Options are `lb-small`, `lb-medium`, and `lb-large`. Only one of `do-loadbalancer-size-slug` and `do-loadbalancer-size-unit` can be specified. Defaults to `lb-small`.

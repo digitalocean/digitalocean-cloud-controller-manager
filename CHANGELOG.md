@@ -1,5 +1,10 @@
 ## unreleased
 
+* Add annotation for customizing Load Balancer HTTP Idle Timeout (@StephenVarela)
+* Add annotations for Load Balancers Firewalls (@jrolheiser)
+* Relax validation for Load Balancers UDP ports (@anitgandhi)
+* Deprecate annotation for customizing Load Balancer algorithm (@anitgandhi)
+
 ## v0.1.40 (beta) - November 15, 2022
 
 * Support setting DO API rate limit (@timoreimann)

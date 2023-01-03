@@ -42,22 +42,6 @@ ID                                      IP                Name                  
 5ceb1d26-e4cf-403b-8677-0e5232eec711    159.203.48.217    aeafab819796311e7af69267d6e0a2ca    active    2017-08-04T22:26:12Z    round_robin          tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:31018,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:31018,certificate_id:,tls_passthrough:false
 ```
 
-## HTTP Load Balancer using least connections algorithm
-
-Similar to the previous example, you can change the load balancer algorithm to use least connections instead of round robin by setting the annotation `service.beta.kubernetes.io/do-loadbalancer-algorithm`
-
-```bash
-$ kubectl apply -f http-with-least-connections-nginx.yml
-service "http-with-least-connections" created
-deployment "nginx-example" configured
-```
-
-```bash
-doctl compute load-balancer list
-ID                                      IP    Name                                Status    Created At              Algorithm            Region    Tag    Droplet IDs                   SSL      Sticky Sessions                                Health Check                                                                                                                     Forwarding Rules
-51eec4c9-daa3-4b2b-a96a-2a3f2e18183b          a4a2888aa796411e7af69267d6e0a2ca    new       2017-08-04T22:28:51Z    least_connections    tor1             55581290,55581291,55581292    false    type:none,cookie_name:,cookie_ttl_seconds:0    protocol:http,port:31320,path:/,check_interval_seconds:3,response_timeout_seconds:5,healthy_threshold:5,unhealthy_threshold:3    entry_protocol:http,entry_port:80,target_protocol:http,target_port:31320,certificate_id:,tls_passthrough:false
-```
-
 ## HTTPS Load Balancer using a provided certificate
 
 For the sake of example, assume you have a valid key/cert pair for your HTTPS certificate at `key.pem` and `cert.pem`.
@@ -159,6 +143,14 @@ spec:
         - containerPort: 80
           protocol: TCP
 ```
+
+## UDP Support
+
+If your load balancer has UDP service ports you must configure a TCP service as a health check for the load balancer to work properly.
+
+There is currently a [bug in Kubernetes](https://github.com/kubernetes/kubernetes/issues/39188) that prevents using the same port number across TCP and UDP. However, it only exhibits when updating an _existing_ service; to work around this, simply delete and recreate the service with the additional port(s).
+
+NOTE: This will cause the associated Load Balancer to be deleted and re-created as well, so the IP address of the Load Balancer may change. You can follow the steps below to work around that.
 
 ## Changing ownership of a load-balancer (for migration purposes)
 

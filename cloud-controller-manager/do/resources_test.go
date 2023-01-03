@@ -83,10 +83,10 @@ func (sb *serviceBuilder) build() *v1.Service {
 		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 	}
 	if sb.loadBalancerID != "" {
-		sb.setAnnotation(svc, annoDOLoadBalancerID, sb.loadBalancerID)
+		sb.setAnnotation(svc, annDOLoadBalancerID, sb.loadBalancerID)
 	}
 	if sb.loadBalancerName != "" {
-		sb.setAnnotation(svc, annoDOLoadBalancerName, sb.loadBalancerName)
+		sb.setAnnotation(svc, annDOLoadBalancerName, sb.loadBalancerName)
 	}
 
 	return svc
