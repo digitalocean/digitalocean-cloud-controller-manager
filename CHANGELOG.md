@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.41 (beta) - January  3, 2023
+
 * Add annotation for customizing Load Balancer HTTP Idle Timeout (@StephenVarela)
 * Add annotations for Load Balancers Firewalls (@jrolheiser)
 * Relax validation for Load Balancers UDP ports (@anitgandhi)
