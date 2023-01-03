@@ -122,6 +122,8 @@ const (
 	// annDOAlgorithm is the annotation specifying which algorithm DO load balancer
 	// should use. Options are round_robin and least_connections. Defaults
 	// to round_robin.
+	// DEPRECATED: Specifying this annotation does nothing, as the algorithm field
+	// on the API is ignored.
 	annDOAlgorithm = annDOLoadBalancerBase + "algorithm"
 
 	// annDOSizeSlug is the annotation specifying the size of the LB.
