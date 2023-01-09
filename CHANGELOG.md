@@ -1,5 +1,13 @@
 ## unreleased
 
+## v0.1.42 (beta) - January  9, 2023
+* Updates kubernetes dependencies: (@olove)
+  - k8s.io/api@v0.26.0
+  - k8s.io/apimachinery@v0.26.0
+  - k8s.io/client-go@v0.26.0
+  - k8s.io/cloud-provider@v0.26.0
+  - k8s.io/component-base@v0.26.0
+
 ## v0.1.41 (beta) - January  3, 2023
 
 * Add annotation for customizing Load Balancer HTTP Idle Timeout (@StephenVarela)
