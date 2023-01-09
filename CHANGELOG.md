@@ -1,7 +1,7 @@
 ## unreleased
 
 ## v0.1.42 (beta) - January  9, 2023
-* Updates kubernetes dependencies:
+* Updates kubernetes dependencies: (@olove)
   - k8s.io/api@v0.26.0
   - k8s.io/apimachinery@v0.26.0
   - k8s.io/client-go@v0.26.0
