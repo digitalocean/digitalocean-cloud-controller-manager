@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.42 (beta) - January 10, 2023
+
 ## v0.1.42 (beta) - January  9, 2023
 * Updates kubernetes dependencies: (@olove)
   - k8s.io/api@v0.26.0
