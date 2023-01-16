@@ -199,11 +199,11 @@ func TestNodeAddresses(t *testing.T) {
 			Address: "99.99.99.99",
 		},
 		{
-			Type:    "public",
+			Type:    v1.NodeExternalIP,
 			Address: "2a01::10",
 		},
 	}
-
+	ipFamilies = []IPFamily{ipv4Family, ipv6Family}
 	addresses, err := instances.NodeAddresses(context.TODO(), "test-droplet")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {
@@ -238,12 +238,8 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 			Type:    v1.NodeExternalIP,
 			Address: "99.99.99.99",
 		},
-		{
-			Type:    "public",
-			Address: "2a01::10",
-		},
 	}
-
+	ipFamilies = []IPFamily{ipv4Family}
 	addresses, err := instances.NodeAddressesByProviderID(context.TODO(), "digitalocean://123")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {

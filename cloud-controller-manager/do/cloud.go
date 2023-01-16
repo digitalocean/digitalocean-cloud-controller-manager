@@ -62,9 +62,6 @@ const (
 
 var version string
 
-var ipFamilyOpts = []string{"", "ipv4", "ipv6", "ipv4,ipv6", "ipv6,ipv4"}
-var ipFamilies string
-
 type tokenSource struct {
 	AccessToken string
 }
@@ -162,10 +159,8 @@ func newCloud() (cloudprovider.Interface, error) {
 		addr = fmt.Sprintf("%s:%s", addrHost, addrPort)
 	}
 
-	// var ipFamilies string
 	ipf, set := os.LookupEnv(doIPAddrFamiliesEnv)
-	ipFamilies = ipf
-	if set && !containsString(ipFamilyOpts, ipFamilies) {
+	if set && !validateAndSetIPFamilies(ipf) {
 		return nil, fmt.Errorf("invalid value set for environment variable %q", doIPAddrFamiliesEnv)
 	}
 
@@ -292,11 +287,14 @@ func (c *cloud) HasClusterID() bool {
 	return false
 }
 
-func containsString(vals []string, val string) bool {
-	for _, v := range vals {
-		if v == val {
-			return true
+func validateAndSetIPFamilies(ipf string) bool {
+	for _, v := range strings.Split(ipf, ",") {
+		ipf := strings.TrimSpace(v)
+		if ipf == ipv4Family || ipf == ipv6Family {
+			ipFamilies = append(ipFamilies, IPFamily(ipf))
+		} else {
+			return false
 		}
 	}
-	return false
+	return true
 }
