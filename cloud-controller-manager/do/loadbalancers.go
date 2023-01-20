@@ -168,6 +168,28 @@ func getLoadBalancerLegacyName(service *v1.Service) string {
 	return cloudprovider.DefaultLoadBalancerName(service)
 }
 
+func (l *loadBalancers) setCertificateIDFromName(ctx context.Context, service *v1.Service) error {
+	certificateName := service.Annotations[annDOCertificateName]
+
+	if getCertificateID(service) != "" || certificateName == "" {
+		return nil
+	}
+
+	klog.V(2).Infof("looking up certificate ID from name %s", certificateName)
+
+	cert, err := findCertificateByName(ctx, l.resources.gclient, certificateName)
+	if err != nil {
+		return err
+	}
+	if cert == nil {
+		return fmt.Errorf("certificate %q not found", certificateName)
+	}
+
+	updateServiceAnnotation(service, annDOCertificateID, cert.ID)
+
+	return nil
+}
+
 // EnsureLoadBalancer ensures that the cluster is running a load balancer for
 // service.
 //
@@ -184,6 +206,11 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	patcher := newServicePatcher(l.resources.kclient, service)
 	defer func() { err = patcher.Patch(ctx, err) }()
+
+	err = l.setCertificateIDFromName(ctx, service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set certificate ID from name: %s", err)
+	}
 
 	var lbRequest *godo.LoadBalancerRequest
 	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
@@ -275,10 +302,15 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 }
 
 func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+	err := l.setCertificateIDFromName(ctx, service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set certificate ID from name: %s", err)
+	}
+
 	// call buildLoadBalancerRequest for its error checking; we have to call it
 	// again just before actually updating the loadbalancer in case
 	// checkAndUpdateLBAndServiceCerts modifies the service
-	_, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	_, err = l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
 	}

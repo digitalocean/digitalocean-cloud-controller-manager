@@ -93,9 +93,16 @@ const (
 	annDOTLSPassThrough = annDOLoadBalancerBase + "tls-passthrough"
 
 	// annDOCertificateID is the annotation specifying the certificate ID
-	// used for https protocol. This annotation is required if annDOTLSPorts
-	// is passed.
+	// used for https protocol. This annotation (or annDOCertificateName) is required
+	// if annDOTLSPorts is passed.
 	annDOCertificateID = annDOLoadBalancerBase + "certificate-id"
+
+	// annDOCertificateName is the annotation specifying the name of the certificate
+	// used for https protocol. The name is used to initially derive the certificate
+	// ID at time of loadbalancer creation. From then on, the ID is used and possibly
+	// updated when the certificate is renewed. This annotation (or annDOCertificateID)
+	// is required if annDOTLSPorts is passed.
+	annDOCertificateName = annDOLoadBalancerBase + "certificate-name"
 
 	// annDOHostname is the annotation specifying the hostname to use for the LB.
 	annDOHostname = annDOLoadBalancerBase + "hostname"

@@ -143,3 +143,35 @@ func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 
 	return addresses, nil
 }
+
+func allCertificatesList(ctx context.Context, client *godo.Client) ([]godo.Certificate, error) {
+	list := []godo.Certificate{}
+
+	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
+	for {
+		certs, resp, err := client.Certificates.List(ctx, opt)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp == nil {
+			return nil, errors.New("certificates list request returned no response")
+		}
+
+		list = append(list, certs...)
+
+		// if we are at the last page, break out the for loop
+		if resp.Links == nil || resp.Links.IsLastPage() {
+			break
+		}
+
+		page, err := resp.Links.CurrentPage()
+		if err != nil {
+			return nil, err
+		}
+
+		opt.Page = page + 1
+	}
+
+	return list, nil
+}

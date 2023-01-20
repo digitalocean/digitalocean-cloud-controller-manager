@@ -16,8 +16,29 @@ limitations under the License.
 
 package do
 
+import (
+	"context"
+
+	"github.com/digitalocean/godo"
+)
+
 const (
 	// DO Certificate types
 	certTypeLetsEncrypt = "lets_encrypt"
 	certTypeCustom      = "custom"
 )
+
+func findCertificateByName(ctx context.Context, client *godo.Client, name string) (*godo.Certificate, error) {
+	certs, err := allCertificatesList(ctx, client)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cert := range certs {
+		if cert.Name == string(name) {
+			return &cert, nil
+		}
+	}
+
+	return nil, nil
+}
