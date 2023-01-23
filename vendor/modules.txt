@@ -84,7 +84,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/google/cel-go v0.12.5
+# github.com/google/cel-go v0.12.6
 ## explicit; go 1.17
 github.com/google/cel-go/cel
 github.com/google/cel-go/checker
@@ -610,7 +610,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/apiserver v0.26.0
+# k8s.io/apiserver v0.26.1
 ## explicit; go 1.19
 k8s.io/apiserver/pkg/admission
 k8s.io/apiserver/pkg/admission/cel
@@ -1057,7 +1057,7 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
-# k8s.io/cloud-provider v0.26.0
+# k8s.io/cloud-provider v0.26.1
 ## explicit; go 1.19
 k8s.io/cloud-provider
 k8s.io/cloud-provider/api
@@ -1105,10 +1105,10 @@ k8s.io/component-base/tracing
 k8s.io/component-base/tracing/api/v1
 k8s.io/component-base/version
 k8s.io/component-base/version/verflag
-# k8s.io/component-helpers v0.26.0
+# k8s.io/component-helpers v0.26.1
 ## explicit; go 1.19
 k8s.io/component-helpers/node/util
-# k8s.io/controller-manager v0.26.0
+# k8s.io/controller-manager v0.26.1
 ## explicit; go 1.19
 k8s.io/controller-manager/app
 k8s.io/controller-manager/config
@@ -1133,7 +1133,7 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kms v0.26.0
+# k8s.io/kms v0.26.1
 ## explicit; go 1.19
 k8s.io/kms/apis/v1beta1
 k8s.io/kms/apis/v2alpha1
@@ -1170,9 +1170,11 @@ k8s.io/utils/path
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.33
+# sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.0.35
 ## explicit; go 1.17
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client
+sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/client/metrics
+sigs.k8s.io/apiserver-network-proxy/konnectivity-client/pkg/common/metrics
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client/proto/client
 # sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2
 ## explicit; go 1.18
