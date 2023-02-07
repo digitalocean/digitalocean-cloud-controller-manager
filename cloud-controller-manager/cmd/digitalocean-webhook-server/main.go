@@ -14,8 +14,7 @@ var (
 	scheme = runtime.NewScheme()
 )
 
-
-func main () {
+func main() {
 	if err := startWebhookServer(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start webhook server: %v\n", err)
 		os.Exit(1)
