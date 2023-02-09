@@ -69,7 +69,7 @@ compile:
 	@docker run -v $(PWD):/go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GOFLAGS=-mod=vendor golang:$(GO_VERSION) \
-	  go build -ldflags "$(LDFLAGS)" ${PKG}
+	  go build -buildvcs=false -ldflags "$(LDFLAGS)" ${PKG}
 	@echo "==> built the project"
 
 .PHONY: build
