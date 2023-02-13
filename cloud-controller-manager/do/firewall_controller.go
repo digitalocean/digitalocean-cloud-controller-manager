@@ -283,35 +283,40 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 			continue
 		}
 
-		if svc.Spec.Type == v1.ServiceTypeNodePort {
-			// this is a nodeport service so we should check for existing inbound rules on all ports.
-			for _, servicePort := range svc.Spec.Ports {
-				// In the odd case that a failure is asynchronous causing the NodePort to be set to zero.
-				if servicePort.NodePort == 0 {
-					klog.Warning("NodePort on the service is set to zero")
-					continue
-				}
-				var protocol string
-				switch servicePort.Protocol {
-				case v1.ProtocolTCP:
-					protocol = "tcp"
-				case v1.ProtocolUDP:
-					protocol = "udp"
-				default:
-					klog.Warningf("unsupported service protocol %v, skipping service port %v", servicePort.Protocol, servicePort.Name)
-					continue
-				}
+		if !(svc.Spec.Type == v1.ServiceTypeNodePort || svc.Spec.Type == v1.ServiceTypeLoadBalancer) {
+			continue
+		}
 
-				nodePortInboundRules = append(nodePortInboundRules,
-					godo.InboundRule{
-						Protocol:  protocol,
-						PortRange: strconv.Itoa(int(servicePort.NodePort)),
-						Sources: &godo.Sources{
-							Addresses: []string{"0.0.0.0/0", "::/0"},
-						},
-					},
-				)
+		sources, found := getSources(svc)
+		if !found {
+			continue
+		}
+
+		// this is a nodeport service so we should check for existing inbound rules on all ports.
+		for _, servicePort := range svc.Spec.Ports {
+			// In the odd case that a failure is asynchronous causing the NodePort to be set to zero.
+			if servicePort.NodePort == 0 {
+				klog.Warning("NodePort on the service is set to zero")
+				continue
 			}
+			var protocol string
+			switch servicePort.Protocol {
+			case v1.ProtocolTCP:
+				protocol = "tcp"
+			case v1.ProtocolUDP:
+				protocol = "udp"
+			default:
+				klog.Warningf("unsupported service protocol %v, skipping service port %v", servicePort.Protocol, servicePort.Name)
+				continue
+			}
+
+			nodePortInboundRules = append(nodePortInboundRules,
+				godo.InboundRule{
+					Protocol:  protocol,
+					PortRange: strconv.Itoa(int(servicePort.NodePort)),
+					Sources:   &sources,
+				},
+			)
 		}
 	}
 	return &godo.FirewallRequest{
@@ -332,6 +337,32 @@ func isManaged(service *v1.Service) (bool, error) {
 	}
 
 	return !found || val, nil
+}
+
+// getSources returns the sources to allow traffic from. For NodePort services, this
+// allows traffic from anywhere. For LoadBalancer services, this allows services from
+// the managed load balancer.
+func getSources(service *v1.Service) (godo.Sources, bool) {
+	var sources godo.Sources
+
+	switch service.Spec.Type {
+	case v1.ServiceTypeNodePort:
+		sources.Addresses = []string{"0.0.0.0/0", "::/0"}
+	case v1.ServiceTypeLoadBalancer:
+		if service.Spec.AllocateLoadBalancerNodePorts != nil && !*service.Spec.AllocateLoadBalancerNodePorts {
+			klog.Warning("NodePorts must be allocated for LoadBalancer services")
+			return godo.Sources{}, false
+		}
+
+		uid, ok := service.Annotations[annDOLoadBalancerID]
+		if !ok {
+			klog.Warning("No managed load balancer found for service")
+			return godo.Sources{}, false
+		}
+		sources.LoadBalancerUIDs = []string{uid}
+	}
+
+	return sources, true
 }
 
 func (fm *firewallManager) executeInstrumentedFirewallOperationGetByID(ctx context.Context, fwID string) (*godo.Firewall, *godo.Response, error) {
