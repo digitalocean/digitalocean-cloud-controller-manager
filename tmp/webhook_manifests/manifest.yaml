@@ -1,0 +1,152 @@
+# we need a deployment, service, certificate, validatingwebhookconfiguration
+# for the doks webhook server deployment, we additionally need a SA, cluster role, cluster role binding
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cert-selfsigned-issuer
+  namespace: default
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dokswebhooks-serving-cert
+  namespace: default
+spec:
+  secretName: dokswebhooks-server-cert
+  dnsNames:
+    - dokswebhooks-service
+    - dokswebhooks-service.default.svc
+    # Additional DNS names will be added by C3.
+  issuerRef:
+    kind: ClusterIssuer
+    name: cert-selfsigned-issuer
+    group: cert-manager.io
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dokswebhooks-service
+  namespace: default
+spec:
+  ports:
+    - port: 443
+      protocol: TCP
+      targetPort: 9443
+#    - port: 40001
+#      protocol: TCP
+#      targetPort: 40001
+  selector:
+    app: dokswebhooks
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: dokswebhooks
+  name: dokswebhooks
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dokswebhooks
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: server
+      labels:
+        app: dokswebhooks
+    spec:
+      containers:
+        - command:
+            - ./doks_webhooks
+          image: docker.io/eomolo/eo-webhook-server:v1
+          imagePullPolicy: Always
+          name: server
+          env:
+            - name: DO_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: do-token
+                  key: DO_ACCESS_TOKEN
+            - name: DO_CLUSTER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: cluster-id
+                  key: CLUSTER_ID
+
+          ports:
+            - containerPort: 9443
+              name: webhook-server
+              protocol: TCP
+#            - containerPort: 40001
+#              name: debug
+#              protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cert
+              readOnly: true
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: dokswebhooks-server-cert
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: do-token
+  namespace: default
+data:
+  DO_ACCESS_TOKEN: ZG9wX3YxX2YzM2U1Y2M3YWJlMGRmNzYyMGVlZDdmY2Y2ZWNhZDBhNDNjZjY1NzZiZjRlZjhjMDI3MWJiYjAxMmM3OTJjMWI=
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: default/dokswebhooks-serving-cert
+  name: dokswebhooks-validating-webhook-configuration
+webhooks:
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      # Because cert-manager lives in the control plane and the webhook lives in
+      # the data plane, we cannot use cert-manager directly to manage the CA
+      # bundle. We use C3 instead to populate the field during reconciliation.
+      caBundle: ""
+      # The webhook service lives in the control plane, so use a service *URL*
+      # to point to it. (A real service would route into the data plane.)
+      service:
+        name: dokswebhooks-service
+        namespace: default
+        path: /validate-doks-lb-service
+    failurePolicy: Fail
+    name: vdokslbservice.kb.io
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - services
+    sideEffects: None
