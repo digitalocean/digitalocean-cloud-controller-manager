@@ -95,15 +95,9 @@ func MergeKVs(first, second []interface{}) []interface{} {
 	return merged
 }
 
-type Formatter struct {
-	AnyToStringHook AnyToStringFunc
-}
-
-type AnyToStringFunc func(v interface{}) string
-
 // MergeKVsInto is a variant of MergeKVs which directly formats the key/value
 // pairs into a buffer.
-func (f Formatter) MergeAndFormatKVs(b *bytes.Buffer, first, second []interface{}) {
+func MergeAndFormatKVs(b *bytes.Buffer, first, second []interface{}) {
 	if len(first) == 0 && len(second) == 0 {
 		// Nothing to do at all.
 		return
@@ -113,7 +107,7 @@ func (f Formatter) MergeAndFormatKVs(b *bytes.Buffer, first, second []interface{
 		// Nothing to be overridden, second slice is well-formed
 		// and can be used directly.
 		for i := 0; i < len(second); i += 2 {
-			f.KVFormat(b, second[i], second[i+1])
+			KVFormat(b, second[i], second[i+1])
 		}
 		return
 	}
@@ -133,28 +127,24 @@ func (f Formatter) MergeAndFormatKVs(b *bytes.Buffer, first, second []interface{
 		if overrides[key] {
 			continue
 		}
-		f.KVFormat(b, key, first[i+1])
+		KVFormat(b, key, first[i+1])
 	}
 	// Round down.
 	l := len(second)
 	l = l / 2 * 2
 	for i := 1; i < l; i += 2 {
-		f.KVFormat(b, second[i-1], second[i])
+		KVFormat(b, second[i-1], second[i])
 	}
 	if len(second)%2 == 1 {
-		f.KVFormat(b, second[len(second)-1], missingValue)
+		KVFormat(b, second[len(second)-1], missingValue)
 	}
-}
-
-func MergeAndFormatKVs(b *bytes.Buffer, first, second []interface{}) {
-	Formatter{}.MergeAndFormatKVs(b, first, second)
 }
 
 const missingValue = "(MISSING)"
 
 // KVListFormat serializes all key/value pairs into the provided buffer.
 // A space gets inserted before the first pair and between each pair.
-func (f Formatter) KVListFormat(b *bytes.Buffer, keysAndValues ...interface{}) {
+func KVListFormat(b *bytes.Buffer, keysAndValues ...interface{}) {
 	for i := 0; i < len(keysAndValues); i += 2 {
 		var v interface{}
 		k := keysAndValues[i]
@@ -163,17 +153,13 @@ func (f Formatter) KVListFormat(b *bytes.Buffer, keysAndValues ...interface{}) {
 		} else {
 			v = missingValue
 		}
-		f.KVFormat(b, k, v)
+		KVFormat(b, k, v)
 	}
-}
-
-func KVListFormat(b *bytes.Buffer, keysAndValues ...interface{}) {
-	Formatter{}.KVListFormat(b, keysAndValues...)
 }
 
 // KVFormat serializes one key/value pair into the provided buffer.
 // A space gets inserted before the pair.
-func (f Formatter) KVFormat(b *bytes.Buffer, k, v interface{}) {
+func KVFormat(b *bytes.Buffer, k, v interface{}) {
 	b.WriteByte(' ')
 	// Keys are assumed to be well-formed according to
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/migration-to-structured-logging.md#name-arguments
@@ -217,7 +203,7 @@ func (f Formatter) KVFormat(b *bytes.Buffer, k, v interface{}) {
 		case string:
 			writeStringValue(b, true, value)
 		default:
-			writeStringValue(b, false, f.AnyToString(value))
+			writeStringValue(b, false, fmt.Sprintf("%+v", value))
 		}
 	case []byte:
 		// In https://github.com/kubernetes/klog/pull/237 it was decided
@@ -234,20 +220,8 @@ func (f Formatter) KVFormat(b *bytes.Buffer, k, v interface{}) {
 		b.WriteByte('=')
 		b.WriteString(fmt.Sprintf("%+q", v))
 	default:
-		writeStringValue(b, false, f.AnyToString(v))
+		writeStringValue(b, false, fmt.Sprintf("%+v", v))
 	}
-}
-
-func KVFormat(b *bytes.Buffer, k, v interface{}) {
-	Formatter{}.KVFormat(b, k, v)
-}
-
-// AnyToString is the historic fallback formatter.
-func (f Formatter) AnyToString(v interface{}) string {
-	if f.AnyToStringHook != nil {
-		return f.AnyToStringHook(v)
-	}
-	return fmt.Sprintf("%+v", v)
 }
 
 // StringerToString converts a Stringer to a string,

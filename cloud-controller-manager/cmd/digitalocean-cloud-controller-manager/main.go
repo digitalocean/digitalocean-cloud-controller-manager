@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	"k8s.io/apimachinery/pkg/util/wait"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/cloud-provider/app"
@@ -31,6 +30,8 @@ import (
 	_ "k8s.io/component-base/metrics/prometheus/clientgo" // load all the prometheus client-go plugins
 	_ "k8s.io/component-base/metrics/prometheus/version"  // for version metric registration
 	"k8s.io/klog/v2"
+
+	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 )
 
 func main() {
