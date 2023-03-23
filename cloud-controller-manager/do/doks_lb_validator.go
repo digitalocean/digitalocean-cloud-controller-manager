@@ -194,8 +194,3 @@ func (v *DOKSLBServiceValidator) buildRequest(name string, region string, drople
 		ValidateOnly:    true,
 	}, nil
 }
-
-func (v *DOKSLBServiceValidator) InjectDecoder(d *admission.Decoder) error {
-	v.decoder = d
-	return nil
-}
