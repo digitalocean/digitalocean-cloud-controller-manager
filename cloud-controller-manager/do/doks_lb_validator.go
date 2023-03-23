@@ -129,6 +129,8 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 		}
 	}
 
+	// TODO: these forwarding rules are a placeholder. Further development is required to extract the values from the
+	//svc object
 	forwardingRules := []godo.ForwardingRule{
 		{
 			EntryProtocol:  "http",
@@ -142,7 +144,6 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 	lbRequest, err := v.buildRequest(svc.Name, region, dropletIDs, forwardingRules)
 	if err != nil {
 		v.Log.Error(err, "failed to build lb request")
-		//fmt.Printf("failed to build lb request", err)
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
