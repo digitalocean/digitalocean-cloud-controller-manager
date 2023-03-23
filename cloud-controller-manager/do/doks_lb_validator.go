@@ -83,18 +83,13 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 	v.Log.V(6).Info("decoding received request")
 	err := v.decoder.Decode(req, svc)
 	if err != nil {
-		v.Log.Error(err, "bad request")
-		return admission.Errored(http.StatusBadRequest, err)
+		v.Log.Error(err, "failed to decode request")
+		return admission.Errored(http.StatusUnprocessableEntity, err)
 	}
 
 	v.Log.V(6).Info("checking received request")
-	if svc.Spec.Type != v1.ServiceTypeLoadBalancer {
-		return admission.Allowed("")
-	}
-
-	// check if request is for LB deletion
-	if svc.Spec.Type == v1.ServiceTypeLoadBalancer && svc.DeletionTimestamp != nil {
-		return admission.Allowed("the loadbalancer is deleting")
+	if svc.Spec.Type != v1.ServiceTypeLoadBalancer || svc.DeletionTimestamp != nil {
+		return admission.Allowed("the service object is either not a load balancer or being deleted")
 	}
 
 	// initialize DO Client if not already initialized

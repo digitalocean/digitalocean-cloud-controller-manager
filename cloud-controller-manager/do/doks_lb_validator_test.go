@@ -25,7 +25,6 @@ import (
 
 	"github.com/digitalocean/godo"
 
-	//"github.com/go-logr/logr"
 	v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,14 +32,8 @@ import (
 	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	//"sigs.k8s.io/controller-runtime/pkg/client"
-	//ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
-	//"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	//"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	//"k8s.io/client-go/kubernetes/fake"
 	admissionv1 "k8s.io/api/admission/v1"
-	//"github.com/digitalocean/digitalocean-cloud-controller-manager/test/clients"
 )
 
 var (
