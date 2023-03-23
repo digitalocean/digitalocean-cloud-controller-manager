@@ -46,8 +46,6 @@ func startWebhookServer() error {
 	ll := zap.New(logOpts...).WithName("webhook-validation-server")
 	ctrlruntimelog.SetLogger(ll)
 
-	ll.Info("getting config")
-
 	server := webhook.Server{}
 
 	server.Register("/validate-doks-lb-service", &webhook.Admission{Handler: &do.DOKSLBServiceValidator{Log: ll}})
