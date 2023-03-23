@@ -141,11 +141,7 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 			TlsPassthrough: false,
 		}}
 
-	lbRequest, err := v.buildRequest(svc.Name, region, dropletIDs, forwardingRules)
-	if err != nil {
-		v.Log.Error(err, "failed to build lb request")
-		return admission.Errored(http.StatusBadRequest, err)
-	}
+	lbRequest := v.buildRequest(svc.Name, region, dropletIDs, forwardingRules)
 
 	err = v.decoder.DecodeRaw(req.OldObject, svc)
 	if err != nil {
@@ -162,7 +158,7 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 		v.Log.Error(err, "failed to update load balancer")
 		return admission.Errored(http.StatusBadRequest, err)
 	}
-	return admission.Allowed("validating if request type is UPDATE")
+	return admission.Allowed("valid update request")
 }
 
 func (v *DOKSLBServiceValidator) validateCreate(ctx context.Context, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
