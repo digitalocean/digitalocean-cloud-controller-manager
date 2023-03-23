@@ -31,7 +31,7 @@ COPY  cloud-controller-manager/cmd/digitalocean-webhook-server/main.go main.go
 COPY  cloud-controller-manager/do cloud-controller-manager/do
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -v -a -o doks_webhooks main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -v -a -o lb_validation_webhook main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
@@ -40,5 +40,5 @@ WORKDIR /
 COPY --from=builder  /workspace/doks_webhooks /doks_webhooks
 USER 65532:65532
 
-ENTRYPOINT ["./doks_webhooks"]
+ENTRYPOINT ["./lb_validation_webhook"]
 
