@@ -56,10 +56,6 @@ type DOKSLBServiceValidator struct {
 func initDOClient() (doClient *godo.Client, err error) {
 	token := os.Getenv(doAccessTokenEnv)
 
-	opts := []godo.ClientOpt{}
-
-	opts = append(opts, godo.SetUserAgent("digitalocean-webhook-server/"+version))
-
 	if token == "" {
 		return nil, fmt.Errorf("environment variable %q is required", doAccessTokenEnv)
 	}
@@ -67,6 +63,10 @@ func initDOClient() (doClient *godo.Client, err error) {
 	tokenSource := &tokenSource{
 		AccessToken: token,
 	}
+
+	var opts []godo.ClientOpt
+
+	opts = append(opts, godo.SetUserAgent("digitalocean-webhook-server/"+version))
 
 	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
 	doClient, err = godo.New(oauthClient, opts...)
