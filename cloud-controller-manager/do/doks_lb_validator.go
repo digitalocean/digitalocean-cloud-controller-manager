@@ -148,7 +148,7 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 		err = v.validateCreate(ctx, lbRequest, v.gClient)
 		if err != nil {
 			v.Log.Error(err, "failed to validate lb creation")
-			return admission.Denied("failed to validate load balancer request")
+			return admission.Denied("failed to validate lb creation")
 		}
 		return admission.Allowed("valid lb create request")
 	}
@@ -156,7 +156,7 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 	err = v.validateUpdate(ctx, svc, lbRequest, v.gClient)
 	if err != nil {
 		v.Log.Error(err, "failed to update load balancer")
-		return admission.Errored(http.StatusBadRequest, err)
+		return admission.Denied("failed to update load balancer")
 	}
 	return admission.Allowed("valid update request")
 }
