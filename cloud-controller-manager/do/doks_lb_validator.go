@@ -159,7 +159,6 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 
 	err = v.validateUpdate(ctx, svc, lbRequest, v.gClient)
 	if err != nil {
-		fmt.Printf("failed to update load balancer")
 		v.Log.Error(err, "failed to update load balancer")
 		return admission.Errored(http.StatusBadRequest, err)
 	}
@@ -180,18 +179,18 @@ func (v *DOKSLBServiceValidator) validateUpdate(ctx context.Context, svc *v1.Ser
 	currentLBID := svc.Annotations["kubernetes.digitalocean.com/load-balancer-id"]
 	_, _, err := doClient.LoadBalancers.Update(ctx, currentLBID, lbRequest)
 	if err != nil {
-		fmt.Printf("THIS IS AN ERROR: %v", err)
+		v.Log.Error(err, "failed to update load balancer")
 		return err
 	}
 	return nil
 }
 
-func (v *DOKSLBServiceValidator) buildRequest(name string, region string, dropletIDs []int, forwardingRules []godo.ForwardingRule) (*godo.LoadBalancerRequest, error) {
+func (v *DOKSLBServiceValidator) buildRequest(name string, region string, dropletIDs []int, forwardingRules []godo.ForwardingRule) (*godo.LoadBalancerRequest) {
 	return &godo.LoadBalancerRequest{
 		Name:            name,
 		DropletIDs:      dropletIDs,
 		Region:          region,
 		ForwardingRules: forwardingRules,
 		ValidateOnly:    true,
-	}, nil
+	}
 }
