@@ -163,22 +163,13 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 
 func (v *DOKSLBServiceValidator) validateCreate(ctx context.Context, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
 	_, _, err := doClient.LoadBalancers.Create(ctx, lbRequest)
-	if err != nil {
-		v.Log.Error(err, "failed to create load balancer")
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (v *DOKSLBServiceValidator) validateUpdate(ctx context.Context, svc *v1.Service, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
 	currentLBID := svc.Annotations["kubernetes.digitalocean.com/load-balancer-id"]
 	_, _, err := doClient.LoadBalancers.Update(ctx, currentLBID, lbRequest)
-	if err != nil {
-		v.Log.Error(err, "failed to update load balancer")
-		return err
-	}
-	return nil
+	return err
 }
 
 func (v *DOKSLBServiceValidator) buildRequest(name string, region string, dropletIDs []int, forwardingRules []godo.ForwardingRule) (*godo.LoadBalancerRequest) {
