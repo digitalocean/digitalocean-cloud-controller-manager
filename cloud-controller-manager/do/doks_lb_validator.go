@@ -80,14 +80,14 @@ func initDOClient() (doClient *godo.Client, err error) {
 // DOKSLBServiceValidator ...
 func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	svc := &v1.Service{}
-	v.Log.V(10).Info("decoding received request")
+	v.Log.V(6).Info("decoding received request")
 	err := v.decoder.Decode(req, svc)
 	if err != nil {
 		v.Log.Error(err, "bad request")
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	v.Log.V(10).Info("checking received request")
+	v.Log.V(6).Info("checking received request")
 	if svc.Spec.Type != v1.ServiceTypeLoadBalancer {
 		return admission.Allowed("")
 	}
