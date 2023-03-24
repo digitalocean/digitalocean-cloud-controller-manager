@@ -47,7 +47,7 @@ type Metadata struct {
 }
 
 // DOKSLBServiceValidator validates service type LB
-type DOKSLBServiceValidator struct {
+type KubernetesLBServiceValidator struct {
 	decoder *admission.Decoder
 	Log     logr.Logger
 	gClient *godo.Client
@@ -78,7 +78,7 @@ func initDOClient() (doClient *godo.Client, err error) {
 }
 
 // DOKSLBServiceValidator ...
-func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
+func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	svc := &v1.Service{}
 	v.Log.V(6).Info("decoding received request")
 	err := v.decoder.Decode(req, svc)
@@ -161,18 +161,18 @@ func (v *DOKSLBServiceValidator) Handle(ctx context.Context, req admission.Reque
 	return admission.Allowed("valid update request")
 }
 
-func (v *DOKSLBServiceValidator) validateCreate(ctx context.Context, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
+func (v *KubernetesLBServiceValidator) validateCreate(ctx context.Context, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
 	_, _, err := doClient.LoadBalancers.Create(ctx, lbRequest)
 	return err
 }
 
-func (v *DOKSLBServiceValidator) validateUpdate(ctx context.Context, svc *v1.Service, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
+func (v *KubernetesLBServiceValidator) validateUpdate(ctx context.Context, svc *v1.Service, lbRequest *godo.LoadBalancerRequest, doClient *godo.Client) error {
 	currentLBID := svc.Annotations["kubernetes.digitalocean.com/load-balancer-id"]
 	_, _, err := doClient.LoadBalancers.Update(ctx, currentLBID, lbRequest)
 	return err
 }
 
-func (v *DOKSLBServiceValidator) buildRequest(name string, region string, dropletIDs []int, forwardingRules []godo.ForwardingRule) (*godo.LoadBalancerRequest) {
+func (v *KubernetesLBServiceValidator) buildRequest(name string, region string, dropletIDs []int, forwardingRules []godo.ForwardingRule) (*godo.LoadBalancerRequest) {
 	return &godo.LoadBalancerRequest{
 		Name:            name,
 		DropletIDs:      dropletIDs,

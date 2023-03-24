@@ -250,7 +250,7 @@ func Test_Handle(t *testing.T) {
 			ll := zap.New(logOpts...).WithName("webhook-validation-server")
 			ctrlruntimelog.SetLogger(ll)
 
-			validator := &DOKSLBServiceValidator{
+			validator := &KubernetesLBServiceValidator{
 				Log:     ll,
 				decoder: decoder,
 				gClient: gClient,

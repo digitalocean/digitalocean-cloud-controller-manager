@@ -48,7 +48,7 @@ func startWebhookServer() error {
 
 	server := webhook.Server{}
 
-	server.Register("/validate-doks-lb-service", &webhook.Admission{Handler: &do.DOKSLBServiceValidator{Log: ll}})
+	server.Register("/validate-doks-lb-service", &webhook.Admission{Handler: &do.KubernetesLBServiceValidator{Log: ll}})
 	ll.Info("Registering Webhook server handlers")
 	if err := server.StartStandalone(ctrl.SetupSignalHandler(), scheme); err != nil {
 		return err
