@@ -24,7 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"net/http"
 	"os"
-	"strconv"
+//	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -113,23 +113,25 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		fmt.Println("missing region id")
 	}
 
-	nodePools, _, err := v.gClient.Kubernetes.ListNodePools(ctx, clusterID, &godo.ListOptions{})
-	if err != nil {
-		v.Log.Error(err, "no nodes found")
-		return admission.Errored(http.StatusBadRequest, err)
-	}
+	tag := "k8s:" + clusterID
 
-	var dropletIDs []int
-	for _, pool := range nodePools {
-		for _, node := range pool.Nodes {
-			dropletID, err := strconv.Atoi(node.DropletID)
-			if err != nil {
-				v.Log.Error(err, "failed to retrieve droplet ids")
-				return admission.Errored(http.StatusConflict, err)
-			}
-			dropletIDs = append(dropletIDs, dropletID)
-		}
-	}
+	//nodePools, _, err := v.gClient.Kubernetes.ListNodePools(ctx, clusterID, &godo.ListOptions{})
+	//if err != nil {
+	//	v.Log.Error(err, "no nodes found")
+	//	return admission.Errored(http.StatusBadRequest, err)
+	//}
+
+	//var dropletIDs []int
+	//for _, pool := range nodePools {
+	//	for _, node := range pool.Nodes {
+	//		dropletID, err := strconv.Atoi(node.DropletID)
+	//		if err != nil {
+	//			v.Log.Error(err, "failed to retrieve droplet ids")
+	//			return admission.Errored(http.StatusConflict, err)
+	//		}
+	//		dropletIDs = append(dropletIDs, dropletID)
+	//	}
+	//}
 
 	// TODO: these forwarding rules are a placeholder. Further development is required to extract the values from the
 	//svc object
@@ -143,7 +145,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			TlsPassthrough: false,
 		}}
 
-	lbRequest := v.buildRequest(svc.Name, region, dropletIDs, forwardingRules)
+	lbRequest := v.buildRequest(svc.Name, region, tag, forwardingRules)
 
 	err = v.decoder.DecodeRaw(req.OldObject, svc)
 	if err != nil {
@@ -175,10 +177,10 @@ func (v *KubernetesLBServiceValidator) validateUpdate(ctx context.Context, curre
 	return err
 }
 
-func (v *KubernetesLBServiceValidator) buildRequest(name string, region string, dropletIDs []int, forwardingRules []godo.ForwardingRule) (*godo.LoadBalancerRequest) {
+func (v *KubernetesLBServiceValidator) buildRequest(name string, region string, tag string, forwardingRules []godo.ForwardingRule) *godo.LoadBalancerRequest {
 	return &godo.LoadBalancerRequest{
 		Name:            name,
-		DropletIDs:      dropletIDs,
+		Tag: 			tag,
 		Region:          region,
 		ForwardingRules: forwardingRules,
 		ValidateOnly:    true,
