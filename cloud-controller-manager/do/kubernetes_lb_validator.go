@@ -85,8 +85,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	err := v.decoder.Decode(req, svc)
 	if err != nil {
 		v.Log.Error(err, "failed to decode request")
-		fmt.Errorf("failed to decode request: %s", err)
-		return admission.Denied("failed to decode request")
+		return admission.Errored(http.StatusBadRequest, fmt.Errorf("failed to decode request: %v", err))
 	}
 
 	v.Log.V(6).Info("checking received request")
@@ -113,7 +112,11 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		fmt.Println("missing region id")
 	}
 
-	tag := "k8s:" + clusterID
+	tags := []string{
+		"k8s",
+		"k8s:worker",
+		fmt.Sprintf("k8s: %v", clusterID),
+	}
 
 	//nodePools, _, err := v.gClient.Kubernetes.ListNodePools(ctx, clusterID, &godo.ListOptions{})
 	//if err != nil {
@@ -145,7 +148,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			TlsPassthrough: false,
 		}}
 
-	lbRequest := v.buildRequest(svc.Name, region, tag, forwardingRules)
+	lbRequest := v.buildRequest(svc.Name, region, tags, forwardingRules)
 
 	err = v.decoder.DecodeRaw(req.OldObject, svc)
 	if err != nil {
@@ -177,10 +180,10 @@ func (v *KubernetesLBServiceValidator) validateUpdate(ctx context.Context, curre
 	return err
 }
 
-func (v *KubernetesLBServiceValidator) buildRequest(name string, region string, tag string, forwardingRules []godo.ForwardingRule) *godo.LoadBalancerRequest {
+func (v *KubernetesLBServiceValidator) buildRequest(name string, region string, tags []string, forwardingRules []godo.ForwardingRule) *godo.LoadBalancerRequest {
 	return &godo.LoadBalancerRequest{
 		Name:            name,
-		Tag: 			tag,
+		Tags: 			tags,
 		Region:          region,
 		ForwardingRules: forwardingRules,
 		ValidateOnly:    true,
