@@ -155,7 +155,9 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		return admission.Allowed("valid lb create request")
 	}
 
-	err = v.validateUpdate(ctx, svc, lbRequest)
+	currentLBID := svc.Annotations["kubernetes.digitalocean.com/load-balancer-id"]
+
+	err = v.validateUpdate(ctx, currentLBID, lbRequest)
 	if err != nil {
 		v.Log.Error(err, "failed to update load balancer")
 		return admission.Denied("failed to update load balancer")
@@ -168,8 +170,7 @@ func (v *KubernetesLBServiceValidator) validateCreate(ctx context.Context, lbReq
 	return err
 }
 
-func (v *KubernetesLBServiceValidator) validateUpdate(ctx context.Context, svc *v1.Service, lbRequest *godo.LoadBalancerRequest) error {
-	currentLBID := svc.Annotations["kubernetes.digitalocean.com/load-balancer-id"]
+func (v *KubernetesLBServiceValidator) validateUpdate(ctx context.Context, currentLBID string, lbRequest *godo.LoadBalancerRequest) error {
 	_, _, err := v.gClient.LoadBalancers.Update(ctx, currentLBID, lbRequest)
 	return err
 }
