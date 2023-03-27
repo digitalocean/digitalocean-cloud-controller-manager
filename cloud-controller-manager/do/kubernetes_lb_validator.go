@@ -80,11 +80,13 @@ func initDOClient() (doClient *godo.Client, err error) {
 // DOKSLBServiceValidator ...
 func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	svc := &v1.Service{}
+
 	v.Log.V(6).Info("decoding received request")
 	err := v.decoder.Decode(req, svc)
 	if err != nil {
 		v.Log.Error(err, "failed to decode request")
-		return admission.Errored(http.StatusUnprocessableEntity, err)
+		fmt.Errorf("failed to decode request: %s", err)
+		return admission.Denied("failed to decode request")
 	}
 
 	v.Log.V(6).Info("checking received request")
