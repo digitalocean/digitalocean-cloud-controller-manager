@@ -19,10 +19,14 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
+	"github.com/digitalocean/godo"
+	"golang.org/x/oauth2"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
@@ -32,6 +36,62 @@ var (
 	scheme = runtime.NewScheme()
 )
 
+const (
+	doAccessTokenEnv     string = "DO_LB_WEBHOOK_ACCESS_TOKEN"
+	doAPIRateLimitQPSEnv string = "DO_LB_WEBHOOK_API_RATE_LIMIT_QPS"
+)
+
+var version string
+
+var logOpts []zap.Opts
+
+type tokenSource struct {
+	AccessToken string
+}
+
+func (t *tokenSource) Token() (*oauth2.Token, error) {
+	token := &oauth2.Token{
+		AccessToken: t.AccessToken,
+	}
+	return token, nil
+}
+
+func initDOClient() (doClient *godo.Client, err error) {
+
+	ll := zap.New(logOpts...).WithName("digitalocean-lb-validation-webhook-validation-server")
+
+	token := os.Getenv(doAccessTokenEnv)
+
+	if token == "" {
+		return nil, fmt.Errorf("environment variable %q is required", doAccessTokenEnv)
+	}
+
+	tokenSource := &tokenSource{
+		AccessToken: token,
+	}
+
+	var opts []godo.ClientOpt
+
+	opts = append(opts, godo.SetUserAgent("digitalocean-lb-validation-webhook-server/"+version))
+
+	if qpsRaw := os.Getenv(doAPIRateLimitQPSEnv); qpsRaw != "" {
+		qps, err := strconv.ParseFloat(qpsRaw, 64)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse value from environment variable %s: %s", doAPIRateLimitQPSEnv, err)
+		}
+		ll.Info("Setting DO API rate limit to %.2f QPS", qps)
+		opts = append(opts, godo.SetStaticRateLimit(qps))
+	}
+
+	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
+	doClient, err = godo.New(oauthClient, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create godo client: %s", err)
+	}
+
+	return doClient, nil
+}
+
 func main() {
 	if err := startWebhookServer(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start webhook server: %v\n", err)
@@ -40,25 +100,29 @@ func main() {
 }
 
 func startWebhookServer() error {
-	// default server running at port 9443, looking for tls.crt, tls.key in /tmp/k8s-webhook-server/serving-certs
-	ll := ctrl.Log.WithName("webhook-validation-server")
-	ll.Info("getting config")
-	config, err := ctrl.GetConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to retrieve kubeconfig %v\n", err)
-	}
+
+	ll := zap.New(logOpts...).WithName("validation-webhook-server")
+	ctrlruntimelog.SetLogger(ll)
+	ll.Info("THIS  VALIDATION WEBHOOK SERVER IS STILL IN DEVELOPMENT AND IS PURELY EXPERIMENTAL")
+
 	server := webhook.Server{}
-	c, err := client.New(config, client.Options{Scheme: scheme})
+
+	DOClient, err := initDOClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to construct cr client %v\n", err)
+		return fmt.Errorf("failed to initialize DO client: %s", err)
 	}
 
-	server.Register("/validate-doks-lb-service", &webhook.Admission{Handler: &do.DOKSLBServiceValidator{Client: c, Log: ll}})
-	ll.Info("Registering Webhook server handlers")
-	if err = server.StartStandalone(ctrl.SetupSignalHandler(), scheme); err != nil {
-		return err
+	server.Register("/validate-doks-lb-service", &webhook.Admission{Handler: &do.KubernetesLBServiceValidator{
+		Log:     ll,
+		GClient: DOClient,
+	}})
+
+	ll.Info("Registering loadbalancer validation webhook server handlers")
+	if err := server.StartStandalone(ctrl.SetupSignalHandler(), scheme); err != nil {
+		ll.Error(err, "failed to start loadbalancer validation webhook server")
+		os.Exit(1)
 	}
-	ll.Info("Webhooks server started")
+	ll.Info("loadbalancer validation webhook server started")
 
 	return nil
 }
