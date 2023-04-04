@@ -53,7 +53,7 @@ github.com/fsnotify/fsnotify
 # github.com/go-ini/ini v1.39.0
 ## explicit
 github.com/go-ini/ini
-# github.com/go-logr/logr v1.2.3
+# github.com/go-logr/logr v1.2.4
 ## explicit; go 1.16
 github.com/go-logr/logr
 github.com/go-logr/logr/funcr
