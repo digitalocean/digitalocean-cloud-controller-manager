@@ -27,10 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-const (
-	lbIDAnnotation string = "kubernetes.digitalocean.com/load-balancer-id"
-)
-
 // LBService represents the v1.service lb object data
 type LBService struct {
 	APIVersion string
@@ -101,7 +97,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			return admission.Errored(http.StatusBadRequest, fmt.Errorf("failed to decode request: %v", err))
 		}
 
-		currentLBID := svc.Annotations[lbIDAnnotation]
+		currentLBID := svc.Annotations[annDOLoadBalancerID]
 		// perform update if associated with created lb
 		if (len(svc.Status.LoadBalancer.Ingress) > 0 && svc.Status.LoadBalancer.Ingress[0].IP != "") || currentLBID != "" {
 			v.Log.Info(fmt.Sprintf("updating lb id: %v", currentLBID))
