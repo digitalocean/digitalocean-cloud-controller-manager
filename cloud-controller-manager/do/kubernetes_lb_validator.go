@@ -102,12 +102,8 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		if (len(svc.Status.LoadBalancer.Ingress) > 0 && svc.Status.LoadBalancer.Ingress[0].IP != "") || currentLBID != "" {
 			v.Log.Info(fmt.Sprintf("updating lb id: %v", currentLBID))
 			resp, err = v.validateUpdate(ctx, currentLBID, lbRequest)
-			if resp == nil {
-				v.Log.Error(err, "failed to validate lb update")
-				return admission.Denied(fmt.Sprintf("failed to validate lb update, could not return response body: %v", err))
-			}
 			if err != nil {
-				if v.checkError(resp) {
+			 if v.checkError(resp) {
 					v.Log.Error(err, "failed to validate lb update")
 					return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
 				}
@@ -122,11 +118,6 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	// validate create request otherwise
 	v.Log.Info("validating create request")
 	resp, err = v.validateCreate(ctx, lbRequest)
-	if resp == nil {
-		v.Log.Error(err, "failed to validate lb creation")
-		return admission.Errored(http.StatusBadRequest, err)
-	}
-
 	if err != nil {
 		if v.checkError(resp) {
 			v.Log.Error(err, "failed to validate lb creation")
@@ -165,8 +156,11 @@ func (v *KubernetesLBServiceValidator) InjectDecoder(d *admission.Decoder) error
 }
 
 func (v *KubernetesLBServiceValidator) checkError(response *godo.Response) bool {
-	if response.StatusCode == http.StatusUnprocessableEntity {
-		return true
+	if response != nil{
+		if response.StatusCode == http.StatusUnprocessableEntity {
+			return true
+		}
+		return false
 	}
 	return false
 }
