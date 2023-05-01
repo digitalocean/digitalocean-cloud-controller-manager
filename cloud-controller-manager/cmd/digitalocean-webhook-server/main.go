@@ -121,7 +121,6 @@ func startWebhookServer() error {
 	if err := server.StartStandalone(ctrl.SetupSignalHandler(), scheme); err != nil {
 		return fmt.Errorf("failed to start loadbalancer validation webhook server: %s", err)
 	}
-	ll.Info("loadbalancer validation webhook server started")
 
 	return nil
 }
