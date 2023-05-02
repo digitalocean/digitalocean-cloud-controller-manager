@@ -114,7 +114,7 @@ func Test_Handle(t *testing.T) {
 			expectedAllowed: true,
 		},
 		{
-			name: "Deny CREATE invalid path",
+			name: "Deny CREATE invalid configuration",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +139,15 @@ func Test_Handle(t *testing.T) {
 
 		},
 		{
-			name: "Deny Update Invalid path",
+			name: "Deny Update invalid configuration",
+			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
+				fakeService("test2"), fakeService("old-service"))},
+			expectedAllowed: false,
+			resp: newFakeUnprocessableResponse(),
+			err: newFakeUnprocessableErrorResponse(),
+		},
+		{
+			name: "Deny Update validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
 			expectedAllowed: false,

@@ -103,12 +103,13 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			v.Log.Info(fmt.Sprintf("updating lb id: %v", currentLBID))
 			resp, err = v.validateUpdate(ctx, currentLBID, lbRequest)
 			if err != nil {
-				if v.isValidationError(resp) {
+				errorValid, errorCode := v.isValidationError(resp)
+				if errorValid {
 					v.Log.Error(err, "failed to validate lb update, invalid configuration")
 					return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
 				}
 				v.Log.Error(err, "failed to validate lb update, could not get validation response")
-				return admission.Errored(int32(resp.StatusCode), err)
+				return admission.Errored(int32(errorCode), err)
 			}
 			v.Log.Info("lb update validated")
 			return admission.Allowed("valid update request")
@@ -119,12 +120,13 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	v.Log.Info("validating create request")
 	resp, err = v.validateCreate(ctx, lbRequest)
 	if err != nil {
-		if v.isValidationError(resp) {
+		errorValid, errorCode := v.isValidationError(resp)
+		if errorValid {
 			v.Log.Error(err, "failed to validate lb creation, invalid configuration")
 			return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))
 		}
 		v.Log.Error(err, "failed to validate lb creation, could not get validation response")
-		return admission.Errored(int32(resp.StatusCode), err)
+		return admission.Errored(int32(errorCode), err)
 	}
 	v.Log.Info(fmt.Sprintf("allowing create"))
 	return admission.Allowed("valid lb create request")
@@ -155,12 +157,12 @@ func (v *KubernetesLBServiceValidator) InjectDecoder(d *admission.Decoder) error
 	return nil
 }
 
-func (v *KubernetesLBServiceValidator) isValidationError(response *godo.Response) bool {
+func (v *KubernetesLBServiceValidator) isValidationError(response *godo.Response) (bool, int) {
 	if response != nil {
 		if response.StatusCode == http.StatusUnprocessableEntity {
-			return true
+			return true, response.StatusCode
 		}
-		return false
+		return false, response.StatusCode
 	}
-	return false
+	return false, http.StatusInternalServerError
 }
