@@ -176,16 +176,20 @@ func Test_Handle(t *testing.T) {
 			ll := zap.New(logOpts...).WithName("webhook-validation-server")
 			ctrlruntimelog.SetLogger(ll)
 
+
+
 			validator := &KubernetesLBServiceValidator{
 				Log:     ll,
 				decoder: decoder,
 				GClient: gClient,
+
 			}
 
 			res := validator.Handle(context.TODO(), test.req)
+
 			// if test.allowed & res.allowed are not equal
-			if test.expectedAllowed && res.Allowed == false {
-				t.Error("Expected is not equal to actual", res)
+			if res.Allowed != test.expectedAllowed {
+				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
 			}
 			if !test.expectedAllowed {
 				if test.expectedReason != res.Result.Message {
