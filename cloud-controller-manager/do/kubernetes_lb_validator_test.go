@@ -40,113 +40,6 @@ var (
 	scheme = runtime.NewScheme()
 )
 
-type fakeKubernetesService struct{}
-
-func (f *fakeKubernetesService) Create(ctx context.Context, request *godo.KubernetesClusterCreateRequest) (*godo.KubernetesCluster, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) Get(ctx context.Context, s string) (*godo.KubernetesCluster, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetUser(ctx context.Context, s string) (*godo.KubernetesClusterUser, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetUpgrades(ctx context.Context, s string) ([]*godo.KubernetesVersion, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetKubeConfig(ctx context.Context, s string) (*godo.KubernetesClusterConfig, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetKubeConfigWithExpiry(ctx context.Context, s string, i int64) (*godo.KubernetesClusterConfig, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetCredentials(ctx context.Context, s string, request *godo.KubernetesClusterCredentialsGetRequest) (*godo.KubernetesClusterCredentials, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) List(ctx context.Context, options *godo.ListOptions) ([]*godo.KubernetesCluster, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) Update(ctx context.Context, s string, request *godo.KubernetesClusterUpdateRequest) (*godo.KubernetesCluster, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) Upgrade(ctx context.Context, s string, request *godo.KubernetesClusterUpgradeRequest) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) Delete(ctx context.Context, s string) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) DeleteSelective(ctx context.Context, s string, request *godo.KubernetesClusterDeleteSelectiveRequest) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) DeleteDangerous(ctx context.Context, s string) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) ListAssociatedResourcesForDeletion(ctx context.Context, s string) (*godo.KubernetesAssociatedResources, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) CreateNodePool(ctx context.Context, clusterID string, req *godo.KubernetesNodePoolCreateRequest) (*godo.KubernetesNodePool, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetNodePool(ctx context.Context, clusterID, poolID string) (*godo.KubernetesNodePool, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) UpdateNodePool(ctx context.Context, clusterID, poolID string, req *godo.KubernetesNodePoolUpdateRequest) (*godo.KubernetesNodePool, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) RecycleNodePoolNodes(ctx context.Context, clusterID, poolID string, req *godo.KubernetesNodePoolRecycleNodesRequest) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) DeleteNodePool(ctx context.Context, clusterID, poolID string) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) DeleteNode(ctx context.Context, clusterID, poolID, nodeID string, req *godo.KubernetesNodeDeleteRequest) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetOptions(ctx2 context.Context) (*godo.KubernetesOptions, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) AddRegistry(ctx context.Context, req *godo.KubernetesClusterRegistryRequest) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) RemoveRegistry(ctx context.Context, req *godo.KubernetesClusterRegistryRequest) (*godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) RunClusterlint(ctx context.Context, clusterID string, req *godo.KubernetesRunClusterlintRequest) (string, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) GetClusterlintResults(ctx context.Context, clusterID string, req *godo.KubernetesGetClusterlintRequest) ([]*godo.ClusterlintDiagnostic, *godo.Response, error) {
-	panic("not supported")
-}
-
-func (f *fakeKubernetesService) ListNodePools(ctx context.Context, clusterID string, opts *godo.ListOptions) ([]*godo.KubernetesNodePool, *godo.Response, error) {
-	cluster := fakeCluster()
-	return cluster.NodePools, newFakeOKResponse(), nil
-}
-
 type fakeRegionsService struct {
 	listFn func(context.Context, *godo.ListOptions) ([]godo.Region, *godo.Response, error)
 }
@@ -257,7 +150,6 @@ func Test_Handle(t *testing.T) {
 
 			// setup client
 			gClient := godo.NewFromToken("test-token")
-			gClient.Kubernetes = &fakeKubernetesService{}
 			gClient.LoadBalancers = &fakeLBService{
 				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
@@ -281,8 +173,6 @@ func Test_Handle(t *testing.T) {
 
 			os.Setenv(regionEnv, "nyc3")
 
-			os.Setenv("DO_CLUSTER_ID", fakeCluster().ID)
-
 			var logOpts []zap.Opts
 			ll := zap.New(logOpts...).WithName("webhook-validation-server")
 			ctrlruntimelog.SetLogger(ll)
@@ -304,27 +194,6 @@ func Test_Handle(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func fakeCluster() *godo.KubernetesCluster {
-	return &godo.KubernetesCluster{
-		ID:         "1",
-		Name:       "test",
-		RegionSlug: "nyc3",
-		NodePools: []*godo.KubernetesNodePool{
-			{
-				Name: "test",
-				ID:   "1",
-				Nodes: []*godo.KubernetesNode{
-					{
-						ID:        "1",
-						Name:      "test",
-						DropletID: "1",
-					},
-				},
-			},
-		},
 	}
 }
 
