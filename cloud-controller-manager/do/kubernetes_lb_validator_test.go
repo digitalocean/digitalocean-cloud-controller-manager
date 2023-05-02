@@ -58,6 +58,7 @@ func Test_Handle(t *testing.T) {
 		expectedAllowed bool
 		expectedReason  string
 		resp            *godo.Response
+		err  error
 	}{
 		{
 			name: "Allow if service type is not load balancer",
@@ -113,7 +114,7 @@ func Test_Handle(t *testing.T) {
 			expectedAllowed: true,
 		},
 		{
-			name: "Deny CREATE happy path",
+			name: "Deny CREATE invalid path",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
@@ -126,6 +127,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
+			resp: newFakeUnprocessableResponse(),
+			err: newFakeUnprocessableErrorResponse(),
 			expectedAllowed: false,
 		},
 		{
@@ -133,12 +136,15 @@ func Test_Handle(t *testing.T) {
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
 			expectedAllowed: true,
+
 		},
 		{
-			name: "Deny Update happy path",
+			name: "Deny Update Invalid path",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
 			expectedAllowed: false,
+			resp: newFakeUnprocessableResponse(),
+			err: newFakeUnprocessableErrorResponse(),
 		},
 	}
 
@@ -150,14 +156,11 @@ func Test_Handle(t *testing.T) {
 			// setup client
 			gClient := godo.NewFromToken("test-token")
 			gClient.LoadBalancers = &fakeLBService{
-				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
-					return []godo.LoadBalancer{{ID: "2", Name: "two"}}, newFakeOKResponse(), nil
-				},
 				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-					return &godo.LoadBalancer{ID: "2", Name: "two"}, newFakeOKResponse(), nil
+					return &godo.LoadBalancer{ID: "2", Name: "two"}, test.resp, test.err
 				},
 				updateFn: func(context.Context, string, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-					return &godo.LoadBalancer{ID: "2", Name: "two"}, newFakeOKResponse(), nil
+					return &godo.LoadBalancer{ID: "2", Name: "two"}, test.resp, test.err
 				},
 			}
 			gClient.Regions = &fakeRegionsService{
@@ -184,6 +187,7 @@ func Test_Handle(t *testing.T) {
 				GClient: gClient,
 
 			}
+
 
 			res := validator.Handle(context.TODO(), test.req)
 
