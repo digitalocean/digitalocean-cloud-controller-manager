@@ -49,7 +49,6 @@ func (f *fakeRegionsService) List(ctx context.Context, listOpts *godo.ListOption
 }
 
 func Test_Handle(t *testing.T) {
-	//cluster := fakeCluster()
 	testcases := []struct {
 		name            string
 		req             admission.Request
@@ -168,7 +167,7 @@ func Test_Handle(t *testing.T) {
 
 			decoder, err := admission.NewDecoder(scheme)
 			if err != nil {
-				t.Error("failed to initialize decoder", err)
+				t.Fatalf("failed to initialize decoder %s", err)
 			}
 
 			os.Setenv(regionEnv, "nyc3")
