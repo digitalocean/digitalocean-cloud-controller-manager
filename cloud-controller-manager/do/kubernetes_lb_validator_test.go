@@ -198,8 +198,6 @@ func Test_Handle(t *testing.T) {
 
 
 			res := validator.Handle(context.TODO(), test.req)
-
-			// if test.allowed & res.allowed are not equal
 			if res.Allowed != test.expectedAllowed {
 				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
 			}
