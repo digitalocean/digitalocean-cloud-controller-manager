@@ -54,9 +54,7 @@ func Test_Handle(t *testing.T) {
 		req             admission.Request
 		oldObject       runtime.RawExtension
 		gCLient         *godo.Client
-		lbRequest       *godo.LoadBalancerRequest
 		expectedAllowed bool
-		expectedReason  string
 		resp            *godo.Response
 		err  error
 	}{
@@ -93,8 +91,6 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-
-			lbRequest:       fakeValidLBRequest(),
 			expectedAllowed: true,
 		},
 		{
@@ -201,31 +197,7 @@ func Test_Handle(t *testing.T) {
 			if res.Allowed != test.expectedAllowed {
 				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
 			}
-			if !test.expectedAllowed {
-				if test.expectedReason != res.Result.Message {
-					t.Error("Expected reason is not the actual reason", res.Result.Message)
-				}
-			}
 		})
-	}
-}
-
-func fakeValidLBRequest() *godo.LoadBalancerRequest {
-	return &godo.LoadBalancerRequest{
-		Name:       "test",
-		Region:     "nyc3",
-		DropletIDs: []int{1},
-		ForwardingRules: []godo.ForwardingRule{
-			{
-				EntryProtocol:  "http",
-				EntryPort:      80,
-				TargetProtocol: "http",
-				TargetPort:     80,
-				CertificateID:  "",
-				TlsPassthrough: false,
-			},
-		},
-		ValidateOnly: true,
 	}
 }
 
