@@ -52,7 +52,6 @@ func Test_Handle(t *testing.T) {
 	testcases := []struct {
 		name            string
 		req             admission.Request
-		oldObject       runtime.RawExtension
 		gCLient         *godo.Client
 		expectedAllowed bool
 		resp            *godo.Response
