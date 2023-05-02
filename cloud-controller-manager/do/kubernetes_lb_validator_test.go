@@ -157,7 +157,7 @@ func Test_Handle(t *testing.T) {
 			t.Parallel()
 
 			// setup client
-			gClient := godo.NewFromToken("test-token")
+			gClient := godo.NewFromToken("")
 			gClient.LoadBalancers = &fakeLBService{
 				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 					return &godo.LoadBalancer{ID: "2", Name: "two"}, test.resp, test.err
@@ -181,8 +181,6 @@ func Test_Handle(t *testing.T) {
 			var logOpts []zap.Opts
 			ll := zap.New(logOpts...).WithName("webhook-validation-server")
 			ctrlruntimelog.SetLogger(ll)
-
-
 
 			validator := &KubernetesLBServiceValidator{
 				Log:     ll,
