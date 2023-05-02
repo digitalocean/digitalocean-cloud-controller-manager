@@ -103,13 +103,13 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			v.Log.Info(fmt.Sprintf("updating lb id: %v", currentLBID))
 			resp, err = v.validateUpdate(ctx, currentLBID, lbRequest)
 			if err != nil {
-				errorValid, errorCode := v.isValidationError(resp)
-				if errorValid {
-					v.Log.Error(err, "failed to validate lb update, invalid configuration")
-					return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
+				validError, errorCode := v.isValidationError(resp)
+				if !validError || errorCode != http.StatusUnprocessableEntity {
+					v.Log.Error(err, "failed to validate lb update, could not get validation response")
+					return admission.Errored(int32(errorCode), err)
 				}
-				v.Log.Error(err, "failed to validate lb update, could not get validation response")
-				return admission.Errored(int32(errorCode), err)
+				v.Log.Error(err, "failed to validate lb update, invalid configuration")
+				return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
 			}
 			v.Log.Info("lb update validated")
 			return admission.Allowed("valid update request")
@@ -120,13 +120,13 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	v.Log.Info("validating create request")
 	resp, err = v.validateCreate(ctx, lbRequest)
 	if err != nil {
-		errorValid, errorCode := v.isValidationError(resp)
-		if errorValid {
-			v.Log.Error(err, "failed to validate lb creation, invalid configuration")
-			return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))
-		}
+	validError, errorCode := v.isValidationError(resp)
+	if !validError || errorCode != http.StatusUnprocessableEntity {
 		v.Log.Error(err, "failed to validate lb creation, could not get validation response")
 		return admission.Errored(int32(errorCode), err)
+		}
+		v.Log.Error(err, "failed to validate lb creation, invalid configuration")
+		return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))
 	}
 	v.Log.Info(fmt.Sprintf("allowing create"))
 	return admission.Allowed("valid lb create request")
@@ -158,11 +158,9 @@ func (v *KubernetesLBServiceValidator) InjectDecoder(d *admission.Decoder) error
 }
 
 func (v *KubernetesLBServiceValidator) isValidationError(response *godo.Response) (bool, int) {
-	if response != nil {
-		if response.StatusCode == http.StatusUnprocessableEntity {
-			return true, response.StatusCode
-		}
-		return false, response.StatusCode
+	if response.Response != nil {
+		return true, response.StatusCode
 	}
+
 	return false, http.StatusInternalServerError
 }
