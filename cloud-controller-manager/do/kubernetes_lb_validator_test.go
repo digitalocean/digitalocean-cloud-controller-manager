@@ -17,8 +17,12 @@ limitations under the License.
 package do
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -47,6 +51,25 @@ type fakeRegionsService struct {
 func (f *fakeRegionsService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.Region, *godo.Response, error) {
 	return f.listFn(ctx, listOpts)
 }
+
+func newFakeUnprocessableResponse() *godo.Response {
+	return newFakeResponse(http.StatusUnprocessableEntity)
+}
+
+func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
+	return &godo.ErrorResponse{
+		Response: &http.Response{
+			Request: &http.Request{
+				Method: "FAKE",
+				URL:    &url.URL{},
+			},
+			StatusCode: http.StatusUnprocessableEntity,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+		},
+	}
+
+}
+
 
 func Test_Handle(t *testing.T) {
 	testcases := []struct {

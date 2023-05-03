@@ -53,10 +53,6 @@ func newFakeNotFoundResponse() *godo.Response {
 	return newFakeResponse(http.StatusNotFound)
 }
 
-func newFakeUnprocessableResponse() *godo.Response {
-	return newFakeResponse(http.StatusUnprocessableEntity)
-}
-
 func newFakeResponse(statusCode int) *godo.Response {
 	return &godo.Response{
 		Response: &http.Response{
@@ -64,20 +60,6 @@ func newFakeResponse(statusCode int) *godo.Response {
 			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
 		},
 	}
-}
-
-func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
-	return &godo.ErrorResponse{
-		Response: &http.Response{
-			Request: &http.Request{
-				Method: "FAKE",
-				URL:    &url.URL{},
-			},
-			StatusCode: http.StatusUnprocessableEntity,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
-		},
-	}
-
 }
 
 func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
