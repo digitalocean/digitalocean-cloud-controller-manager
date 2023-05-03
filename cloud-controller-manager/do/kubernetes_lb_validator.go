@@ -120,10 +120,10 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	v.Log.Info("validating create request")
 	resp, err = v.validateCreate(ctx, lbRequest)
 	if err != nil {
-	validError, errorCode := v.isValidationError(resp)
-	if !validError || errorCode != http.StatusUnprocessableEntity {
-		v.Log.Error(err, "failed to validate lb creation, could not get validation response")
-		return admission.Errored(int32(errorCode), err)
+		validError, errorCode := v.isValidationError(resp)
+		if !validError || errorCode != http.StatusUnprocessableEntity {
+			v.Log.Error(err, "failed to validate lb creation, could not get validation response")
+			return admission.Errored(int32(errorCode), err)
 		}
 		v.Log.Error(err, "failed to validate lb creation, invalid configuration")
 		return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))

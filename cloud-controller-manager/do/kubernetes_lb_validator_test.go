@@ -70,15 +70,16 @@ func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
 
 }
 
-
 func Test_Handle(t *testing.T) {
+	os.Setenv(regionEnv, "nyc3")
+
 	testcases := []struct {
 		name            string
 		req             admission.Request
 		gCLient         *godo.Client
 		expectedAllowed bool
 		resp            *godo.Response
-		err  error
+		err             error
 	}{
 		{
 			name: "Allow if service type is not load balancer",
@@ -145,8 +146,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			resp: newFakeUnprocessableResponse(),
-			err: newFakeUnprocessableErrorResponse(),
+			resp:            newFakeUnprocessableResponse(),
+			err:             newFakeUnprocessableErrorResponse(),
 			expectedAllowed: false,
 		},
 		{
@@ -154,23 +155,22 @@ func Test_Handle(t *testing.T) {
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
 			expectedAllowed: true,
-
 		},
 		{
 			name: "Deny Update invalid configuration",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
 			expectedAllowed: false,
-			resp: newFakeUnprocessableResponse(),
-			err: newFakeUnprocessableErrorResponse(),
+			resp:            newFakeUnprocessableResponse(),
+			err:             newFakeUnprocessableErrorResponse(),
 		},
 		{
 			name: "Deny Update validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
 			expectedAllowed: false,
-			resp: newFakeUnprocessableResponse(),
-			err: newFakeUnprocessableErrorResponse(),
+			resp:            newFakeUnprocessableResponse(),
+			err:             newFakeUnprocessableErrorResponse(),
 		},
 	}
 
@@ -199,8 +199,6 @@ func Test_Handle(t *testing.T) {
 				t.Fatalf("failed to initialize decoder %s", err)
 			}
 
-			os.Setenv(regionEnv, "nyc3")
-
 			var logOpts []zap.Opts
 			ll := zap.New(logOpts...).WithName("webhook-validation-server")
 			ctrlruntimelog.SetLogger(ll)
@@ -209,9 +207,7 @@ func Test_Handle(t *testing.T) {
 				Log:     ll,
 				decoder: decoder,
 				GClient: gClient,
-
 			}
-
 
 			res := validator.Handle(context.TODO(), test.req)
 			if res.Allowed != test.expectedAllowed {
