@@ -67,19 +67,33 @@ func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
 			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
 		},
 	}
+}
 
+func newFakeInternalServerErrorResponse() *godo.ErrorResponse {
+	return &godo.ErrorResponse{
+		Response: &http.Response{
+			Request: &http.Request{
+				Method: "FAKE",
+				URL:    &url.URL{},
+			},
+			StatusCode: http.StatusInternalServerError,
+			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+		},
+	}
 }
 
 func Test_Handle(t *testing.T) {
 	os.Setenv(regionEnv, "nyc3")
 
 	testcases := []struct {
-		name            string
-		req             admission.Request
-		gCLient         *godo.Client
-		expectedAllowed bool
-		resp            *godo.Response
-		err             error
+		name               string
+		req                admission.Request
+		gCLient            *godo.Client
+		expectedAllowed    bool
+		resp               *godo.Response
+		err                error
+		expectedMessage    string
+		expectedStatusCode int32
 	}{
 		{
 			name: "Allow if service type is not load balancer",
@@ -95,7 +109,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed: true,
+			expectedAllowed:    true,
+			expectedStatusCode: int32(http.StatusOK),
 		},
 		{
 			name: "Allow if request is of type DELETE",
@@ -114,7 +129,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed: true,
+			expectedAllowed:    true,
+			expectedStatusCode: int32(http.StatusOK),
 		},
 		{
 			name: "Allow CREATE happy path",
@@ -130,7 +146,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed: true,
+			expectedAllowed:    true,
+			expectedStatusCode: int32(http.StatusOK),
 		},
 		{
 			name: "Deny CREATE invalid configuration",
@@ -146,31 +163,36 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			resp:            newFakeUnprocessableResponse(),
-			err:             newFakeUnprocessableErrorResponse(),
-			expectedAllowed: false,
+			expectedAllowed:    false,
+			resp:               newFakeUnprocessableResponse(),
+			err:                newFakeUnprocessableErrorResponse(),
+			expectedStatusCode: int32(http.StatusForbidden),
 		},
 		{
 			name: "Allow Update happy path",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
-			expectedAllowed: true,
+			expectedAllowed:    true,
+			expectedStatusCode: int32(http.StatusOK),
 		},
 		{
 			name: "Deny Update invalid configuration",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
-			expectedAllowed: false,
-			resp:            newFakeUnprocessableResponse(),
-			err:             newFakeUnprocessableErrorResponse(),
+			expectedAllowed:    false,
+			resp:               newFakeUnprocessableResponse(),
+			err:                newFakeUnprocessableErrorResponse(),
+			expectedStatusCode: int32(http.StatusForbidden),
 		},
 		{
 			name: "Deny Update validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("test2"), fakeService("old-service"))},
-			expectedAllowed: false,
-			resp:            newFakeUnprocessableResponse(),
-			err:             newFakeUnprocessableErrorResponse(),
+			expectedAllowed:    false,
+			expectedMessage:    "failed to validate lb update, could not get validation response",
+			resp:               newFakeNotFoundResponse(),
+			err:                newFakeNotFoundErrorResponse(),
+			expectedStatusCode: int32(newFakeNotFoundErrorResponse().Response.StatusCode),
 		},
 	}
 
@@ -212,6 +234,9 @@ func Test_Handle(t *testing.T) {
 			res := validator.Handle(context.TODO(), test.req)
 			if res.Allowed != test.expectedAllowed {
 				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
+			}
+			if res.Result.Code != test.expectedStatusCode {
+				t.Fatalf("got allowed %v, want %v", res.Result.Code, test.expectedStatusCode)
 			}
 		})
 	}
