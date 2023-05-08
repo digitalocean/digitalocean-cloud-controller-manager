@@ -69,19 +69,6 @@ func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
 	}
 }
 
-func newFakeInternalServerErrorResponse() *godo.ErrorResponse {
-	return &godo.ErrorResponse{
-		Response: &http.Response{
-			Request: &http.Request{
-				Method: "FAKE",
-				URL:    &url.URL{},
-			},
-			StatusCode: http.StatusInternalServerError,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
-		},
-	}
-}
-
 func Test_Handle(t *testing.T) {
 	os.Setenv(regionEnv, "nyc3")
 
