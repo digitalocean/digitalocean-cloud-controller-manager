@@ -34,7 +34,7 @@ jobs:
         env:
           NEW_VERSION: ${{ github.event.inputs.tag }}
       - name: commit manifests
-        uses: EndBug/add-and-commit@b97a9fe893e2984b63d00feaee5922e16ab1cc1e
+        uses: EndBug/add-and-commit@1bad3abcf0d6ec49a5857d124b0bfb52dc7bb081
         with:
           message: "create release manifests for ${{ github.event.inputs.tag }}"
           add: "releases/ VERSION CHANGELOG.md"
