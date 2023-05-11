@@ -44,6 +44,8 @@ var (
 	scheme = runtime.NewScheme()
 )
 
+type annotations map[string]string
+
 type fakeRegionsService struct {
 	listFn func(context.Context, *godo.ListOptions) ([]godo.Region, *godo.Response, error)
 }
@@ -73,14 +75,13 @@ func Test_Handle(t *testing.T) {
 	os.Setenv(regionEnv, "nyc3")
 
 	testcases := []struct {
-		name               string
-		req                admission.Request
-		gCLient            *godo.Client
-		expectedAllowed    bool
-		resp               *godo.Response
-		err                error
-		expectedMessage    string
-		expectedStatusCode int32
+		name            string
+		req             admission.Request
+		gCLient         *godo.Client
+		expectedAllowed bool
+		resp            *godo.Response
+		err             error
+		expectedMessage string
 	}{
 		{
 			name: "Allow if service type is not load balancer",
@@ -96,8 +97,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed:    true,
-			expectedStatusCode: int32(http.StatusOK),
+			expectedAllowed: true,
+			expectedMessage: "ignoring the service which is either not a load balancer or is being deleted",
 		},
 		{
 			name: "Allow if request is of type DELETE",
@@ -116,8 +117,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed:    true,
-			expectedStatusCode: int32(http.StatusOK),
+			expectedAllowed: true,
+			expectedMessage: "ignoring the service which is either not a load balancer or is being deleted",
 		},
 		{
 			name: "Allow CREATE happy path",
@@ -133,8 +134,8 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed:    true,
-			expectedStatusCode: int32(http.StatusOK),
+			expectedAllowed: true,
+			expectedMessage: "valid lb create request",
 		},
 		{
 			name: "Deny CREATE invalid configuration",
@@ -150,36 +151,44 @@ func Test_Handle(t *testing.T) {
 				},
 				nil,
 			)},
-			expectedAllowed:    false,
-			resp:               newFakeUnprocessableResponse(),
-			err:                newFakeUnprocessableErrorResponse(),
-			expectedStatusCode: int32(http.StatusForbidden),
+			expectedAllowed: false,
+			resp:            newFakeUnprocessableResponse(),
+			err:             newFakeUnprocessableErrorResponse(),
+			expectedMessage: "failed to validate lb creation: " + newFakeUnprocessableErrorResponse().Error(),
+		},
+		{
+			name: "Deny create validation error",
+			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
+				fakeService("test2", annotations{}), fakeService("old-service", annotations{}))},
+			expectedAllowed: false,
+			resp:            newFakeNotFoundResponse(),
+			err:             newFakeNotFoundErrorResponse(),
+			expectedMessage: "failed to validate lb create, could not get validation response: " + newFakeNotFoundErrorResponse().Error(),
 		},
 		{
 			name: "Allow Update happy path",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2"), fakeService("old-service"))},
-			expectedAllowed:    true,
-			expectedStatusCode: int32(http.StatusOK),
+				fakeService("test2", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
+			expectedAllowed: true,
+			expectedMessage: "valid update request",
 		},
 		{
 			name: "Deny Update invalid configuration",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2"), fakeService("old-service"))},
-			expectedAllowed:    false,
-			resp:               newFakeUnprocessableResponse(),
-			err:                newFakeUnprocessableErrorResponse(),
-			expectedStatusCode: int32(http.StatusForbidden),
+				fakeService("test2", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
+			expectedAllowed: false,
+			resp:            newFakeUnprocessableResponse(),
+			err:             newFakeUnprocessableErrorResponse(),
+			expectedMessage: "failed to validate lb update: " + newFakeUnprocessableErrorResponse().Error(),
 		},
 		{
 			name: "Deny Update validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2"), fakeService("old-service"))},
-			expectedAllowed:    false,
-			expectedMessage:    "failed to validate lb update, could not get validation response",
-			resp:               newFakeNotFoundResponse(),
-			err:                newFakeNotFoundErrorResponse(),
-			expectedStatusCode: int32(newFakeNotFoundErrorResponse().Response.StatusCode),
+				fakeService("test2", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
+			expectedAllowed: false,
+			resp:            newFakeNotFoundResponse(),
+			err:             newFakeNotFoundErrorResponse(),
+			expectedMessage: "failed to validate lb update, could not get validation response: " + newFakeNotFoundErrorResponse().Error(),
 		},
 	}
 
@@ -220,10 +229,13 @@ func Test_Handle(t *testing.T) {
 
 			res := validator.Handle(context.TODO(), test.req)
 			if res.Allowed != test.expectedAllowed {
-				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
+				t.Fatalf("got %v, want %v", res.Allowed, test.expectedAllowed)
 			}
-			if res.Result.Code != test.expectedStatusCode {
-				t.Fatalf("got allowed %v, want %v", res.Result.Code, test.expectedStatusCode)
+			if res.Result.Reason != "" && string(res.Result.Reason) != test.expectedMessage {
+				t.Fatalf("got %v, want %v", res.Result.Reason, test.expectedMessage)
+			}
+			if res.Result.Message != "" && res.Result.Message != test.expectedMessage {
+				t.Fatalf("got %v, want %v", res.Result.Message, test.expectedMessage)
 			}
 		})
 	}
@@ -270,11 +282,12 @@ func fakeAdmissionRequest(newSvc *corev1.Service, oldSvc *corev1.Service) v1.Adm
 	}
 }
 
-func fakeService(name string) *corev1.Service {
+func fakeService(name string, annotations map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "test",
+			Name:        name,
+			Namespace:   "test",
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,

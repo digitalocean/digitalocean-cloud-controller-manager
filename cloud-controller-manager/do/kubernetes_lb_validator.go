@@ -23,6 +23,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -106,7 +107,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 				validError, errorCode := v.isValidationError(resp)
 				if !validError || errorCode != http.StatusUnprocessableEntity {
 					v.Log.Error(err, "failed to validate lb update, could not get validation response")
-					return admission.Errored(int32(errorCode), err)
+					return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb update, could not get validation response"))
 				}
 				v.Log.Error(err, "failed to validate lb update, invalid configuration")
 				return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
@@ -123,7 +124,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		validError, errorCode := v.isValidationError(resp)
 		if !validError || errorCode != http.StatusUnprocessableEntity {
 			v.Log.Error(err, "failed to validate lb creation, could not get validation response")
-			return admission.Errored(int32(errorCode), err)
+			return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb create, could not get validation response"))
 		}
 		v.Log.Error(err, "failed to validate lb creation, invalid configuration")
 		return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))
