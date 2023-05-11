@@ -217,8 +217,7 @@ func Test_Handle(t *testing.T) {
 				t.Fatalf("failed to initialize decoder %s", err)
 			}
 
-			var logOpts []zap.Opts
-			ll := zap.New(logOpts...).WithName("webhook-validation-server")
+			ll := zap.New().WithName("webhook-validation-server")
 			ctrlruntimelog.SetLogger(ll)
 
 			validator := &KubernetesLBServiceValidator{
