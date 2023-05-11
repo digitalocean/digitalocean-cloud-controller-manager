@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: digitalocean-cloud-controller-manager
-  namespace: kube-system
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   revisionHistoryLimit: 2
@@ -41,9 +41,7 @@ spec:
             - "/bin/digitalocean-cloud-controller-manager"
             - "--leader-elect=false"
           resources:
-            requests:
-              cpu: 100m
-              memory: 50Mi
+            {{- toYaml .Values.resources | nindent 12 }}
           env:
             - name: DO_ACCESS_TOKEN
               valueFrom:
