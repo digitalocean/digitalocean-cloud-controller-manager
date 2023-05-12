@@ -19,11 +19,11 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Verify docker image builds
-        run: make build
-
-      - name: Run test command
+      - name: Run tests
         run: make ci
+
+      - name: Verify container image build
+        run: make build
 
   release-dev-image:
     runs-on: ubuntu-latest
