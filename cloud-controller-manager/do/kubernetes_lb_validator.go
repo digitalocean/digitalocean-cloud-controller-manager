@@ -65,8 +65,13 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	}
 
 	v.Log.V(6).Info("checking received request")
-	if svc.Spec.Type != v1.ServiceTypeLoadBalancer || svc.DeletionTimestamp != nil {
-		return admission.Allowed("ignoring the service which is either not a load balancer or is being deleted")
+
+	if svc.Spec.Type != v1.ServiceTypeLoadBalancer  {
+		return admission.Allowed("ignoring the service because it is not a load balancer")
+	}
+
+	if svc.DeletionTimestamp != nil {
+		return admission.Allowed("ignoring the service because it's being deleted")
 	}
 
 	// TODO: these forwarding rules are a placeholder. Further development is required to extract the values from the svc object

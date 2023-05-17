@@ -98,7 +98,7 @@ func Test_Handle(t *testing.T) {
 				nil,
 			)},
 			expectedAllowed: true,
-			expectedMessage: "ignoring the service which is either not a load balancer or is being deleted",
+			expectedMessage: "ignoring the service because it is not a load balancer",
 		},
 		{
 			name: "Allow if request is of type DELETE",
@@ -118,7 +118,7 @@ func Test_Handle(t *testing.T) {
 				nil,
 			)},
 			expectedAllowed: true,
-			expectedMessage: "ignoring the service which is either not a load balancer or is being deleted",
+			expectedMessage: "ignoring the service because it's being deleted",
 		},
 		{
 			name: "Allow CREATE happy path",
