@@ -129,7 +129,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		v.Log.Error(err, "failed to validate lb creation, invalid configuration")
 		return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))
 	}
-	v.Log.Info(fmt.Sprintf("allowing create"))
+	v.Log.Info("allowing create")
 	return admission.Allowed("valid lb create request")
 }
 
