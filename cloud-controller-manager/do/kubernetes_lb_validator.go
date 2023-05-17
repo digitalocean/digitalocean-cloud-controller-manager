@@ -85,7 +85,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		return admission.Errored(http.StatusBadRequest, fmt.Errorf("failed to determine region: %v", err))
 	}
 
-	lbRequest := v.buildRequest(svc.Name, v.Region, forwardingRules)
+	lbRequest := buildRequest(svc.Name, v.Region, forwardingRules)
 
 	var resp *godo.Response
 
@@ -143,7 +143,7 @@ func (v *KubernetesLBServiceValidator) validateUpdate(ctx context.Context, curre
 	return resp, err
 }
 
-func (v *KubernetesLBServiceValidator) buildRequest(name string, region string, forwardingRules []godo.ForwardingRule) *godo.LoadBalancerRequest {
+func buildRequest(name string, region string, forwardingRules []godo.ForwardingRule) *godo.LoadBalancerRequest {
 	return &godo.LoadBalancerRequest{
 		Name:            name,
 		Tag:             "",
