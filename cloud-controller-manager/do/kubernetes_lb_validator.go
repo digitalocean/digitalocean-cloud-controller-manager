@@ -104,7 +104,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			v.Log.Info(fmt.Sprintf("updating lb id: %v", currentLBID))
 			resp, err = v.validateUpdate(ctx, currentLBID, lbRequest)
 			if err != nil {
-				errorCode := v.getStatusCode(resp)
+				errorCode := getStatusCode(resp)
 				if errorCode != http.StatusUnprocessableEntity {
 					v.Log.Error(err, "failed to validate lb update, could not get validation response")
 					return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb update, could not get validation response"))
@@ -121,7 +121,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	v.Log.Info("validating create request")
 	resp, err = v.validateCreate(ctx, lbRequest)
 	if err != nil {
-		errorCode := v.getStatusCode(resp)
+		errorCode := getStatusCode(resp)
 		if errorCode != http.StatusUnprocessableEntity {
 			v.Log.Error(err, "failed to validate lb creation, could not get validation response")
 			return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb create, could not get validation response"))
@@ -158,7 +158,7 @@ func (v *KubernetesLBServiceValidator) InjectDecoder(d *admission.Decoder) error
 	return nil
 }
 
-func (v *KubernetesLBServiceValidator) getStatusCode(response *godo.Response) int {
+func getStatusCode(response *godo.Response) int {
 	if response.Response != nil {
 		return response.StatusCode
 	}
