@@ -159,7 +159,7 @@ func Test_Handle(t *testing.T) {
 		{
 			name: "Deny create validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2", annotations{}), fakeService("old-service", annotations{}))},
+				fakeService("new-test", annotations{}), fakeService("old-service", annotations{}))},
 			expectedAllowed: false,
 			resp:            newFakeNotFoundResponse(),
 			err:             newFakeNotFoundErrorResponse(),
@@ -168,14 +168,14 @@ func Test_Handle(t *testing.T) {
 		{
 			name: "Allow Update happy path",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
+				fakeService("new-test", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
 			expectedAllowed: true,
 			expectedMessage: "valid update request",
 		},
 		{
 			name: "Deny Update invalid configuration",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
+				fakeService("new-test", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
 			expectedAllowed: false,
 			resp:            newFakeUnprocessableResponse(),
 			err:             newFakeUnprocessableErrorResponse(),
@@ -184,7 +184,7 @@ func Test_Handle(t *testing.T) {
 		{
 			name: "Deny Update validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
-				fakeService("test2", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
+				fakeService("new-test", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
 			expectedAllowed: false,
 			resp:            newFakeNotFoundResponse(),
 			err:             newFakeNotFoundErrorResponse(),
