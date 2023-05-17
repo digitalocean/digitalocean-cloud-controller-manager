@@ -173,6 +173,13 @@ func Test_Handle(t *testing.T) {
 			expectedMessage: "valid update request",
 		},
 		{
+			name: "Allow Update with existing lb IP",
+			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
+				fakeService("new-test", annotations{}), fakeServiceWithStatus())},
+			expectedAllowed: true,
+			expectedMessage: "valid update request",
+		},
+		{
 			name: "Deny Update invalid configuration",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("new-test", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
@@ -291,5 +298,25 @@ func fakeService(name string, annotations map[string]string) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 		},
+	}
+}
+
+func fakeServiceWithStatus() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						IP: "1.2.3.4",
+					},
+				},
+			}},
 	}
 }
