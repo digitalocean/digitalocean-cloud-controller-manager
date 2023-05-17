@@ -66,7 +66,7 @@ func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
 				URL:    &url.URL{},
 			},
 			StatusCode: http.StatusUnprocessableEntity,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+			Body:       ioutil.NopCloser(bytes.NewBufferString("validation failure")),
 		},
 	}
 }
