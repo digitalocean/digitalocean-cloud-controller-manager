@@ -154,7 +154,7 @@ func Test_Handle(t *testing.T) {
 			expectedAllowed: false,
 			resp:            newFakeUnprocessableResponse(),
 			err:             newFakeUnprocessableErrorResponse(),
-			expectedMessage: "failed to validate lb creation: " + newFakeUnprocessableErrorResponse().Error(),
+			expectedMessage: "invalid LB update configuration: " + newFakeUnprocessableErrorResponse().Error(),
 		},
 		{
 			name: "Deny create validation error",
@@ -179,7 +179,7 @@ func Test_Handle(t *testing.T) {
 			expectedAllowed: false,
 			resp:            newFakeUnprocessableResponse(),
 			err:             newFakeUnprocessableErrorResponse(),
-			expectedMessage: "failed to validate lb update: " + newFakeUnprocessableErrorResponse().Error(),
+			expectedMessage: "invalid LB update configuration: " + newFakeUnprocessableErrorResponse().Error(),
 		},
 		{
 			name: "Deny Update validation error",

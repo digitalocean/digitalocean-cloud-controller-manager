@@ -114,8 +114,8 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 					v.Log.Error(err, "failed to validate lb update")
 					return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb update"))
 				}
-				v.Log.Error(err, "failed to validate lb update, invalid configuration")
-				return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
+				v.Log.Error(err, "invalid LB update configuration")
+				return admission.Denied(fmt.Sprintf("invalid LB update configuration: %v", err))
 			}
 			v.Log.Info("lb update validated")
 			return admission.Allowed("valid update request")
@@ -131,8 +131,8 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			v.Log.Error(err, "failed to validate lb creation")
 			return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb create"))
 		}
-		v.Log.Error(err, "failed to validate lb creation, invalid configuration")
-		return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))
+		v.Log.Error(err, "invalid LB update configuration")
+		return admission.Denied(fmt.Sprintf("invalid LB update configuration: %v", err))
 	}
 	v.Log.Info("allowing create")
 	return admission.Allowed("valid lb create request")
