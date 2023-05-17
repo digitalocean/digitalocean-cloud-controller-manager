@@ -111,8 +111,8 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			if err != nil {
 				errorCode := getStatusCode(resp)
 				if errorCode != http.StatusUnprocessableEntity {
-					v.Log.Error(err, "failed to validate lb update, could not get validation response")
-					return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb update, could not get validation response"))
+					v.Log.Error(err, "failed to validate lb update")
+					return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb update"))
 				}
 				v.Log.Error(err, "failed to validate lb update, invalid configuration")
 				return admission.Denied(fmt.Sprintf("failed to validate lb update: %v", err))
@@ -128,8 +128,8 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 	if err != nil {
 		errorCode := getStatusCode(resp)
 		if errorCode != http.StatusUnprocessableEntity {
-			v.Log.Error(err, "failed to validate lb creation, could not get validation response")
-			return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb create, could not get validation response"))
+			v.Log.Error(err, "failed to validate lb creation")
+			return admission.Errored(int32(errorCode), errors.Wrap(err, "failed to validate lb create"))
 		}
 		v.Log.Error(err, "failed to validate lb creation, invalid configuration")
 		return admission.Denied(fmt.Sprintf("failed to validate lb creation: %v", err))

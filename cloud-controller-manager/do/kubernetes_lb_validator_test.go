@@ -163,7 +163,7 @@ func Test_Handle(t *testing.T) {
 			expectedAllowed: false,
 			resp:            newFakeNotFoundResponse(),
 			err:             newFakeNotFoundErrorResponse(),
-			expectedMessage: "failed to validate lb create, could not get validation response: " + newFakeNotFoundErrorResponse().Error(),
+			expectedMessage: "failed to validate lb create: " + newFakeNotFoundErrorResponse().Error(),
 		},
 		{
 			name: "Allow Update happy path",
@@ -188,7 +188,7 @@ func Test_Handle(t *testing.T) {
 			expectedAllowed: false,
 			resp:            newFakeNotFoundResponse(),
 			err:             newFakeNotFoundErrorResponse(),
-			expectedMessage: "failed to validate lb update, could not get validation response: " + newFakeNotFoundErrorResponse().Error(),
+			expectedMessage: "failed to validate lb update: " + newFakeNotFoundErrorResponse().Error(),
 		},
 	}
 
