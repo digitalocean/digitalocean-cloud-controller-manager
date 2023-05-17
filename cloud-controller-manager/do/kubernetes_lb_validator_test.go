@@ -238,10 +238,10 @@ func Test_Handle(t *testing.T) {
 				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
 			}
 			if res.Result.Reason != "" && string(res.Result.Reason) != test.expectedMessage {
-				t.Fatalf("got reason %v, want %v", res.Result.Reason, test.expectedMessage)
+				t.Fatalf("got reason %q, want %q", res.Result.Reason, test.expectedMessage)
 			}
 			if res.Result.Message != "" && res.Result.Message != test.expectedMessage {
-				t.Fatalf("got message %v, want %v", res.Result.Message, test.expectedMessage)
+				t.Fatalf("got message %q, want %q", res.Result.Message, test.expectedMessage)
 			}
 		})
 	}
