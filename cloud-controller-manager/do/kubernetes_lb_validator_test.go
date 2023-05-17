@@ -235,13 +235,13 @@ func Test_Handle(t *testing.T) {
 
 			res := validator.Handle(context.TODO(), test.req)
 			if res.Allowed != test.expectedAllowed {
-				t.Fatalf("got %v, want %v", res.Allowed, test.expectedAllowed)
+				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
 			}
 			if res.Result.Reason != "" && string(res.Result.Reason) != test.expectedMessage {
-				t.Fatalf("got %v, want %v", res.Result.Reason, test.expectedMessage)
+				t.Fatalf("got reason %v, want %v", res.Result.Reason, test.expectedMessage)
 			}
 			if res.Result.Message != "" && res.Result.Message != test.expectedMessage {
-				t.Fatalf("got %v, want %v", res.Result.Message, test.expectedMessage)
+				t.Fatalf("got message %v, want %v", res.Result.Message, test.expectedMessage)
 			}
 		})
 	}
@@ -306,8 +306,7 @@ func fakeServiceWithStatus() *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "test",
-		},
-		Spec: corev1.ServiceSpec{
+		},		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 		},
 		Status: corev1.ServiceStatus{
