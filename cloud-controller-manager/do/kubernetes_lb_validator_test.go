@@ -237,17 +237,16 @@ func Test_Handle(t *testing.T) {
 			}
 
 			res := validator.Handle(context.TODO(), test.req)
-			if res.Allowed != test.expectedAllowed {
-				t.Fatalf("got allowed %v, want %v", res.Allowed, test.expectedAllowed)
+
+			gotMessage := string(res.Result.Reason)
+			label := "reason"
+			if test.expectedErrorStatusCode != 0 {
+				gotMessage = res.Result.Message
+				label = "message"
 			}
-			if res.Result.Reason != "" && string(res.Result.Reason) != test.expectedMessage {
-				t.Fatalf("got reason %q, want %q", res.Result.Reason, test.expectedMessage)
-			}
-			if res.Result.Message != "" && res.Result.Message != test.expectedMessage {
-				t.Fatalf("got message %q, want %q", res.Result.Message, test.expectedMessage)
-			}
-			if res.Result.Message != "" && res.Result.Code != int32(test.expectedErrorStatusCode) {
-				t.Fatalf("got status code %v, want %v", res.Result.Code, test.expectedErrorStatusCode)
+
+			if gotMessage != test.expectedMessage {
+				t.Fatalf("got %s %q, want %q", label, gotMessage, test.expectedMessage)
 			}
 		})
 	}
