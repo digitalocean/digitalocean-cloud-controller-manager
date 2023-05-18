@@ -66,7 +66,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 
 	v.Log.V(6).Info("checking received request")
 
-	if svc.Spec.Type != v1.ServiceTypeLoadBalancer  {
+	if svc.Spec.Type != v1.ServiceTypeLoadBalancer {
 		return admission.Allowed("ignoring the service because it is not a load balancer")
 	}
 
