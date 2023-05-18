@@ -75,13 +75,14 @@ func Test_Handle(t *testing.T) {
 	os.Setenv(regionEnv, "nyc3")
 
 	testcases := []struct {
-		name            string
-		req             admission.Request
-		gCLient         *godo.Client
-		expectedAllowed bool
-		resp            *godo.Response
-		err             error
-		expectedMessage string
+		name                    string
+		req                     admission.Request
+		gCLient                 *godo.Client
+		expectedAllowed         bool
+		resp                    *godo.Response
+		err                     error
+		expectedMessage         string
+		expectedErrorStatusCode int
 	}{
 		{
 			name: "Allow if service type is not load balancer",
@@ -160,10 +161,11 @@ func Test_Handle(t *testing.T) {
 			name: "Deny create validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("new-test", annotations{}), fakeService("old-service", annotations{}))},
-			expectedAllowed: false,
-			resp:            newFakeNotFoundResponse(),
-			err:             newFakeNotFoundErrorResponse(),
-			expectedMessage: "failed to validate lb create: " + newFakeNotFoundErrorResponse().Error(),
+			expectedAllowed:         false,
+			resp:                    newFakeNotFoundResponse(),
+			err:                     newFakeNotFoundErrorResponse(),
+			expectedMessage:         "failed to validate lb create: " + newFakeNotFoundErrorResponse().Error(),
+			expectedErrorStatusCode: newFakeNotFoundResponse().Response.StatusCode,
 		},
 		{
 			name: "Allow Update happy path",
@@ -192,10 +194,11 @@ func Test_Handle(t *testing.T) {
 			name: "Deny Update validation error",
 			req: admission.Request{AdmissionRequest: fakeAdmissionRequest(
 				fakeService("new-test", annotations{}), fakeService("old-service", annotations{annDOLoadBalancerID: "test"}))},
-			expectedAllowed: false,
-			resp:            newFakeNotFoundResponse(),
-			err:             newFakeNotFoundErrorResponse(),
-			expectedMessage: "failed to validate lb update: " + newFakeNotFoundErrorResponse().Error(),
+			expectedAllowed:         false,
+			resp:                    newFakeNotFoundResponse(),
+			err:                     newFakeNotFoundErrorResponse(),
+			expectedMessage:         "failed to validate lb update: " + newFakeNotFoundErrorResponse().Error(),
+			expectedErrorStatusCode: newFakeNotFoundResponse().Response.StatusCode,
 		},
 	}
 
@@ -242,6 +245,9 @@ func Test_Handle(t *testing.T) {
 			}
 			if res.Result.Message != "" && res.Result.Message != test.expectedMessage {
 				t.Fatalf("got message %q, want %q", res.Result.Message, test.expectedMessage)
+			}
+			if res.Result.Message != "" && res.Result.Code != int32(test.expectedErrorStatusCode) {
+				t.Fatalf("got status code %v, want %v", res.Result.Code, test.expectedErrorStatusCode)
 			}
 		})
 	}
@@ -306,7 +312,7 @@ func fakeServiceWithStatus() *corev1.Service {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "test",
-		},		Spec: corev1.ServiceSpec{
+		}, Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 		},
 		Status: corev1.ServiceStatus{
