@@ -44,6 +44,8 @@ var (
 	scheme = runtime.NewScheme()
 )
 
+const testRegion = "nyc3"
+
 type annotations map[string]string
 
 type fakeRegionsService struct {
@@ -72,7 +74,7 @@ func newFakeUnprocessableErrorResponse() *godo.ErrorResponse {
 }
 
 func Test_Handle(t *testing.T) {
-	os.Setenv(regionEnv, "nyc3")
+	_ = os.Setenv(regionEnv, testRegion)
 
 	testcases := []struct {
 		name                    string
@@ -219,7 +221,7 @@ func Test_Handle(t *testing.T) {
 			}
 			gClient.Regions = &fakeRegionsService{
 				listFn: func(context.Context, *godo.ListOptions) ([]godo.Region, *godo.Response, error) {
-					return []godo.Region{{Name: "nyc3", Slug: "nyc3"}}, newFakeOKResponse(), nil
+					return []godo.Region{{Name: testRegion, Slug: testRegion}}, newFakeOKResponse(), nil
 				}}
 
 			decoder, err := admission.NewDecoder(scheme)
