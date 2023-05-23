@@ -134,7 +134,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		v.Log.Error(err, "invalid LB update configuration")
 		return admission.Denied(fmt.Sprintf("invalid LB update configuration: %v", err))
 	}
-	v.Log.Info("allowing create")
+	v.Log.Info("lb creation validated")
 	return admission.Allowed("valid lb create request")
 }
 
