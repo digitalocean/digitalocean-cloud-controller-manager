@@ -1,6 +1,7 @@
 module github.com/digitalocean/digitalocean-cloud-controller-manager
 
 go 1.20
+<<<<<<< HEAD
 
 require (
 	github.com/davecgh/go-spew v1.1.1
@@ -118,3 +119,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+=======
+>>>>>>> 02cdc8a1 (move region set to webook server init)

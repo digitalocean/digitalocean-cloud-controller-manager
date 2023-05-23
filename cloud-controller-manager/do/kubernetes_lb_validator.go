@@ -53,7 +53,17 @@ type KubernetesLBServiceValidator struct {
 	Region  string
 }
 
-// DOKSLBServiceValidator ...
+func (v *KubernetesLBServiceValidator) setRegion(regionsService godo.RegionsService) error {
+	regionsService = v.GClient.Regions
+	region, err := dropletRegion(v.GClient.Regions)
+	if err != nil {
+		return fmt.Errorf("failed to determine region: %v", err)
+	}
+	v.Region = region
+	return nil
+}
+
+// Handle DOKSLBServiceValidator creates a load balancer validation webhook
 func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
 	svc := &v1.Service{}
 
@@ -84,11 +94,6 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 			CertificateID:  "",
 			TlsPassthrough: false,
 		}}
-
-	v.Region, err = dropletRegion(v.GClient.Regions)
-	if err != nil {
-		return admission.Errored(http.StatusBadRequest, fmt.Errorf("failed to determine region: %v", err))
-	}
 
 	lbRequest := buildRequest(svc.Name, v.Region, forwardingRules)
 
