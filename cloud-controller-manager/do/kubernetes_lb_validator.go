@@ -19,16 +19,17 @@ package do
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"sync"
+
 	"github.com/digitalocean/godo"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sync"
 )
 
-var doOnce sync.Once
+var once sync.Once
 
 // LBService represents the v1.service lb object data
 type LBService struct {
@@ -88,7 +89,7 @@ func (v *KubernetesLBServiceValidator) Handle(ctx context.Context, req admission
 		}}
 
 	// only request from metadata service once during initialization, see https://pkg.go.dev/sync#Once.Do
-	doOnce.Do(func() {
+	once.Do(func() {
 		v.Region, err = dropletRegion(v.GClient.Regions)
 	})
 	if err != nil {
