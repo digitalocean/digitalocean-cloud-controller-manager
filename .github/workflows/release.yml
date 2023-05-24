@@ -18,7 +18,7 @@ jobs:
         with:
           ref: master
       - name: Install go
-        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9
+        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753
         with:
           go-version-file: go.mod
       - name: Login to dockerhub to push the image
@@ -34,7 +34,7 @@ jobs:
         env:
           NEW_VERSION: ${{ github.event.inputs.tag }}
       - name: commit manifests
-        uses: EndBug/add-and-commit@61a88be553afe4206585b31aa72387c64295d08b
+        uses: EndBug/add-and-commit@1bad3abcf0d6ec49a5857d124b0bfb52dc7bb081
         with:
           message: "create release manifests for ${{ github.event.inputs.tag }}"
           add: "releases/ VERSION CHANGELOG.md"

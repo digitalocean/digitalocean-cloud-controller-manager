@@ -4,6 +4,9 @@ updates:
   directory: "/"
   schedule:
     interval: weekly
+  ignore:
+  # We always update Kubernetes dependencies manually and atomically.
+  - dependency-name: k8s.io/*
   open-pull-requests-limit: 10
 
 - package-ecosystem: "github-actions"
