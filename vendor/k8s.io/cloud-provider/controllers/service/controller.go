@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -41,6 +42,7 @@ import (
 	servicehelper "k8s.io/cloud-provider/service/helpers"
 	"k8s.io/component-base/featuregate"
 	controllersmetrics "k8s.io/component-base/metrics/prometheus/controllers"
+	"k8s.io/controller-manager/pkg/features"
 	"k8s.io/klog/v2"
 )
 
@@ -659,8 +661,9 @@ func nodeNames(nodes []*v1.Node) sets.String {
 
 func shouldSyncUpdatedNode(oldNode, newNode *v1.Node) bool {
 	// Evaluate the individual node exclusion predicate before evaluating the
-	// compounded result of all predicates. We don't sync ETP=local services
-	// for changes on the readiness condition, hence if a node remains NotReady
+	// compounded result of all predicates. We don't sync changes on the
+	// readiness condition for eTP:Local services or when
+	// StableLoadBalancerNodeSet is enabled, hence if a node remains NotReady
 	// and a user adds the exclusion label we will need to sync as to make sure
 	// this change is reflected correctly on ETP=local services. The sync
 	// function compares lastSyncedNodes with the new (existing) set of nodes
@@ -671,7 +674,14 @@ func shouldSyncUpdatedNode(oldNode, newNode *v1.Node) bool {
 	if respectsPredicates(oldNode, nodeIncludedPredicate) != respectsPredicates(newNode, nodeIncludedPredicate) {
 		return true
 	}
-	return respectsPredicates(oldNode, allNodePredicates...) != respectsPredicates(newNode, allNodePredicates...)
+	// For the same reason as above, also check for changes to the providerID
+	if respectsPredicates(oldNode, nodeHasProviderIDPredicate) != respectsPredicates(newNode, nodeHasProviderIDPredicate) {
+		return true
+	}
+	if !utilfeature.DefaultFeatureGate.Enabled(features.StableLoadBalancerNodeSet) {
+		return respectsPredicates(oldNode, allNodePredicates...) != respectsPredicates(newNode, allNodePredicates...)
+	}
+	return false
 }
 
 // syncNodes handles updating the hosts pointed to by all load
@@ -699,8 +709,8 @@ func (c *Controller) syncNodes(ctx context.Context, workers int) sets.String {
 // there's no need. This function returns true if we tried to update load balancers and
 // failed, indicating to the caller that we should try again.
 func (c *Controller) nodeSyncService(svc *v1.Service, oldNodes, newNodes []*v1.Node) bool {
-	retSuccess := false
-	retNeedRetry := true
+	const retSuccess = false
+	const retNeedRetry = true
 	if svc == nil || !wantsLoadBalancer(svc) {
 		return retSuccess
 	}
@@ -712,6 +722,7 @@ func (c *Controller) nodeSyncService(svc *v1.Service, oldNodes, newNodes []*v1.N
 	klog.V(4).Infof("nodeSyncService started for service %s/%s", svc.Namespace, svc.Name)
 	if err := c.lockedUpdateLoadBalancerHosts(svc, newNodes); err != nil {
 		runtime.HandleError(fmt.Errorf("failed to update load balancer hosts for service %s/%s: %v", svc.Namespace, svc.Name, err))
+		nodeSyncErrorCount.Inc()
 		return retNeedRetry
 	}
 	klog.V(4).Infof("nodeSyncService finished successfully for service %s/%s", svc.Namespace, svc.Name)
@@ -755,6 +766,7 @@ func (c *Controller) updateLoadBalancerHosts(ctx context.Context, services []*v1
 // associated with the service.
 func (c *Controller) lockedUpdateLoadBalancerHosts(service *v1.Service, hosts []*v1.Node) error {
 	startTime := time.Now()
+	loadBalancerSyncCount.Inc()
 	defer func() {
 		latency := time.Since(startTime).Seconds()
 		klog.V(4).Infof("It took %v seconds to update load balancer hosts for service %s/%s", latency, service.Namespace, service.Name)
@@ -927,15 +939,31 @@ var (
 		nodeIncludedPredicate,
 		nodeUnTaintedPredicate,
 		nodeReadyPredicate,
+		nodeHasProviderIDPredicate,
 	}
 	etpLocalNodePredicates []NodeConditionPredicate = []NodeConditionPredicate{
 		nodeIncludedPredicate,
+		nodeUnTaintedPredicate,
+		nodeHasProviderIDPredicate,
+	}
+	stableNodeSetPredicates []NodeConditionPredicate = []NodeConditionPredicate{
+		nodeNotDeletedPredicate,
+		nodeIncludedPredicate,
+		nodeHasProviderIDPredicate,
+		// This is not perfect, but probably good enough. We won't update the
+		// LBs just because the taint was added (see shouldSyncUpdatedNode) but
+		// if any other situation causes an LB sync, tainted nodes will be
+		// excluded at that time and cause connections on said node to not
+		// connection drain.
 		nodeUnTaintedPredicate,
 	}
 )
 
 func getNodePredicatesForService(service *v1.Service) []NodeConditionPredicate {
-	if service.Spec.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyTypeLocal {
+	if utilfeature.DefaultFeatureGate.Enabled(features.StableLoadBalancerNodeSet) {
+		return stableNodeSetPredicates
+	}
+	if service.Spec.ExternalTrafficPolicy == v1.ServiceExternalTrafficPolicyLocal {
 		return etpLocalNodePredicates
 	}
 	return allNodePredicates
@@ -945,6 +973,10 @@ func getNodePredicatesForService(service *v1.Service) []NodeConditionPredicate {
 func nodeIncludedPredicate(node *v1.Node) bool {
 	_, hasExcludeBalancerLabel := node.Labels[v1.LabelNodeExcludeBalancers]
 	return !hasExcludeBalancerLabel
+}
+
+func nodeHasProviderIDPredicate(node *v1.Node) bool {
+	return node.Spec.ProviderID != ""
 }
 
 // We consider the node for load balancing only when its not tainted for deletion by the cluster autoscaler.
@@ -965,6 +997,10 @@ func nodeReadyPredicate(node *v1.Node) bool {
 		}
 	}
 	return false
+}
+
+func nodeNotDeletedPredicate(node *v1.Node) bool {
+	return node.DeletionTimestamp.IsZero()
 }
 
 // listWithPredicate gets nodes that matches all predicate functions.

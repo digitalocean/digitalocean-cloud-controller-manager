@@ -18,11 +18,11 @@ package main
 
 import (
 	"fmt"
-	"os"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
@@ -47,7 +47,7 @@ func startWebhookServer() error {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to retrieve kubeconfig %v\n", err)
 	}
-	server := webhook.Server{}
+	server := webhook.NewServer(webhook.Options{})
 	c, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to construct cr client %v\n", err)
@@ -55,7 +55,7 @@ func startWebhookServer() error {
 
 	server.Register("/validate-doks-lb-service", &webhook.Admission{Handler: &do.DOKSLBServiceValidator{Client: c, Log: ll}})
 	ll.Info("Registering Webhook server handlers")
-	if err = server.StartStandalone(ctrl.SetupSignalHandler(), scheme); err != nil {
+	if err = server.Start(signals.SetupSignalHandler()); err != nil {
 		return err
 	}
 	ll.Info("Webhooks server started")
