@@ -12,32 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build the manager binary
+# Build the binary
 FROM golang:1.19 as builder
 
-WORKDIR /workspace
+WORKDIR /usr/src/app
 
-# Copy the Go Modules manifests
-COPY go.mod go.mod
-COPY go.sum go.sum
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-COPY vendor/ vendor/
+COPY . ./
 
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -a -o /digitalocean-webhook-server ./cloud-controller-manager/cmd/digitalocean-webhook-server/...
 
-# Copy the go source
-COPY  cloud-controller-manager/cmd/digitalocean-webhook-server/main.go main.go
-COPY  cloud-controller-manager/do cloud-controller-manager/do
-
-
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -v -a -o doks_webhooks main.go
-
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
+# Use distroless as minimal base image to package the binary
 FROM gcr.io/distroless/static:nonroot
-WORKDIR /
-COPY --from=builder  /workspace/doks_webhooks /doks_webhooks
-USER 65532:65532
+COPY --from=builder /digitalocean-webhook-server /digitalocean-webhook-server
 
-ENTRYPOINT ["./doks_webhooks"]
+ENTRYPOINT ["/digitalocean-webhook-server"]
+
