@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.43 (beta) - May 25, 2023
+
 ## v0.1.42 (beta) - January 10, 2023
 
 ## v0.1.42 (beta) - January  9, 2023
