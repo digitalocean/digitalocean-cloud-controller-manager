@@ -796,7 +796,7 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 
 func buildFirewall(service *v1.Service) *godo.LBFirewall {
 	denyRules := getStrings(service, annDODenyRules)
-	allowRules := getStrings(service, annDOAllowRules)
+	allowRules := append(getStrings(service, annDOAllowRules), getSourceRangeRules(service)...)
 	if len(denyRules) == 0 && len(allowRules) == 0 {
 		return nil
 	}
@@ -854,6 +854,18 @@ func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
 		CookieName:       name,
 		CookieTtlSeconds: ttl,
 	}, nil
+}
+
+// getSourceRangeRules returns loadBalancerSourceRanges
+// in the format `cidr:{source}`
+func getSourceRangeRules(service *v1.Service) []string {
+	sourceRanges := service.Spec.LoadBalancerSourceRanges
+
+	for i, sourceRange := range sourceRanges {
+		sourceRanges[i] = "cidr:" + sourceRange
+	}
+
+	return sourceRanges
 }
 
 // getProtocol returns the desired protocol of service.
