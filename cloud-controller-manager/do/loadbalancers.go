@@ -795,15 +795,9 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 }
 
 func buildFirewall(service *v1.Service) *godo.LBFirewall {
-	denyRules := getStrings(service, annDODenyRules)
-	allowRules := getStrings(service, annDOAllowRules)
-	if len(denyRules) == 0 && len(allowRules) == 0 {
-		return nil
-	}
-
 	return &godo.LBFirewall{
-		Deny:  denyRules,
-		Allow: allowRules,
+		Deny:  getStrings(service, annDODenyRules),
+		Allow: getStrings(service, annDOAllowRules),
 	}
 }
 
