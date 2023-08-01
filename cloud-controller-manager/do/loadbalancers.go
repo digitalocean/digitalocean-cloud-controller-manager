@@ -1058,7 +1058,7 @@ func getPorts(service *v1.Service, anno string) ([]int, error) {
 func getStrings(service *v1.Service, anno string) []string {
 	vals, ok := service.Annotations[anno]
 	if !ok || len(vals) == 0 {
-		return []string{}
+		return nil
 	}
 
 	pieces := strings.Split(vals, ",")
