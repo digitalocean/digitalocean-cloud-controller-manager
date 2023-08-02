@@ -4203,6 +4203,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
 			}
+			if test.lbr != nil {
+				test.lbr.Firewall = &godo.LBFirewall{}
+			}
 
 			lbr, err := lb.buildLoadBalancerRequest(context.Background(), test.service, test.nodes)
 
@@ -5652,7 +5655,7 @@ func Test_buildFirewall(t *testing.T) {
 					Annotations: map[string]string{},
 				},
 			},
-			expectedFirewall: nil,
+			expectedFirewall: &godo.LBFirewall{},
 		},
 		{
 			name: "annotations empty",
@@ -5666,7 +5669,7 @@ func Test_buildFirewall(t *testing.T) {
 					},
 				},
 			},
-			expectedFirewall: nil,
+			expectedFirewall: &godo.LBFirewall{},
 		},
 		{
 			name: "annotations set",
