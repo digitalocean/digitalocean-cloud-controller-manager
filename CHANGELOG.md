@@ -1,4 +1,6 @@
 ## unreleased
+
+## v0.1.44 (beta) - August  2, 2023
 * Remove deny and allow load balancer firewall rules when annotations are removed (@olove) 
 
 ## v0.1.43 (beta) - May 25, 2023
