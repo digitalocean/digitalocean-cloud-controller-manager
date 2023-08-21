@@ -47,6 +47,7 @@ func main() {
 		opts,
 		doInitializer,
 		app.DefaultInitFuncConstructors,
+		map[string]string{},
 		flag.NamedFlagSets{},
 		wait.NeverStop,
 	)
