@@ -221,7 +221,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	if lb.Status != lbStatusActive {
 		if lb.Status == lbStatusNew {
-			return nil, api.NewRetryError("load-balancer is not in an active state", 15*time.Second)
+			return nil, api.NewRetryError("load-balancer is currently being created", 15*time.Second)
 		}
 
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
