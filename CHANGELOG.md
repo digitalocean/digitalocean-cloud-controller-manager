@@ -1,4 +1,10 @@
 ## unreleased
+* Updates kubernetes dependencies: (@olove)
+  - k8s.io/api@v0.28.0
+  - k8s.io/apimachinery@v0.28.0
+  - k8s.io/client-go@v0.28.0
+  - k8s.io/cloud-provider@v0.28.0
+  - k8s.io/component-base@v0.28.0
 
 ## v0.1.44 (beta) - August  2, 2023
 * Remove deny and allow load balancer firewall rules when annotations are removed (@olove) 
