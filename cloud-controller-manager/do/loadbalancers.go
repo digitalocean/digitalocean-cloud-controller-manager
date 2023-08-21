@@ -25,11 +25,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/cloud-provider/api"
 	"k8s.io/klog/v2"
 
 	"github.com/digitalocean/godo"
@@ -218,6 +220,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	}
 
 	if lb.Status != lbStatusActive {
+		if lb.Status == lbStatusNew {
+			return nil, api.NewRetryError(fmt.Sprintf("load-balancer is not yet active (current status: %s)", lb.Status), 15*time.Second)
+		}
+
 		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
 	}
 
