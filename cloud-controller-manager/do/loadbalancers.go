@@ -219,12 +219,12 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		return nil, err
 	}
 
-	if lb.Status != lbStatusActive {
-		if lb.Status == lbStatusNew {
-			return nil, api.NewRetryError("load-balancer is currently being created", 15*time.Second)
-		}
+	if lb.Status == lbStatusNew {
+		return nil, api.NewRetryError("load-balancer is currently being created", 15*time.Second)
+	}
 
-		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+	if lb.Status != lbStatusActive {
+		return nil, fmt.Errorf("load-balancer has unexpected status %q", lb.Status)
 	}
 
 	// If a LB hostname annotation is specified, return with it instead of the IP.
