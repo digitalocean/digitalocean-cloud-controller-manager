@@ -25,11 +25,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
+	"k8s.io/cloud-provider/api"
 	"k8s.io/klog/v2"
 
 	"github.com/digitalocean/godo"
@@ -217,8 +219,12 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		return nil, err
 	}
 
+	if lb.Status == lbStatusNew {
+		return nil, api.NewRetryError("load-balancer is currently being created", 15*time.Second)
+	}
+
 	if lb.Status != lbStatusActive {
-		return nil, fmt.Errorf("load-balancer is not yet active (current status: %s)", lb.Status)
+		return nil, fmt.Errorf("load-balancer has unexpected status %q", lb.Status)
 	}
 
 	// If a LB hostname annotation is specified, return with it instead of the IP.
