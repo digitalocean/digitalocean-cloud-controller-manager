@@ -1,4 +1,5 @@
 ## unreleased
+* Update retry duration when DO LoadBalancer is being created (@olove) 
 * Updates kubernetes dependencies: (@olove)
   - k8s.io/api@v0.28.0
   - k8s.io/apimachinery@v0.28.0
