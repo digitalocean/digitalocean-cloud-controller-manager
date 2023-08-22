@@ -1,4 +1,6 @@
 ## unreleased
+
+## v0.1.45 (beta) - August 22, 2023
 * Update retry duration when DO LoadBalancer is being created (@olove) 
 * Updates kubernetes dependencies: (@olove)
   - k8s.io/api@v0.28.0
