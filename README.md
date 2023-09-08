@@ -177,7 +177,7 @@ This will create a binary with version `dev` and docker image pushed to
    go mod tidy
    go mod vendor
    ```
-2. [Update Go version to latest GA version](https://github.com/digitalocean/digitalocean-cloud-controller-manager/blob/master/go.mod#L3)
+2. [Update Go version to latest GA version](./go.mod)
 
 ### Github Action (preferred)
 
