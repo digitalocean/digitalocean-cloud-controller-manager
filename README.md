@@ -170,6 +170,15 @@ This will create a binary with version `dev` and docker image pushed to
 
 ## Release a new version
 
+### Update Go and dependencies 
+1. Update Go dependencies
+   ```shell
+   go get -u ./...
+   go mod tidy
+   go mod vendor
+   ```
+2. [Update Go version to latest GA version](./go.mod)
+
 ### Github Action (preferred)
 
 To create the docker image and generate the manifests, go to the actions page on Github and click on Run Workflow . Specify the github `<tag>` that you want to create.
