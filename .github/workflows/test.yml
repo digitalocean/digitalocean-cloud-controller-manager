@@ -29,6 +29,11 @@ jobs:
 
   release-dev-image:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
     needs: test
     if: github.ref == 'refs/heads/master'
     steps:
@@ -43,10 +48,12 @@ jobs:
           go-version-file: go.mod
           check-latest: true
 
-      - name: Login to dockerhub to push the image
-        run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
-        env:
-          DOCKER_USER: ${{ secrets.DockerHubUser }}
+      - name: Login to DockerHub
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          username: ${{ secrets.DockerHubUser }}
+          password: ${{ secrets.DockerHubToken }}
+
       - name: build and push new CCM dev image
         run: |
-          VERSION=dev make publish
+          VERSION=dev make publish sign
