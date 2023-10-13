@@ -12,7 +12,14 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
     steps:
+
       - name: Check out code into the Go module directory
         uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
         with:
@@ -23,18 +30,46 @@ jobs:
         with:
           go-version-file: go.mod
           check-latest: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@11086d25041f77fe8fe7b9ea4e48e3b9192b8f19 # v3.1.2
+
+      - name: Install crane
+        uses: uses: imjasonh/setup-crane@00c9e93efa4e1138c9a7a5c594acd6c75a2fbf0c # v0.3
+
       - name: Login to dockerhub to push the image
         run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
         env:
           DOCKER_USER: ${{ secrets.DockerHubUser }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          username: ${{ secrets.DockerHubUser }}
+          password: ${{ secrets.DockerHubToken }}
+
+      - name: Login to GitHub Docker Registry
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Publish Docker Image
         env:
           VERSION: ${{ github.event.inputs.tag }}
         run: make ci publish
+
+      - name: Sign Image and copy to ghcr.io
+        env:
+          VERSION: ${{ github.event.inputs.tag }}
+        run: make sign copy-ghcr
+
       - name: run make bump-version
         run: make bump-version
         env:
           NEW_VERSION: ${{ github.event.inputs.tag }}
+
       - name: commit manifests
         uses: EndBug/add-and-commit@1bad3abcf0d6ec49a5857d124b0bfb52dc7bb081 # v9.1.3
         with:
