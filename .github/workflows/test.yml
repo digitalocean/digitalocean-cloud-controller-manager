@@ -11,13 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
         with:
           fetch-depth: 1
+
       - name: Install go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version-file: go.mod
+          check-latest: true
 
       - name: Run tests
         run: make ci
@@ -31,14 +33,15 @@ jobs:
     if: github.ref == 'refs/heads/master'
     steps:
       - name: checkout
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608
+        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4.1.0
         with:
           fetch-depth: 1
 
       - name: Install go
-        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe
+        uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
         with:
           go-version-file: go.mod
+          check-latest: true
 
       - name: Login to dockerhub to push the image
         run: echo "${{ secrets.DockerHubToken }}" | docker login --username ${DOCKER_USER} --password-stdin
