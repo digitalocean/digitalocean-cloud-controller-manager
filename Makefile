@@ -23,6 +23,7 @@ COMMIT ?= $(shell git rev-parse HEAD)
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell cat VERSION)
 REGISTRY ?= digitalocean
+REGISTRY_GHCR ?= ghcr.io/digitalocean
 GO_VERSION ?= $(shell go mod edit -print | grep -E '^go [[:digit:].]*' | cut -d' ' -f2)
 
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do.version=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
@@ -88,6 +89,12 @@ else
 	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 endif
+
+sign:
+	@cosign sign --yes $(REGISTRY)/digitalocean-cloud-controller-manager@$(shell crane digest $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION))
+
+copy-ghcr:
+	@cosign copy $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) $(REGISTRY_GHCR)/digitalocean-cloud-controller-manager:$(VERSION)
 
 .PHONY: govet
 govet:
