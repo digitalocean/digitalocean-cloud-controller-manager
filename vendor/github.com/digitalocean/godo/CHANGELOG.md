@@ -1,5 +1,15 @@
 # Change Log
 
+## [v1.104.1] - 2023-10-10
+
+* #640 - @andrewsomething - Drop required Go version to 1.20 and document policy.
+* #640 - @andrewsomething - Fix library version.
+
+## [v1.104.0] - 2023-10-10
+
+- #637 - @mikesmithgh - chore: change uptime alert comparison type
+- #638 - @markusthoemmes - APPS-7700 Add ability to specify digest for an image
+
 ## [v1.103.0] - 2023-10-03
 
 - #635 - @andrewsomething - Bump github.com/stretchr/testify to v1.8.4
