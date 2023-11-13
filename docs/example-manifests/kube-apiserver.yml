@@ -25,7 +25,7 @@ spec:
       --requestheader-username-headers=X-Remote-User --secure-port=443 --service-cluster-ip-range=100.64.0.0/13
       --storage-backend=etcd3 --tls-cert-file=/srv/kubernetes/server.cert --tls-private-key-file=/srv/kubernetes/server.key
       --token-auth-file=/srv/kubernetes/known_tokens.csv --v=2 > /tmp/pipe 2>&1
-    image: k8s.gcr.io/kube-apiserver:v1.11.1
+    image: registry.k8s.io/kube-apiserver:v1.11.1
     livenessProbe:
       httpGet:
         host: 127.0.0.1
