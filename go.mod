@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/digitalocean/godo v1.107.0
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.1
 	github.com/google/go-cmp v0.6.0
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/copystructure v1.2.0
