@@ -47,7 +47,12 @@ func (f *kvCertService) Get(ctx context.Context, certID string) (*godo.Certifica
 }
 
 func (f *kvCertService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
-	panic("not implemented")
+	list := []godo.Certificate{}
+	for _, cert := range f.store {
+		list = append(list, *cert)
+	}
+
+	return list, newFakeOKResponse(), nil
 }
 
 func (f *kvCertService) Create(ctx context.Context, crtr *godo.CertificateRequest) (*godo.Certificate, *godo.Response, error) {
@@ -72,6 +77,14 @@ func createServiceAndCert(lbID, certID, certType string) (*v1.Service, *godo.Cer
 	}
 	s := createServiceWithCert(lbID, certID)
 	return s, c
+}
+
+func createCertWithName(certID, certName, certType string) *godo.Certificate {
+	return &godo.Certificate{
+		ID:   certID,
+		Name: certName,
+		Type: certType,
+	}
 }
 
 func createServiceWithCert(lbID, certID string) *v1.Service {
@@ -161,6 +174,21 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			},
 			expectedServiceCertID: "service-cert-id",
 			expectedLBCertID:      "service-cert-id",
+		},
+		{
+			name: "[lets_encrypt] LB cert ID does not exit and service cert Name does",
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, _ := createHTTPSLB("test-lb-id", "lb-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+
+				cert := createCertWithName("cert-id", "cert-name", certTypeLetsEncrypt)
+				certService.store[cert.ID] = cert
+				service := createService(lb.ID)
+				service.Annotations[annDOCertificateName] = cert.Name
+				return service
+			},
+			expectedServiceCertID: "cert-id",
+			expectedLBCertID:      "cert-id",
 		},
 
 		// custom test cases
@@ -286,7 +314,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 
 				serviceCertID := getCertificateID(service)
 				if test.expectedServiceCertID != serviceCertID {
-					t.Errorf("got service certificate ID: %s, want: %s", test.expectedServiceCertID, serviceCertID)
+					t.Errorf("got service certificate ID: %s, want: %s", serviceCertID, test.expectedServiceCertID)
 				}
 
 				godoLoadBalancer, _, err := lbService.Get(context.Background(), getLoadBalancerID(service))
@@ -295,7 +323,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				}
 				lbCertID := getCertificateIDFromLB(godoLoadBalancer)
 				if test.expectedLBCertID != lbCertID {
-					t.Errorf("got load-balancer certificate ID: %s, want: %s", test.expectedLBCertID, lbCertID)
+					t.Errorf("got load-balancer certificate ID: %s, want: %s", lbCertID, test.expectedLBCertID)
 				}
 			})
 		}
