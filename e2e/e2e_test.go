@@ -33,7 +33,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	cloudprovider "k8s.io/cloud-provider"
+	cloudprovider "k8s.io/cloud-provider/api"
 )
 
 const (
@@ -106,7 +106,7 @@ func TestE2E(t *testing.T) {
 			)
 			start := time.Now()
 			if err := wait.Poll(5*time.Second, 6*time.Minute, func() (bool, error) {
-				nl, err := cs.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kubernetes.io/role=node"})
+				nl, err := cs.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "kubernetes.io/role=node"})
 				if err != nil {
 					return false, err
 				}
@@ -175,7 +175,7 @@ func TestE2E(t *testing.T) {
 			start = time.Now()
 			var appPod *corev1.Pod
 			if err := wait.Poll(1*time.Second, 1*time.Minute, func() (bool, error) {
-				pod, err := cs.CoreV1().Pods(corev1.NamespaceDefault).Get(appName, metav1.GetOptions{})
+				pod, err := cs.CoreV1().Pods(corev1.NamespaceDefault).Get(context.Background(), appName, metav1.GetOptions{})
 				if err != nil {
 					if kerrors.IsNotFound(err) {
 						return false, nil
@@ -221,7 +221,7 @@ func TestE2E(t *testing.T) {
 			var lbAddr string
 			defer func() {
 				l.Printf("Deleting service %q\n", svcName)
-				if err := cs.CoreV1().Services(corev1.NamespaceDefault).Delete(context.Background(), svcName, &metav1.DeleteOptions{}); err != nil {
+				if err := cs.CoreV1().Services(corev1.NamespaceDefault).Delete(context.Background(), svcName, metav1.DeleteOptions{}); err != nil {
 					t.Errorf("failed to delete service: %s", err)
 				}
 				// If this is the last test, CCM might not be able to remove
