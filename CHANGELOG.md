@@ -7,6 +7,7 @@
   - k8s.io/client-go@v0.29.0
   - k8s.io/cloud-provider@v0.29.0
   - k8s.io/component-base@v0.29.0
+  - Updating K8s Registry Location (@userbradley)
 
 ## v0.1.45 (beta) - August 22, 2023
 * Update retry duration when DO LoadBalancer is being created (@olove) 
