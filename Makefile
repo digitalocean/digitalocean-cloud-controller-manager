@@ -26,7 +26,8 @@ REGISTRY ?= digitalocean
 GO_VERSION ?= $(shell go mod edit -print | grep -E '^go [[:digit:].]*' | cut -d' ' -f2)
 
 LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do.version=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitVersion=$(VERSION) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitCommit=$(COMMIT) -X github.com/digitalocean/digitalocean-cloud-controller-manager/vendor/k8s.io/kubernetes/pkg/version.gitTreeState=$(GIT_TREE_STATE)
-PKG ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager
+PKGS ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager \
+        github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager-admission-server
 
 all: test
 
@@ -63,20 +64,23 @@ clean:
 	@echo "==> Cleaning releases"
 	@GOOS=linux go clean -i -x ./...
 
-.PHONY: compile
-compile:
-	@echo "==> Building the project"
+github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/%:
+	@echo "==> Building $@"
 	@docker run -v $(PWD):/go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -w /go/src/github.com/digitalocean/digitalocean-cloud-controller-manager \
 	  -e GOOS=linux -e GOARCH=amd64 -e CGO_ENABLED=0 -e GOFLAGS=-mod=vendor golang:$(GO_VERSION) \
-	  go build -buildvcs=false -ldflags "$(LDFLAGS)" ${PKG}
-	@echo "==> built the project"
+	  go build -buildvcs=false -ldflags "$(LDFLAGS)" $@
+	@echo "==> Finished building $@"
+
+.PHONY: compile
+compile: $(PKGS)
 
 .PHONY: build
 build: compile
-	@echo "==> Building the docker image"
+	@echo "==> Building docker image $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager/Dockerfile .
-
+	@echo "==> Building docker image $(REGISTRY)/digitalocean-cloud-controller-manager-admission-server:$(VERSION)"
+	@docker build -t $(REGISTRY)/digitalocean-cloud-controller-manager-admission-server:$(VERSION) -f cloud-controller-manager/cmd/digitalocean-cloud-controller-manager-admission-server/Dockerfile .
 
 .PHONY: push
 push:
@@ -87,6 +91,9 @@ else
 	@echo "==> Publishing $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
 	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)
 	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager:$(VERSION)"
+	@echo "==> Publishing $(REGISTRY)/digitalocean-cloud-controller-manager-admission-server:$(VERSION)"
+	@docker push $(REGISTRY)/digitalocean-cloud-controller-manager-admission-server:$(VERSION)
+	@echo "==> Your image is now available at $(REGISTRY)/digitalocean-cloud-controller-manager-admission-server:$(VERSION)"
 endif
 
 .PHONY: govet

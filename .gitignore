@@ -1,5 +1,6 @@
 # binaries
 /digitalocean-cloud-controller-manager
+/digitalocean-cloud-controller-manager-admission-server
 
 # generated kubernetes manifests
 generated-secret.yml
