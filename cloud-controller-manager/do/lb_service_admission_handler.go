@@ -24,6 +24,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -55,7 +56,7 @@ func (h *LBServiceAdmissionHandler) Handle(ctx context.Context, req admission.Re
 
 	logFields := []any{"object_name", req.Name, "object_namespace", req.Namespace, "object_kind", req.Kind.String()}
 	if resp.Allowed {
-		h.log.Info("allowing admission request", logFields...)
+		h.log.V(2).Info("allowing admission request", logFields...)
 	} else {
 		h.log.Info("rejecting admission request", append(logFields, "reason", resp.Result.Message)...)
 	}
@@ -67,20 +68,20 @@ func (h *LBServiceAdmissionHandler) handle(ctx context.Context, req admission.Re
 	var svc corev1.Service
 	err := h.decoder.Decode(req, &svc)
 	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("decoding admission request: %w", err))
+		return admission.Errored(http.StatusInternalServerError, fmt.Errorf("failed to decode admission request: %w", err))
 	}
 
 	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
-		return admission.Allowed("allowing service as it is not a load balancer")
+		return admission.Allowed("allowing service that is not a load balancer")
 	}
 
 	if svc.DeletionTimestamp != nil {
-		return admission.Allowed("allowing service as it is being deleted")
+		return admission.Allowed("allowing service that is being deleted")
 	}
 
 	lbReq, err := h.buildLoadBalancerRequest(&svc)
 	if err != nil {
-		return admission.Denied(fmt.Sprintf("building DO API request: %s", err))
+		return admission.Denied(fmt.Sprintf("failed to build DO API request: %s", err))
 	}
 
 	var resp admission.Response
@@ -97,16 +98,20 @@ func (h *LBServiceAdmissionHandler) handle(ctx context.Context, req admission.Re
 func (h *LBServiceAdmissionHandler) validateUpdate(ctx context.Context, svc corev1.Service, req admission.Request, lbReq *godo.LoadBalancerRequest) admission.Response {
 	var oldSvc corev1.Service
 	if err := h.decoder.DecodeRaw(req.OldObject, &oldSvc); err != nil {
-		return admission.Errored(http.StatusBadRequest, fmt.Errorf("decoding old object: %w", err))
+		return admission.Errored(http.StatusBadRequest, fmt.Errorf("failed to decode old object: %w", err))
+	}
+
+	// We ignore errors when building the old service's godo request because
+	// it is allowed to be wrong. In cases where it errors, it can potentially
+	// get fixed after the update.
+	oldReq, _ := h.buildLoadBalancerRequest(&oldSvc)
+	if cmp.Equal(oldReq, lbReq) {
+		return admission.Allowed("new service has insignificant changes")
 	}
 
 	lbID := oldSvc.Annotations[annDOLoadBalancerID]
-	if lbID == "" ||
-		len(oldSvc.Status.LoadBalancer.Ingress) == 0 ||
-		(len(oldSvc.Status.LoadBalancer.Ingress) > 0 && oldSvc.Status.LoadBalancer.Ingress[0].IP == "") {
-		// If service doesn't have an Ingress configured yet, it isn't fully configured and could have failed
-		// previously. We validate creation in that case.
-		return h.validateCreate(ctx, svc, req, lbReq)
+	if lbID == "" {
+		return admission.Denied(fmt.Sprintf("annotation %q is not set", annDOLoadBalancerID))
 	}
 
 	_, resp, err := h.godoClient.LoadBalancers.Update(ctx, lbID, lbReq)
@@ -121,7 +126,7 @@ func (h *LBServiceAdmissionHandler) validateCreate(ctx context.Context, svc core
 func (h *LBServiceAdmissionHandler) buildLoadBalancerRequest(svc *corev1.Service) (*godo.LoadBalancerRequest, error) {
 	lbReq, err := buildLoadBalancerRequest(svc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to build base load balancer request: %s", err)
 	}
 	lbReq.ValidateOnly = true
 	lbReq.Region = h.region

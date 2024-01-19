@@ -47,7 +47,7 @@ func TestHandle(t *testing.T) {
 			name:            "error if the admission request is not a proper service",
 			req:             admission.Request{},
 			expectedAllowed: false,
-			expectedMessage: "decoding admission request: there is no content to decode",
+			expectedMessage: "failed to decode admission request: there is no content to decode",
 		},
 		{
 			name: "allow if service type is not load balancer",
@@ -58,7 +58,7 @@ func TestHandle(t *testing.T) {
 				},
 			}, nil),
 			expectedAllowed: true,
-			expectedMessage: "allowing service as it is not a load balancer",
+			expectedMessage: "allowing service that is not a load balancer",
 		},
 		{
 			name: "allow if service is being deleted",
@@ -73,7 +73,7 @@ func TestHandle(t *testing.T) {
 				},
 			}, nil),
 			expectedAllowed: true,
-			expectedMessage: "allowing service as it is being deleted",
+			expectedMessage: "allowing service that is being deleted",
 		},
 		{
 			name: "allow create when godo answers with no error",
@@ -92,7 +92,7 @@ func TestHandle(t *testing.T) {
 				},
 			}, nil),
 			expectedAllowed: false,
-			expectedMessage: "building DO API request: no health check port of protocol TCP found",
+			expectedMessage: "failed to build DO API request: failed to build base load balancer request: no health check port of protocol TCP found",
 		},
 		{
 			name: "error create when godo answers has no resp and error",
@@ -140,77 +140,38 @@ func TestHandle(t *testing.T) {
 				},
 			},
 			expectedAllowed: false,
-			expectedMessage: "decoding old object: there is no content to decode",
+			expectedMessage: "failed to decode old object: there is no content to decode",
 		},
 		{
-			name: "update fallbacks to create when no lb id found in old svc",
+			name: "deny update when lb id is not set on old resource",
 			req: fakeAdmissionRequest(fakeService(), &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOHealthCheckProtocol: "tcp",
+					},
+				},
 				Spec: corev1.ServiceSpec{
 					Type: corev1.ServiceTypeLoadBalancer,
 					Ports: []corev1.ServicePort{
-						{Protocol: "TCP", Port: 8080},
+						{Protocol: "TCP", Port: 9999},
 					},
 				},
 				Status: corev1.ServiceStatus{
 					LoadBalancer: corev1.LoadBalancerStatus{
 						Ingress: []corev1.LoadBalancerIngress{
-							{IP: "1.2.3.4"},
+							{IP: "1.1.1.1"},
 						},
 					},
 				},
 			}),
-			givenGodoCreateFn: func(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			givenGodoUpdateFn: func(ctx context.Context, lbid string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
 				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
 			},
-			expectedAllowed: true,
-			expectedMessage: "valid load balancer definition",
+			expectedAllowed: false,
+			expectedMessage: `annotation "kubernetes.digitalocean.com/load-balancer-id" is not set`,
 		},
 		{
-			name: "update fallbacks to create when no ingress found in old svc",
-			req: fakeAdmissionRequest(fakeService(), &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Type: corev1.ServiceTypeLoadBalancer,
-					Ports: []corev1.ServicePort{
-						{Protocol: "TCP", Port: 8080},
-					},
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{},
-					},
-				},
-			}),
-			givenGodoCreateFn: func(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
-			},
-			expectedAllowed: true,
-			expectedMessage: "valid load balancer definition",
-		},
-		{
-			name: "update fallbacks to create when no ingress IP found in old svc",
-			req: fakeAdmissionRequest(fakeService(), &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Type: corev1.ServiceTypeLoadBalancer,
-					Ports: []corev1.ServicePort{
-						{Protocol: "TCP", Port: 8080},
-					},
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{
-							{IP: ""},
-						},
-					},
-				},
-			}),
-			givenGodoCreateFn: func(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
-			},
-			expectedAllowed: true,
-			expectedMessage: "valid load balancer definition",
-		},
-		{
-			name: "update when lb id and ingress configured",
+			name: "allow update when lb id and ingress configured",
 			req: fakeAdmissionRequest(fakeService(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -220,7 +181,7 @@ func TestHandle(t *testing.T) {
 				Spec: corev1.ServiceSpec{
 					Type: corev1.ServiceTypeLoadBalancer,
 					Ports: []corev1.ServicePort{
-						{Protocol: "TCP", Port: 8080},
+						{Protocol: "TCP", Port: 9999},
 					},
 				},
 				Status: corev1.ServiceStatus{
@@ -236,6 +197,57 @@ func TestHandle(t *testing.T) {
 			},
 			expectedAllowed: true,
 			expectedMessage: "valid load balancer definition",
+		},
+		{
+			name:            "allow without calling do api when old and new are the same",
+			req:             fakeAdmissionRequest(fakeService(), fakeService()),
+			expectedAllowed: true,
+			expectedMessage: "new service has insignificant changes",
+		},
+		{
+			name: "allow without calling do api when old and new are the same except for lb id",
+			req: fakeAdmissionRequest(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: nil,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8080},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lbid",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8080},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				},
+			),
+			expectedAllowed: true,
+			expectedMessage: "new service has insignificant changes",
 		},
 	}
 
@@ -288,6 +300,9 @@ func fakeAdmissionRequest(newSvc *corev1.Service, oldSvc *corev1.Service) admiss
 
 func fakeService() *corev1.Service {
 	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{

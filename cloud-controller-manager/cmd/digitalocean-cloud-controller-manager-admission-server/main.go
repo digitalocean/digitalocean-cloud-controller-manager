@@ -18,9 +18,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/oauth2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -39,24 +41,16 @@ const (
 	doClusterVPCIDEnv          = "DO_CLUSTER_VPC_ID"
 )
 
+var loggerVerbosity = flag.Int("v", 0, "logger verbosity")
+
 func init() {
-	log.SetLogger(zap.New())
-}
-
-type tokenSource struct {
-	AccessToken string
-}
-
-func (t *tokenSource) Token() (*oauth2.Token, error) {
-	token := &oauth2.Token{
-		AccessToken: t.AccessToken,
-	}
-	return token, nil
+	flag.Parse()
+	log.SetLogger(zap.New(zap.Level(zapcore.Level(-*loggerVerbosity))))
 }
 
 func main() {
 	if err := startAdmissionServer(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to start admission server: %v\n", err)
+		fmt.Fprintf(os.Stderr, "failed to start admission server: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -68,12 +62,12 @@ func startAdmissionServer() error {
 
 	godoClient, err := getGodoClient()
 	if err != nil {
-		return fmt.Errorf("getting godo client: %w", err)
+		return fmt.Errorf("failed to get godo client: %s", err)
 	}
 
 	lbAdmissionHandler := do.NewLBServiceAdmissionHandler(&ll, godoClient)
 	if err := lbAdmissionHandler.WithRegion(); err != nil {
-		return fmt.Errorf("injecting region into LB validator: %w", err)
+		return fmt.Errorf("failed to inject region into lb service admission handler: %w", err)
 	}
 
 	clusterID := os.Getenv(doClusterIDEnv)
@@ -115,8 +109,19 @@ func getGodoClient() (*godo.Client, error) {
 	oauthClient := oauth2.NewClient(context.Background(), tokenSource)
 	client, err := godo.New(oauthClient, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create godo client: %s", err)
+		return nil, fmt.Errorf("failed to initialize client: %s", err)
 	}
 
 	return client, nil
+}
+
+type tokenSource struct {
+	AccessToken string
+}
+
+func (t *tokenSource) Token() (*oauth2.Token, error) {
+	token := &oauth2.Token{
+		AccessToken: t.AccessToken,
+	}
+	return token, nil
 }
