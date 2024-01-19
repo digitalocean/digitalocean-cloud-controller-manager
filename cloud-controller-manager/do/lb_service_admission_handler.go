@@ -25,6 +25,7 @@ import (
 	"github.com/digitalocean/godo"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -32,21 +33,23 @@ import (
 
 // LBServiceAdmissionHandler validates service type LB.
 type LBServiceAdmissionHandler struct {
-	log        *logr.Logger
-	godoClient *godo.Client
+	log            *logr.Logger
+	godoClient     *godo.Client
+	decoder        *admission.Decoder
+	admissionTotal *prometheus.CounterVec
 
-	decoder   *admission.Decoder
 	region    string
 	clusterID string
 	vpcID     string
 }
 
 // NewLBServiceAdmissionHandler returns a configured instance of LBServiceHandler.
-func NewLBServiceAdmissionHandler(log *logr.Logger, godoClient *godo.Client) *LBServiceAdmissionHandler {
+func NewLBServiceAdmissionHandler(log *logr.Logger, godoClient *godo.Client, admissionTotal *prometheus.CounterVec) *LBServiceAdmissionHandler {
 	return &LBServiceAdmissionHandler{
-		log:        log,
-		godoClient: godoClient,
-		decoder:    admission.NewDecoder(runtime.NewScheme()),
+		log:            log,
+		godoClient:     godoClient,
+		decoder:        admission.NewDecoder(runtime.NewScheme()),
+		admissionTotal: admissionTotal,
 	}
 }
 
@@ -54,11 +57,24 @@ func NewLBServiceAdmissionHandler(log *logr.Logger, godoClient *godo.Client) *LB
 func (h *LBServiceAdmissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	resp := h.handle(ctx, req)
 
-	logFields := []any{"object_name", req.Name, "object_namespace", req.Namespace, "object_kind", req.Kind.String()}
+	logFields := []any{
+		"message", resp.Result.Message,
+		"object_name", req.Name,
+		"object_namespace", req.Namespace,
+		"object_kind", req.Kind.String(),
+	}
 	if resp.Allowed {
 		h.log.V(2).Info("allowing admission request", logFields...)
+		h.admissionTotal.With(prometheus.Labels{
+			"webhook": "lb-service",
+			"status":  "admitted",
+		}).Inc()
 	} else {
-		h.log.Info("rejecting admission request", append(logFields, "reason", resp.Result.Message)...)
+		h.log.Info("rejecting admission request", logFields...)
+		h.admissionTotal.With(prometheus.Labels{
+			"webhook": "lb-service",
+			"status":  "rejected",
+		}).Inc()
 	}
 
 	return resp

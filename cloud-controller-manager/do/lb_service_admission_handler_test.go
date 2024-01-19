@@ -26,6 +26,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -262,7 +263,16 @@ func TestHandle(t *testing.T) {
 				updateFn: tc.givenGodoUpdateFn,
 			}
 
-			admissionHandler := NewLBServiceAdmissionHandler(&logr.Logger{}, godoClient)
+			admissionHandler := NewLBServiceAdmissionHandler(
+				&logr.Logger{},
+				godoClient,
+				prometheus.NewCounterVec(
+					prometheus.CounterOpts{
+						Name: "test",
+						Help: "test",
+					},
+					[]string{"status", "webhook"},
+				))
 
 			resp := admissionHandler.Handle(context.Background(), tc.req)
 			if string(resp.Result.Message) != tc.expectedMessage {
