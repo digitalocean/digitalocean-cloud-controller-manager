@@ -29,6 +29,8 @@ LDFLAGS ?= -X github.com/digitalocean/digitalocean-cloud-controller-manager/clou
 PKGS ?= github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager \
         github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/cmd/digitalocean-cloud-controller-manager-admission-server
 
+ENVTEST_K8S_VERSION ?= 1.29.1
+
 all: test
 
 publish: clean build push
@@ -105,9 +107,18 @@ gofmt: # run in script cause gofmt will exit 0 even if files need formatting
 	@ci/gofmt.sh
 
 .PHONY: test
-test:
+test: test-unit test-integration
+
+.PHONY: test-unit
+test-unit:
 	@echo "==> Testing all packages"
 	@GO111MODULE=on GOFLAGS=-mod=vendor go test -race $(shell go list ./... | grep -v vendor)
+
+.PHONY: test-integration
+test-integration:
+	@echo "==> Running integration tests"
+	@command -v setup-envtest &>/dev/null || GOFLAGS="" go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	@source <(setup-envtest use -p env ${ENVTEST_K8S_VERSION}) && GO111MODULE=on GOFLAGS=-mod=vendor go test -v ./envtest/... -race -tags=integration ${TEST_FLAGS}
 
 .PHONY: check-headers
 check-headers:
@@ -119,3 +130,4 @@ check-headers:
 vendor:
 	@GO111MODULE=on go mod tidy
 	@GO111MODULE=on go mod vendor
+
