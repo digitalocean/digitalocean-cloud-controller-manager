@@ -21,7 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -3254,7 +3254,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3331,7 +3331,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3420,7 +3420,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3549,7 +3549,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3625,7 +3625,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3702,7 +3702,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3779,7 +3779,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3916,7 +3916,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -3998,7 +3998,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieName:       "DO-CCM",
 					CookieTtlSeconds: 300,
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -4089,7 +4089,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(false),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 			},
 			nil,
 		},
@@ -4181,7 +4181,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				StickySessions: &godo.StickySessions{
 					Type: "none",
 				},
-				DisableLetsEncryptDNSRecords: godo.Bool(true),
+				DisableLetsEncryptDNSRecords: godo.PtrTo(true),
 			},
 			nil,
 		},
@@ -4503,7 +4503,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 			var logBuf bytes.Buffer
 			if len(test.missingNames) > 0 {
 				klog.LogToStderr(false)
-				klog.SetOutput(ioutil.Discard)
+				klog.SetOutput(io.Discard)
 				klog.SetOutputBySeverity("ERROR", &logBuf)
 			}
 

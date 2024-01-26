@@ -19,7 +19,7 @@ package do
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -57,7 +57,7 @@ func newFakeResponse(statusCode int) *godo.Response {
 	return &godo.Response{
 		Response: &http.Response{
 			StatusCode: statusCode,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+			Body:       io.NopCloser(bytes.NewBufferString("test")),
 		},
 	}
 }
@@ -70,7 +70,7 @@ func newFakeNotFoundErrorResponse() *godo.ErrorResponse {
 				URL:    &url.URL{},
 			},
 			StatusCode: http.StatusNotFound,
-			Body:       ioutil.NopCloser(bytes.NewBufferString("test")),
+			Body:       io.NopCloser(bytes.NewBufferString("test")),
 		},
 	}
 }

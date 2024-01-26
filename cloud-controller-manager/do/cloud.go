@@ -115,7 +115,7 @@ func newCloud() (cloudprovider.Interface, error) {
 		opts = append(opts, godo.SetStaticRateLimit(qps))
 	}
 
-	oauthClient := oauth2.NewClient(oauth2.NoContext, tokenSource)
+	oauthClient := oauth2.NewClient(context.Background(), tokenSource)
 	doClient, err := godo.New(oauthClient, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create godo client: %s", err)
