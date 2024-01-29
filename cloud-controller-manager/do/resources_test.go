@@ -32,7 +32,6 @@ import (
 	"github.com/digitalocean/godo"
 
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
@@ -67,7 +66,7 @@ func (sb *serviceBuilder) setLoadBalancerName(name string) *serviceBuilder {
 	return sb
 }
 
-func (sb *serviceBuilder) build() *v1.Service {
+func (sb *serviceBuilder) build() *corev1.Service {
 	rep := func(num int) string {
 		return strings.Repeat(strconv.Itoa(sb.idx), num)
 	}
@@ -92,7 +91,7 @@ func (sb *serviceBuilder) build() *v1.Service {
 	return svc
 }
 
-func (sb *serviceBuilder) setAnnotation(svc *v1.Service, key, value string) {
+func (sb *serviceBuilder) setAnnotation(svc *corev1.Service, key, value string) {
 	if svc.Annotations == nil {
 		svc.Annotations = map[string]string{}
 	}

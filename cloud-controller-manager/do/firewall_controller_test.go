@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/informers"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 func TestFirewallController_Get(t *testing.T) {
@@ -701,25 +701,25 @@ func TestFirewallController_ensureReconciledFirewall(t *testing.T) {
 		{
 			name:                      "create firewall on empty cache and non-empty NodePort Services",
 			nodePortForCachedFirewall: nil,
-			nodePortForService:        pointer.Int32Ptr(31337),
+			nodePortForService:        ptr.To[int32](31337),
 			wantSetOp:                 setOpCreate,
 		},
 		{
 			name:                      "update firewall on non-empty cache and empty NodePort Services",
-			nodePortForCachedFirewall: pointer.Int32Ptr(30000),
+			nodePortForCachedFirewall: ptr.To[int32](30000),
 			nodePortForService:        nil,
 			wantSetOp:                 setOpUpdate,
 		},
 		{
 			name:                      "update firewall on mismatching cache and NodePort Services",
-			nodePortForCachedFirewall: pointer.Int32Ptr(30000),
-			nodePortForService:        pointer.Int32Ptr(31337),
+			nodePortForCachedFirewall: ptr.To[int32](30000),
+			nodePortForService:        ptr.To[int32](31337),
 			wantSetOp:                 setOpUpdate,
 		},
 		{
 			name:                      "skip reconcile on matching cache and NodePort Services",
-			nodePortForCachedFirewall: pointer.Int32Ptr(30000),
-			nodePortForService:        pointer.Int32Ptr(30000),
+			nodePortForCachedFirewall: ptr.To[int32](30000),
+			nodePortForService:        ptr.To[int32](30000),
 			wantSetOp:                 setOpNone,
 		},
 	}
