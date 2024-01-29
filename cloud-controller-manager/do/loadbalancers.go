@@ -173,7 +173,8 @@ func getLoadBalancerLegacyName(service *v1.Service) string {
 // EnsureLoadBalancer ensures that the cluster is running a load balancer for
 // service.
 //
-// EnsureLoadBalancer will not modify service or nodes.
+// EnsureLoadBalancer will not modify nodes, but will set the load balancer ID annotation on the service if
+// it succeeds to create it.
 func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName string, service *v1.Service, nodes []*v1.Node) (lbs *v1.LoadBalancerStatus, err error) {
 	lbIsDisowned, err := getDisownLB(service)
 	if err != nil {
@@ -525,15 +526,8 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 	return dropletIDs, nil
 }
 
-// buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
-// requests for service across nodes.
-func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
+func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, error) {
 	lbName := getLoadBalancerName(service)
-
-	dropletIDs, err := l.nodesToDropletIDs(ctx, nodes)
-	if err != nil {
-		return nil, err
-	}
 
 	forwardingRules, err := buildForwardingRules(service)
 	if err != nil {
@@ -591,30 +585,46 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		return nil, err
 	}
 
-	var tags []string
-	if l.resources.clusterID != "" {
-		tags = []string{buildK8sTag(l.resources.clusterID)}
-	}
-
 	return &godo.LoadBalancerRequest{
 		Name:                         lbName,
-		DropletIDs:                   dropletIDs,
-		Region:                       l.region,
 		SizeSlug:                     sizeSlug,
 		SizeUnit:                     sizeUnit,
 		ForwardingRules:              forwardingRules,
 		HealthCheck:                  healthCheck,
 		StickySessions:               stickySessions,
-		Tags:                         tags,
 		Algorithm:                    algorithm,
 		RedirectHttpToHttps:          redirectHTTPToHTTPS,
 		EnableProxyProtocol:          enableProxyProtocol,
 		EnableBackendKeepalive:       enableBackendKeepalive,
-		VPCUUID:                      l.resources.clusterVPCID,
 		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
 		HTTPIdleTimeoutSeconds:       httpIdleTimeoutSeconds,
 		Firewall:                     buildFirewall(service),
 	}, nil
+}
+
+// buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
+// requests for service across nodes.
+func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
+	req, err := buildLoadBalancerRequest(service)
+	if err != nil {
+		return nil, err
+	}
+
+	dropletIDs, err := l.nodesToDropletIDs(ctx, nodes)
+	if err != nil {
+		return nil, err
+	}
+	req.DropletIDs = dropletIDs
+
+	var tags []string
+	if l.resources.clusterID != "" {
+		tags = []string{buildK8sTag(l.resources.clusterID)}
+	}
+	req.Tags = tags
+
+	req.Region = l.region
+	req.VPCUUID = l.resources.clusterVPCID
+	return req, nil
 }
 
 // buildHealthChecks returns a godo.HealthCheck for service.
