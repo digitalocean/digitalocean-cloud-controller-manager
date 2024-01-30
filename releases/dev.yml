@@ -230,7 +230,7 @@ webhooks:
       namespace: "kube-system"
       name: "digitalocean-cloud-controller-manager"
       path: "/lb-service"
-  failurePolicy: Fail
+  failurePolicy: Ignore
   rules:
   - apiGroups:
     - ""
@@ -241,5 +241,5 @@ webhooks:
     - UPDATE
     resources:
     - services
-    scope: '*'
+    scope: Namespaced
   sideEffects: None
