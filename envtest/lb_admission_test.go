@@ -41,8 +41,8 @@ func TestLBAdmissionWebhook(t *testing.T) {
 		allow           bool
 	}{
 		{
-			"allowed when service type is not LB",
-			fakeService(nil, &corev1.ServiceSpec{
+			name: "allowed when service type is not LB",
+			givenService: fakeService(nil, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeNodePort,
 				Ports: []corev1.ServicePort{
 					{
@@ -53,11 +53,11 @@ func TestLBAdmissionWebhook(t *testing.T) {
 					},
 				},
 			}),
-			nil,
-			true,
+			givenLBResponse: nil,
+			allow:           true,
 		}, {
-			"failed when annotation contains unallowed value",
-			fakeService(map[string]string{
+			name: "failed when annotation contains unallowed value",
+			givenService: fakeService(map[string]string{
 				"service.beta.kubernetes.io/do-loadbalancer-protocol": "udp",
 			}, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeLoadBalancer,
@@ -70,11 +70,11 @@ func TestLBAdmissionWebhook(t *testing.T) {
 					},
 				},
 			}),
-			nil,
-			false,
+			givenLBResponse: nil,
+			allow:           false,
 		}, {
-			"allowed when godo returns a transiant error",
-			fakeService(map[string]string{
+			name: "allowed when godo returns a transiant error",
+			givenService: fakeService(map[string]string{
 				"service.beta.kubernetes.io/do-loadbalancer-protocol": "tcp",
 			}, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeLoadBalancer,
@@ -87,11 +87,11 @@ func TestLBAdmissionWebhook(t *testing.T) {
 					},
 				},
 			}),
-			fakeGodoResp(http.StatusInternalServerError, errors.New("random error")),
-			true,
+			givenLBResponse: fakeGodoResp(http.StatusInternalServerError, errors.New("random error")),
+			allow:           true,
 		}, {
-			"denied when godo returns a bad request error",
-			fakeService(map[string]string{
+			name: "denied when godo returns a bad request error",
+			givenService: fakeService(map[string]string{
 				"service.beta.kubernetes.io/do-loadbalancer-protocol": "tcp",
 			}, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeLoadBalancer,
@@ -104,8 +104,8 @@ func TestLBAdmissionWebhook(t *testing.T) {
 					},
 				},
 			}),
-			fakeGodoResp(http.StatusBadRequest, errors.New("random error")),
-			false,
+			givenLBResponse: fakeGodoResp(http.StatusBadRequest, errors.New("random error")),
+			allow:           false,
 		},
 	}
 
@@ -135,8 +135,8 @@ func TestLBAdmissionWebhook_Update(t *testing.T) {
 		allow                 bool
 	}{
 		{
-			"failed when annotation contains unallowed value",
-			fakeService(map[string]string{
+			name: "failed when annotation contains unallowed value",
+			givenService: fakeService(map[string]string{
 				"service.beta.kubernetes.io/do-loadbalancer-protocol": "tcp",
 			}, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeLoadBalancer,
@@ -149,14 +149,14 @@ func TestLBAdmissionWebhook_Update(t *testing.T) {
 					},
 				},
 			}),
-			func(s *corev1.Service) {
+			givenUpdate: func(s *corev1.Service) {
 				s.Annotations["service.beta.kubernetes.io/do-loadbalancer-protocol"] = "udp"
 			},
-			nil,
-			false,
+			givenLBUpdateResponse: nil,
+			allow:                 false,
 		}, {
-			"allowed when godo returns a transiant error",
-			fakeService(map[string]string{
+			name: "allowed when godo returns a transiant error",
+			givenService: fakeService(map[string]string{
 				"service.beta.kubernetes.io/do-loadbalancer-protocol": "tcp",
 			}, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeLoadBalancer,
@@ -169,14 +169,14 @@ func TestLBAdmissionWebhook_Update(t *testing.T) {
 					},
 				},
 			}),
-			func(s *corev1.Service) {
+			givenUpdate: func(s *corev1.Service) {
 				s.Annotations["service.beta.kubernetes.io/do-loadbalancer-protocol"] = "http"
 			},
-			fakeGodoResp(http.StatusInternalServerError, errors.New("random error")),
-			true,
+			givenLBUpdateResponse: fakeGodoResp(http.StatusInternalServerError, errors.New("random error")),
+			allow:                 true,
 		}, {
-			"denied when godo returns a bad request error",
-			fakeService(map[string]string{
+			name: "denied when godo returns a bad request error",
+			givenService: fakeService(map[string]string{
 				"service.beta.kubernetes.io/do-loadbalancer-protocol": "tcp",
 			}, &corev1.ServiceSpec{
 				Type: corev1.ServiceTypeLoadBalancer,
@@ -189,11 +189,11 @@ func TestLBAdmissionWebhook_Update(t *testing.T) {
 					},
 				},
 			}),
-			func(s *corev1.Service) {
+			givenUpdate: func(s *corev1.Service) {
 				s.Annotations["service.beta.kubernetes.io/do-loadbalancer-protocol"] = "http"
 			},
-			fakeGodoResp(http.StatusBadRequest, errors.New("random error")),
-			false,
+			givenLBUpdateResponse: fakeGodoResp(http.StatusBadRequest, errors.New("random error")),
+			allow:                 false,
 		},
 	}
 
