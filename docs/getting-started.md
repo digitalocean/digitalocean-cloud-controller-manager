@@ -14,6 +14,10 @@ These are the recommended versions to run the cloud controller manager based on 
 * Use CCM versions >= v0.1.5 if you're running Kubernetes version >= v1.10
 * Use CCM versions >= v0.1.8 if you're running Kubernetes version >= v1.11
 
+### Cluster
+
+If you opt to install all of the components of the [releases](../releases), you'll have to install [cert-manager](https://cert-manager.io/docs/installation/) (if not already installed).
+
 ### Parameters
 
 This section outlines parameters that can be passed to the cloud controller manager binary.

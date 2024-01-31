@@ -55,6 +55,7 @@ bump-version:
 	@echo $(NEW_VERSION) > VERSION
 	@cp releases/dev.yml releases/${NEW_VERSION}.yml
 	@sed -i.sedbak 's#image: digitalocean/digitalocean-cloud-controller-manager:dev#image: digitalocean/digitalocean-cloud-controller-manager:${NEW_VERSION}#g' releases/${NEW_VERSION}.yml
+	@sed -i.sedbak 's#image: digitalocean/digitalocean-cloud-controller-manager-admission-server:dev#image: digitalocean/digitalocean-cloud-controller-manager-admission-server:${NEW_VERSION}#g' releases/${NEW_VERSION}.yml
 	@git add --intent-to-add releases/${NEW_VERSION}.yml
 	$(eval NEW_DATE = $(shell  date '+%B %e, %Y'))
 	@sed -i.sedbak 's/## unreleased/## ${NEW_VERSION} (beta) - ${NEW_DATE}/g' CHANGELOG.md
