@@ -1,6 +1,7 @@
 ## unreleased
 
 ## v0.1.47 (beta) - February  1, 2024
+* Add validation webhook for LoadBalancer services (@prichard)
 
 ## v0.1.46 (beta) - January  9, 2024
 * Updates kubernetes dependencies: (@kperath)
