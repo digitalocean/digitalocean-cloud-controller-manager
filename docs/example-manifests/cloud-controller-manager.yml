@@ -66,6 +66,8 @@ spec:
               secretKeyRef:
                 name: digitalocean
                 key: access-token
+          - name: DO_IP_ADDR_FAMILIES
+            value: ipv4,ipv6
 
 ---
 apiVersion: v1
