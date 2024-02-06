@@ -14,10 +14,6 @@ These are the recommended versions to run the cloud controller manager based on 
 * Use CCM versions >= v0.1.5 if you're running Kubernetes version >= v1.10
 * Use CCM versions >= v0.1.8 if you're running Kubernetes version >= v1.11
 
-### Cluster
-
-If you opt to install all of the components of the [releases](../releases), you'll have to install [cert-manager](https://cert-manager.io/docs/installation/) (if not already installed).
-
 ### Parameters
 
 This section outlines parameters that can be passed to the cloud controller manager binary.
@@ -167,8 +163,19 @@ digitalocean          Opaque                                1         18h
 Currently we only support alpha release of the `digitalocean-cloud-controller-manager` due to its active development. Run the first alpha release like so
 
 ```bash
-kubectl apply -f releases/v0.1.33.yml
+kubectl apply -f releases/digitalocean-cloud-controller-manager/v0.1.47.yml
 deployment "digitalocean-cloud-controller-manager" created
 ```
 
 NOTE: the deployments in `releases/` are meant to serve as an example. They will work in a majority of cases but may not work out of the box for your cluster.
+
+### Cloud controller manager admission server
+
+The admission server is optional (to know more about it, read the [admission-server doc](./docs/admission-server.md)).
+To install it, run the following kubectl command:
+
+```bash
+kubectl apply -f releases/digitalocean-cloud-controller-manager-admission-server/v0.1.47.yml
+deployment "digitalocean-cloud-controller-manager-admission-server" created
+```
+
