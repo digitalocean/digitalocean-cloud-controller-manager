@@ -1,9 +1,11 @@
 ## unreleased
 
 ## v0.1.48 (beta) - February  6, 2024
+* Split release manifests to allow optional deployment of admission server (@prichrd)
+* Add documentation for the admission server (@prichrd)
 
 ## v0.1.47 (beta) - February  1, 2024
-* Add validation webhook for LoadBalancer services (@prichard)
+* Add validation webhook for LoadBalancer services (@prichrd)
 
 ## v0.1.46 (beta) - January  9, 2024
 * Updates kubernetes dependencies: (@kperath)
