@@ -1,6 +1,8 @@
 ## unreleased
 
 ## v0.1.48 (beta) - February  6, 2024
+* Split release manifests to allow optional deployment of admission server (@prichard)
+* Add documentation for the admission server (@prichard)
 
 ## v0.1.47 (beta) - February  1, 2024
 * Add validation webhook for LoadBalancer services (@prichard)
