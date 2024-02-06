@@ -35,10 +35,10 @@ spec:
           protocol: TCP
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: digitalocean-cloud-controller-manager-admission-server-serving-certs
+          name: serving-certs
           readOnly: true
       volumes:
-      - name: digitalocean-cloud-controller-manager-admission-server-serving-certs
+      - name: serving-certs
         secret:
           defaultMode: 420
           secretName: digitalocean-cloud-controller-manager-admission-server-serving-certs
