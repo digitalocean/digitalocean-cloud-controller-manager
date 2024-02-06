@@ -86,7 +86,7 @@ metadata:
     cert-manager.io/inject-ca-from: kube-system/digitalocean-cloud-controller-manager-admission-server-serving-certs
   name: digitalocean-cloud-controller-manager-admission-webhook
 webhooks:
-- name: validation-webhook.loadbalancer.do.io
+- name: validation-webhook.cloud-controller-manager.digitalocean.com
   admissionReviewVersions:
   - v1
   clientConfig:

@@ -55,7 +55,7 @@ func TestMain(m *testing.M) {
 		ValidatingWebhooks: []*admissionv1.ValidatingWebhookConfiguration{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "validation-webhook.loadbalancer.doks.io",
+					Name: "validation-webhook.cloud-controller-manager.digitalocean.com",
 				},
 				Webhooks: []admissionv1.ValidatingWebhook{
 					{
