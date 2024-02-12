@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/digitalocean/godo v1.108.0
+	github.com/digitalocean/godo v1.109.0
 	github.com/go-logr/logr v1.4.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
