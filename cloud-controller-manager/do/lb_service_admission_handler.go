@@ -78,6 +78,8 @@ func (h *LBServiceAdmissionHandler) handle(ctx context.Context, req admission.Re
 		return admission.Allowed("allowing service that is being deleted")
 	}
 
+	lbID := svc.Annotations[annDOLoadBalancerID]
+
 	lbReq, err := h.buildLoadBalancerRequest(&svc)
 	if err != nil {
 		return admission.Denied(fmt.Sprintf("failed to build DO API request: %s", err))
@@ -86,15 +88,15 @@ func (h *LBServiceAdmissionHandler) handle(ctx context.Context, req admission.Re
 	var resp admission.Response
 	switch {
 	case req.OldObject.Raw != nil:
-		resp = h.validateUpdate(ctx, svc, req, lbReq)
+		resp = h.validateUpdate(ctx, req, lbID, lbReq)
 	default:
-		resp = h.validateCreate(ctx, svc, req, lbReq)
+		resp = h.validateCreate(ctx, lbReq)
 	}
 
 	return resp
 }
 
-func (h *LBServiceAdmissionHandler) validateUpdate(ctx context.Context, svc corev1.Service, req admission.Request, lbReq *godo.LoadBalancerRequest) admission.Response {
+func (h *LBServiceAdmissionHandler) validateUpdate(ctx context.Context, req admission.Request, lbID string, lbReq *godo.LoadBalancerRequest) admission.Response {
 	var oldSvc corev1.Service
 	if err := h.decoder.DecodeRaw(req.OldObject, &oldSvc); err != nil {
 		return admission.Errored(http.StatusBadRequest, fmt.Errorf("failed to decode old object: %s", err))
@@ -108,16 +110,22 @@ func (h *LBServiceAdmissionHandler) validateUpdate(ctx context.Context, svc core
 		return admission.Allowed("new service has irrelevant changes")
 	}
 
-	lbID := oldSvc.Annotations[annDOLoadBalancerID]
-	if lbID == "" {
-		return admission.Denied(fmt.Sprintf("annotation %q is not set", annDOLoadBalancerID))
+	// We prefer the new LB ID if it is set. If not, we fallback to the old
+	// service's LB ID. If the old and new entities don't have an LB id, we
+	// fallback to the creation validation.
+	reqLbID := lbID
+	if reqLbID == "" {
+		reqLbID = oldSvc.Annotations[annDOLoadBalancerID]
+	}
+	if reqLbID == "" {
+		return h.validateCreate(ctx, lbReq)
 	}
 
-	_, resp, err := h.godoClient.LoadBalancers.Update(ctx, lbID, lbReq)
+	_, resp, err := h.godoClient.LoadBalancers.Update(ctx, reqLbID, lbReq)
 	return h.mapGodoRespToAdmissionResp(resp, err)
 }
 
-func (h *LBServiceAdmissionHandler) validateCreate(ctx context.Context, svc corev1.Service, req admission.Request, lbReq *godo.LoadBalancerRequest) admission.Response {
+func (h *LBServiceAdmissionHandler) validateCreate(ctx context.Context, lbReq *godo.LoadBalancerRequest) admission.Response {
 	_, resp, err := h.godoClient.LoadBalancers.Create(ctx, lbReq)
 	return h.mapGodoRespToAdmissionResp(resp, err)
 }

@@ -143,62 +143,6 @@ func TestHandle(t *testing.T) {
 			expectedMessage: "failed to decode old object: there is no content to decode",
 		},
 		{
-			name: "deny update when lb id is not set on old resource",
-			req: fakeAdmissionRequest(fakeService(), &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annDOHealthCheckProtocol: "tcp",
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					Type: corev1.ServiceTypeLoadBalancer,
-					Ports: []corev1.ServicePort{
-						{Protocol: "TCP", Port: 9999},
-					},
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{
-							{IP: "1.1.1.1"},
-						},
-					},
-				},
-			}),
-			givenGodoUpdateFn: func(ctx context.Context, lbid string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
-			},
-			expectedAllowed: false,
-			expectedMessage: `annotation "kubernetes.digitalocean.com/load-balancer-id" is not set`,
-		},
-		{
-			name: "allow update when lb id and ingress configured",
-			req: fakeAdmissionRequest(fakeService(), &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annDOLoadBalancerID: "lbid",
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					Type: corev1.ServiceTypeLoadBalancer,
-					Ports: []corev1.ServicePort{
-						{Protocol: "TCP", Port: 9999},
-					},
-				},
-				Status: corev1.ServiceStatus{
-					LoadBalancer: corev1.LoadBalancerStatus{
-						Ingress: []corev1.LoadBalancerIngress{
-							{IP: "1.1.1.1"},
-						},
-					},
-				},
-			}),
-			givenGodoUpdateFn: func(ctx context.Context, lbid string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
-				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
-			},
-			expectedAllowed: true,
-			expectedMessage: "valid load balancer definition",
-		},
-		{
 			name:            "allow without calling do api when old and new are the same",
 			req:             fakeAdmissionRequest(fakeService(), fakeService()),
 			expectedAllowed: true,
@@ -248,6 +192,194 @@ func TestHandle(t *testing.T) {
 			),
 			expectedAllowed: true,
 			expectedMessage: "new service has irrelevant changes",
+		},
+		{
+			name: "allow create when old and new services do not have an lb id",
+			req: fakeAdmissionRequest(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: nil,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8080},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: nil,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8089},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				}),
+			givenGodoCreateFn: func(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
+			},
+			expectedAllowed: true,
+			expectedMessage: "valid load balancer definition",
+		},
+		{
+			name: "allow update when old service has an lb id and new one does not",
+			req: fakeAdmissionRequest(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: nil,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8080},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lbid",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8089},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				}),
+			givenGodoUpdateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
+			},
+			expectedAllowed: true,
+			expectedMessage: "valid load balancer definition",
+		},
+		{
+			name: "allow update when new service has an lb id and old one does not",
+			req: fakeAdmissionRequest(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lbid",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8080},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: nil,
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8089},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				}),
+			givenGodoUpdateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
+			},
+			expectedAllowed: true,
+			expectedMessage: "valid load balancer definition",
+		},
+		{
+			name: "allow update when new service and old service have different LB ids",
+			req: fakeAdmissionRequest(
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lbid",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8080},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lbid2",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Ports: []corev1.ServicePort{
+							{Protocol: "TCP", Port: 8089},
+						},
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "1.1.1.1"},
+							},
+						},
+					},
+				}),
+			givenGodoUpdateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, &godo.Response{Response: &http.Response{StatusCode: http.StatusNoContent}}, nil
+			},
+			expectedAllowed: true,
+			expectedMessage: "valid load balancer definition",
 		},
 	}
 
