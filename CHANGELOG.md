@@ -1,8 +1,6 @@
 ## unreleased
 
 ## v0.1.49 (beta) - April 11, 2024
-
-## v0.1.49 (beta) - April 11, 2024
 * Fix load balancer admission webhook to handle load balancer ID changes gracefully (@prichrd)
 
 ## v0.1.48 (beta) - February  6, 2024
