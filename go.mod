@@ -66,7 +66,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
+	github.com/matttproud/golang_protobuf_extensions/v2 v2.0.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/term v0.5.0 // indirect
@@ -126,4 +126,6 @@ require (
 
 replace github.com/google/cel-go => github.com/google/cel-go v0.17.8
 
-replace github.com/prometheus/common => github.com/prometheus/common v0.44.0
+replace github.com/prometheus/common => github.com/prometheus/common v0.45.0
+
+replace github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.18.0
