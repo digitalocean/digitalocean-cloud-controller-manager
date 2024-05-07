@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.50 (beta) - May  7, 2024
+
 ## v0.1.50 (beta) - May 7, 2024
 * Updates kubernetes dependencies: (@ihwang)
   - k8s.io/api@v0.30.0
