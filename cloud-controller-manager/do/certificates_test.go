@@ -58,6 +58,10 @@ func (f *kvCertService) Delete(ctx context.Context, certID string) (*godo.Respon
 	panic("not implemented")
 }
 
+func (f *kvCertService) ListByName(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Certificate, *godo.Response, error) {
+	panic("not implemented")
+}
+
 func newKVCertService(store map[string]*godo.Certificate, reflectorMode bool) kvCertService {
 	return kvCertService{
 		store:         store,

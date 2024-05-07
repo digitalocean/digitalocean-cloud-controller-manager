@@ -51,6 +51,7 @@ type fakeLBService struct {
 	removeDropletsFn        func(ctx context.Context, lbID string, dropletIDs ...int) (*godo.Response, error)
 	addForwardingRulesFn    func(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error)
 	removeForwardingRulesFn func(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error)
+	purgeCacheFn            func(ctx context.Context, lbID string) (*godo.Response, error)
 }
 
 func (f *fakeLBService) Get(ctx context.Context, lbID string) (*godo.LoadBalancer, *godo.Response, error) {
@@ -86,6 +87,10 @@ func (f *fakeLBService) AddForwardingRules(ctx context.Context, lbID string, rul
 
 func (f *fakeLBService) RemoveForwardingRules(ctx context.Context, lbID string, rules ...godo.ForwardingRule) (*godo.Response, error) {
 	return f.removeForwardingRulesFn(ctx, lbID, rules...)
+}
+
+func (f *fakeLBService) PurgeCache(ctx context.Context, lbID string) (*godo.Response, error) {
+	return f.purgeCacheFn(ctx, lbID)
 }
 
 func newKVLBService(store map[string]*godo.LoadBalancer) fakeLBService {

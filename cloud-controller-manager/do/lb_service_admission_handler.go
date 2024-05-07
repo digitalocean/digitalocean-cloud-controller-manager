@@ -34,7 +34,7 @@ type LBServiceAdmissionHandler struct {
 	log        *logr.Logger
 	godoClient *godo.Client
 
-	decoder   *admission.Decoder
+	decoder   admission.Decoder
 	region    string
 	clusterID string
 	vpcID     string
