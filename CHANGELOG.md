@@ -1,5 +1,14 @@
 ## unreleased
 
+## v0.1.50 (beta) - May 7, 2024
+* Updates kubernetes dependencies: (@ihwang)
+  - k8s.io/api@v0.30.0
+  - k8s.io/apimachinery@v0.30.0
+  - k8s.io/client-go@v0.30.0
+  - k8s.io/cloud-provider@v0.30.0
+  - k8s.io/component-base@v0.30.0
+* Update Go to v1.22 (@ihwang)
+
 ## v0.1.49 (beta) - April 11, 2024
 * Fix load balancer admission webhook to handle load balancer ID changes gracefully (@prichrd)
 
