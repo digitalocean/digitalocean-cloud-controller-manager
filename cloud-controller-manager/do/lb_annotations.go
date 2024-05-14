@@ -40,6 +40,10 @@ const (
 	// for DO load balancers. Defaults to the first Service Port
 	annDOHealthCheckPort = annDOLoadBalancerBase + "healthcheck-port"
 
+	// annDOHealthCheckDirectPort is the annotation used to specify the direct health check port
+	// for DO load balancers.
+	annDOHealthCheckDirectPort = annDOLoadBalancerBase + "healthcheck-direct-port"
+
 	// annDOHealthCheckProtocol is the annotation used to specify the health check protocol
 	// for DO load balancers. Defaults to the protocol used in annDOProtocol.
 	annDOHealthCheckProtocol = annDOLoadBalancerBase + "healthcheck-protocol"

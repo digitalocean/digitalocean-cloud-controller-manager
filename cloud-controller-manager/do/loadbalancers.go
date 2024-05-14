@@ -890,7 +890,20 @@ func getHostname(service *v1.Service) string {
 // healthCheckPort returns the health check port specified, defaulting
 // to the first port in the service otherwise.
 func healthCheckPort(service *v1.Service) (int, error) {
-	ports, err := getPorts(service, annDOHealthCheckPort)
+	ports, err := getPorts(service, annDOHealthCheckDirectPort)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get direct health check port: %v", err)
+	}
+
+	if len(ports) > 1 {
+		return 0, fmt.Errorf("annotation %s only supports a single port, but found multiple: %v", annDOHealthCheckDirectPort, ports)
+	}
+
+	if len(ports) == 1 {
+		return ports[0], nil
+	}
+
+	ports, err = getPorts(service, annDOHealthCheckPort)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get health check port: %v", err)
 	}
