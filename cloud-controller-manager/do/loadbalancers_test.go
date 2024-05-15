@@ -722,7 +722,7 @@ func Test_getHTTP3Ports(t *testing.T) {
 
 func Test_buildHTTP3ForwardingRule(t *testing.T) {
 	t.Run("with tls passthrough returns error", func(t *testing.T) {
-		got, err := buildHTTP3ForwardingRule(&v1.Service{
+		got, err := buildHTTP3ForwardingRule(context.Background(), &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 				UID:  "abc123",
@@ -741,7 +741,7 @@ func Test_buildHTTP3ForwardingRule(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, nil)
 
 		if err.Error() != "TLS passthrough is not allowed to be used in conjunction with HTTP3" {
 			t.Fatalf("expected error, got: %v", err)
@@ -753,7 +753,7 @@ func Test_buildHTTP3ForwardingRule(t *testing.T) {
 	})
 
 	t.Run("without cert id returns error", func(t *testing.T) {
-		got, err := buildHTTP3ForwardingRule(&v1.Service{
+		got, err := buildHTTP3ForwardingRule(context.Background(), &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 				UID:  "abc123",
@@ -771,7 +771,7 @@ func Test_buildHTTP3ForwardingRule(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, nil)
 
 		if err.Error() != "certificate ID is required for HTTP3" {
 			t.Fatalf("expected error, got: %v", err)
@@ -783,7 +783,7 @@ func Test_buildHTTP3ForwardingRule(t *testing.T) {
 	})
 
 	t.Run("success", func(t *testing.T) {
-		got, err := buildHTTP3ForwardingRule(&v1.Service{
+		got, err := buildHTTP3ForwardingRule(context.Background(), &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
 				UID:  "abc123",
@@ -802,7 +802,7 @@ func Test_buildHTTP3ForwardingRule(t *testing.T) {
 					},
 				},
 			},
-		})
+		}, nil)
 
 		if err != nil {
 			t.Fatalf("expected nil err, got: %v", err)
@@ -2164,7 +2164,7 @@ func Test_buildForwardingRules(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			forwardingRules, err := buildForwardingRules(test.service)
+			forwardingRules, err := buildForwardingRules(context.Background(), test.service, nil)
 			if !reflect.DeepEqual(forwardingRules, test.forwardingRules) {
 				t.Error("unexpected forwarding rules")
 				t.Logf("expected: %v", test.forwardingRules)
