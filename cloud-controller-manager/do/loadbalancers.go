@@ -637,7 +637,24 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 // buildHealthChecks returns a godo.HealthCheck for service.
 func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
-	healtCheckPath, healthCheckPort := healthCheckPathAndPort(service)
+	// Default health check behavior
+	hcPath, hcPort := healthCheckPathAndPort(service)
+	hcProtocol := protocolHTTP
+
+	// If the old behavior was requested
+	_, ok := service.Annotations[annDORevertToOldHealthCheck]
+	if ok {
+		var err error
+		hcPath = healthCheckPath(service)
+		hcPort, err = healthCheckPort(service)
+		if err != nil {
+			return nil, err
+		}
+		hcProtocol, err = healthCheckProtocol(service)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	checkIntervalSecs, err := healthCheckIntervalSeconds(service)
 	if err != nil {
@@ -657,9 +674,9 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	}
 
 	return &godo.HealthCheck{
-		Protocol:               protocolHTTP,
-		Port:                   int(healthCheckPort),
-		Path:                   healtCheckPath,
+		Protocol:               hcProtocol,
+		Port:                   hcPort,
+		Path:                   hcPath,
 		CheckIntervalSeconds:   checkIntervalSecs,
 		ResponseTimeoutSeconds: responseTimeoutSecs,
 		UnhealthyThreshold:     unhealthyThreshold,
@@ -885,15 +902,83 @@ func getHostname(service *v1.Service) string {
 	return strings.ToLower(service.Annotations[annDOHostname])
 }
 
+// healthCheckPort returns the health check port specified, defaulting
+// to the first port in the service otherwise.
+func healthCheckPort(service *v1.Service) (int, error) {
+	ports, err := getPorts(service, annDOHealthCheckPort)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get health check port: %v", err)
+	}
+
+	if len(ports) > 1 {
+		return 0, fmt.Errorf("annotation %s only supports a single port, but found multiple: %v", annDOHealthCheckPort, ports)
+	}
+
+	if len(ports) == 1 {
+		for _, servicePort := range service.Spec.Ports {
+			if int(servicePort.Port) == ports[0] {
+				if servicePort.Protocol == v1.ProtocolUDP {
+					return 0, fmt.Errorf("health check port: %d, cannot be of protocol type UDP", servicePort.Port)
+				}
+				return int(servicePort.NodePort), nil
+			}
+		}
+		return 0, fmt.Errorf("specified health check port %d does not exist on service %s/%s", ports[0], service.Namespace, service.Name)
+	}
+
+	// return the first TCP port found as the healthcheck port
+	for _, p := range service.Spec.Ports {
+		if p.Protocol == v1.ProtocolTCP {
+			return int(p.NodePort), nil
+		}
+	}
+
+	// Otherwise no TCP ports were found
+	return 0, errors.New("no health check port of protocol TCP found")
+}
+
+// healthCheckProtocol returns the health check protocol as specified in the service,
+// falling back to TCP if not specified.
+func healthCheckProtocol(service *v1.Service) (string, error) {
+	protocol := service.Annotations[annDOHealthCheckProtocol]
+	path := healthCheckPath(service)
+
+	if protocol == "" {
+		if path != "" {
+			return protocolHTTP, nil
+		}
+		return protocolTCP, nil
+	}
+
+	switch protocol {
+	case protocolTCP, protocolHTTP, protocolHTTPS:
+	default:
+		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOHealthCheckProtocol)
+	}
+
+	return protocol, nil
+}
+
 // healthCheckPathAndPort returns the health check path and port
-func healthCheckPathAndPort(service *v1.Service) (string, int32) {
+func healthCheckPathAndPort(service *v1.Service) (string, int) {
 	// If a health check node port is allocated, use that to health check
 	path, healthCheckNodePort := servicehelpers.GetServiceHealthCheckPathPort(service)
 	if path != "" {
-		return path, healthCheckNodePort
+		return path, int(healthCheckNodePort)
 	}
 	// Otherwise health check kube-proxy
 	return "/healthz", kubeProxyHealthPort
+}
+
+// getHealthCheckPath returns the desired path for health checking
+// health check path should default to / if not specified
+func healthCheckPath(service *v1.Service) string {
+	path, ok := service.Annotations[annDOHealthCheckPath]
+	if !ok {
+		return ""
+	}
+
+	return path
 }
 
 // healthCheckIntervalSeconds returns the health check interval in seconds

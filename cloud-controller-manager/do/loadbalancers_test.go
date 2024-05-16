@@ -2228,6 +2228,83 @@ func Test_buildHealthCheck(t *testing.T) {
 			},
 		},
 		{
+			name: "revert to old logic when annotation is set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+
+				Spec: v1.ServiceSpec{
+					Type:                  v1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "tcp",
+				Path:                   "",
+				Port:                   30000,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				UnhealthyThreshold:     3,
+				HealthyThreshold:       5,
+			},
+		},
+		{
+			name: "revert to old logic when annotation is set and uses custom annotations",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORevertToOldHealthCheck: "",
+						annDOHealthCheckProtocol:    "http",
+						annDOHealthCheckPort:        "81",
+						annDOHealthCheckPath:        "/test",
+					},
+				},
+
+				Spec: v1.ServiceSpec{
+					Type:                  v1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test2",
+							Protocol: "TCP",
+							Port:     int32(81),
+							NodePort: int32(30001),
+						},
+					},
+				},
+			},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "http",
+				Path:                   "/test",
+				Port:                   30001,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				UnhealthyThreshold:     3,
+				HealthyThreshold:       5,
+			},
+		},
+		{
 			name: "default numeric parameters",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3019,6 +3096,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDORevertToOldHealthCheck: "",
+					},
 				},
 				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{

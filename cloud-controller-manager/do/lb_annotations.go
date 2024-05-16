@@ -32,6 +32,22 @@ const (
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
 	annDOProtocol = annDOLoadBalancerBase + "protocol"
 
+	// annDOHealthCheckPath is the annotation used to specify the health check path
+	// for DO load balancers. Defaults to '/'.
+	annDOHealthCheckPath = annDOLoadBalancerBase + "healthcheck-path"
+
+	// annDOHealthCheckPort is the annotation used to specify the health check port
+	// for DO load balancers. Defaults to the first Service Port
+	annDOHealthCheckPort = annDOLoadBalancerBase + "healthcheck-port"
+
+	// annDOHealthCheckProtocol is the annotation used to specify the health check protocol
+	// for DO load balancers. Defaults to the protocol used in annDOProtocol.
+	annDOHealthCheckProtocol = annDOLoadBalancerBase + "healthcheck-protocol"
+
+	// annDORevertToOldHealthCheck is the annotation used to control reverting to the old health check behavior. This
+	// annotation is temporary and will be removed after the deprecation period is over.
+	annDORevertToOldHealthCheck = annDOLoadBalancerBase + "revert-to-old-health-check"
+
 	// annDOHealthCheckIntervalSeconds is the annotation used to specify the
 	// number of seconds between between two consecutive health checks. The
 	// value must be between 3 and 300. Defaults to 3.
