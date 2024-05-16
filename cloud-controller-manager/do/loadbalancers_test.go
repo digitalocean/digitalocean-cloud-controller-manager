@@ -3242,6 +3242,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3319,6 +3320,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3402,6 +3404,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3537,6 +3540,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3613,6 +3617,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3689,6 +3694,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3766,6 +3772,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3902,6 +3909,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -3984,6 +3992,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -4071,6 +4080,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -4163,6 +4173,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
+				Type:       godo.LoadBalancerTypeRegional,
 				DropletIDs: []int{100, 101, 102},
 				Region:     "nyc3",
 				ForwardingRules: []godo.ForwardingRule{
@@ -5641,6 +5652,85 @@ func Test_getHTTPIdleTimeoutSeconds(t *testing.T) {
 			// check for enable, disable
 			if httpIdleTimeout != nil && test.expectedIdleTimeout != nil && *httpIdleTimeout != *test.expectedIdleTimeout {
 				t.Fatalf("got http idle timeout seconds %v, want %v", httpIdleTimeout, test.expectedIdleTimeout)
+			}
+		})
+	}
+}
+
+func Test_getType(t *testing.T) {
+	var (
+		regional        = godo.LoadBalancerTypeRegional
+		regionalNetwork = godo.LoadBalancerTypeRegionalNetwork
+	)
+	testcases := []struct {
+		name         string
+		service      *v1.Service
+		wantErr      bool
+		expectedType *string
+	}{
+		{
+			name: "no value defaults to REGIONAL",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			wantErr:      false,
+			expectedType: &regional,
+		}, {
+			name: "annotation set to REGIONAL",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegional,
+					},
+				},
+			},
+			wantErr:      false,
+			expectedType: &regional,
+		},
+		{
+			name: "annotation set to REGIONAL_NETWORK",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+			},
+			wantErr:      false,
+			expectedType: &regionalNetwork,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOType: "abcd",
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			lbType, err := getType(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			if test.expectedType != nil && lbType != *test.expectedType {
+				t.Fatalf("got http idle timeout seconds %v, want %v", lbType, test.expectedType)
 			}
 		})
 	}
