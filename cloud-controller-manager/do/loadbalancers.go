@@ -584,6 +584,10 @@ func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, e
 	if err != nil {
 		return nil, err
 	}
+	lbType, err := getType(service)
+	if err != nil {
+		return nil, err
+	}
 
 	return &godo.LoadBalancerRequest{
 		Name:                         lbName,
@@ -599,6 +603,7 @@ func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, e
 		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
 		HTTPIdleTimeoutSeconds:       httpIdleTimeoutSeconds,
 		Firewall:                     buildFirewall(service),
+		Type:                         lbType,
 	}, nil
 }
 
@@ -1247,6 +1252,17 @@ func getDisownLB(service *v1.Service) (bool, error) {
 		return false, fmt.Errorf("failed to get disown LB configuration setting: %s", err)
 	}
 	return disownLB, nil
+}
+
+func getType(service *v1.Service) (string, error) {
+	name, ok := service.Annotations[annDOType]
+	if !ok || name == "" {
+		return godo.LoadBalancerTypeRegional, nil
+	}
+	if !(name == godo.LoadBalancerTypeRegional || name == godo.LoadBalancerTypeRegionalNetwork) {
+		return "", fmt.Errorf("only LB types supported are (%s, %s)", godo.LoadBalancerTypeRegional, godo.LoadBalancerTypeRegionalNetwork)
+	}
+	return name, nil
 }
 
 func findDups(lists ...[]int) []string {

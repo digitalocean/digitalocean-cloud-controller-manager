@@ -164,4 +164,8 @@ const (
 	// This is a comma separated list of rules, rules must be in the format "{type}:{source}"
 	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
 	annDOAllowRules = annDOLoadBalancerBase + "allow-rules"
+
+	// annDOType is the annotation used to specify the type of the load balancer. Either REGIONAL or REGIONAL_NETWORK (currently in closed alpha)
+	// are permitted. If no type is provided, then it will default REGIONAL.
+	annDOType = annDOLoadBalancerBase + "type"
 )
