@@ -159,7 +159,7 @@ func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Cer
 	return lb, cert
 }
 
-func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
+func defaultHealthCheck(port int) *godo.HealthCheck {
 	svc := &v1.Service{}
 	is, _ := healthCheckIntervalSeconds(svc)
 	rts, _ := healthCheckResponseTimeoutSeconds(svc)
@@ -167,9 +167,9 @@ func defaultHealthCheck(proto string, port int, path string) *godo.HealthCheck {
 	ht, _ := healthCheckHealthyThreshold(svc)
 
 	return &godo.HealthCheck{
-		Protocol:               proto,
+		Protocol:               protocolHTTP,
 		Port:                   port,
-		Path:                   path,
+		Path:                   "/healthz",
 		CheckIntervalSeconds:   is,
 		ResponseTimeoutSeconds: rts,
 		UnhealthyThreshold:     ut,
@@ -2184,480 +2184,48 @@ func Test_buildHealthCheck(t *testing.T) {
 		errMsgPrefix string
 	}{
 		{
-			name: "tcp health check",
+			name: "ExternalTrafficPolicy=Cluster",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
 				},
 				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
+					ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyCluster,
 				},
 			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "http",
+				Path:                   "/healthz",
+				Port:                   10256,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				UnhealthyThreshold:     3,
+				HealthyThreshold:       5,
+			},
 		},
 		{
-			name: "default health check with http service protocol",
+			name: "ExternalTrafficPolicy=Local",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol: "http",
-					},
 				},
 				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
+					Type:                  v1.ServiceTypeLoadBalancer,
+					ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+					HealthCheckNodePort:   25000,
 				},
 			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "default health check with https service protocol",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:      "https",
-						annDOCertificateID: "test-certificate",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "http",
+				Path:                   "/healthz",
+				Port:                   25000,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				UnhealthyThreshold:     3,
+				HealthyThreshold:       5,
 			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "default health check with TLS passthrough",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:       "https",
-						annDOTLSPassThrough: "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "https health check",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:      "https",
-						annDOCertificateID: "test-certificate",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "http2 health check",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:      "http2",
-						annDOCertificateID: "test-certificate",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "https health check with TLS passthrough",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:       "https",
-						annDOTLSPassThrough: "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "http2 health check with TLS passthrough",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:       "http2",
-						annDOTLSPassThrough: "true",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("tcp", 30000, ""),
-		},
-		{
-			name: "explicit http health check protocol and tcp payload protocol",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "tcp",
-						annDOHealthCheckProtocol: "http",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("http", 30000, ""),
-		},
-		{
-			name: "explicit http health check protocol and https payload protocol",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "https",
-						annDOCertificateID:       "test-certificate",
-						annDOHealthCheckProtocol: "http",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("http", 30000, ""),
-		},
-		{
-			name: "explicit http health check protocol and http2 payload protocol",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "http2",
-						annDOCertificateID:       "test-certificate",
-						annDOHealthCheckProtocol: "http",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("http", 30000, ""),
-		},
-		{
-			name: "explicit https health check protocol and tcp payload protocol",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "tcp",
-						annDOHealthCheckProtocol: "https",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("https", 30000, ""),
-		},
-		{
-			name: "http health check with https and certificate",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:            "https",
-						annDOCertificateID:       "test-certificate",
-						annDOHealthCheckProtocol: "http",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("http", 30000, ""),
-		},
-		{
-			name: "http health check with path",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annDOHealthCheckPath: "/health",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("http", 30000, "/health"),
-		},
-		{
-			name: "invalid health check using protocol override",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOHealthCheckProtocol: "invalid",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-					},
-				},
-			},
-			errMsgPrefix: fmt.Sprintf("invalid protocol %q specified in annotation %q", "invalid", annDOHealthCheckProtocol),
-		},
-		{
-			name: "health check with custom port",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annDOHealthCheckPath: "/health",
-						annDOHealthCheckPort: "636",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(80),
-							NodePort: int32(30000),
-						},
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(636),
-							NodePort: int32(32000),
-						},
-					},
-				},
-			},
-			healthcheck: defaultHealthCheck("http", 32000, "/health"),
-		},
-		{
-			name: "invalid health check using port override with non-existent port",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "default",
-					UID:       "abc123",
-					Annotations: map[string]string{
-						annDOHealthCheckPort: "9999",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(636),
-							NodePort: int32(30000),
-						},
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(332),
-							NodePort: int32(32000),
-						},
-					},
-				},
-			},
-			errMsgPrefix: fmt.Sprintf("specified health check port %d does not exist on service default/test", 9999),
-		},
-		{
-			name: "invalid health check using port override with non-numeric port",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOHealthCheckPort: "invalid",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(636),
-							NodePort: int32(30000),
-						},
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(332),
-							NodePort: int32(32000),
-						},
-					},
-				},
-			},
-			errMsgPrefix: "failed to get health check port: strconv.Atoi: parsing \"invalid\": invalid syntax",
-		},
-		{
-			name: "invalid health check using port override with multiple ports",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					UID:  "abc123",
-					Annotations: map[string]string{
-						annDOHealthCheckPort: "636,332",
-					},
-				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(636),
-							NodePort: int32(30000),
-						},
-						{
-							Name:     "test",
-							Protocol: "TCP",
-							Port:     int32(332),
-							NodePort: int32(32000),
-						},
-					},
-				},
-			},
-			errMsgPrefix: fmt.Sprintf("annotation %s only supports a single port, but found multiple: [636 332]", annDOHealthCheckPort),
 		},
 		{
 			name: "default numeric parameters",
@@ -2678,8 +2246,9 @@ func Test_buildHealthCheck(t *testing.T) {
 				},
 			},
 			healthcheck: &godo.HealthCheck{
-				Protocol:               "tcp",
-				Port:                   30000,
+				Protocol:               "http",
+				Path:                   "/healthz",
+				Port:                   10256,
 				CheckIntervalSeconds:   3,
 				ResponseTimeoutSeconds: 5,
 				UnhealthyThreshold:     3,
@@ -2711,8 +2280,9 @@ func Test_buildHealthCheck(t *testing.T) {
 				},
 			},
 			healthcheck: &godo.HealthCheck{
-				Protocol:               "tcp",
-				Port:                   30000,
+				Protocol:               "http",
+				Path:                   "/healthz",
+				Port:                   10256,
 				CheckIntervalSeconds:   1,
 				ResponseTimeoutSeconds: 3,
 				UnhealthyThreshold:     1,
@@ -3208,8 +2778,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:        "http",
-						annDOHealthCheckPath: "/health",
+						annDOProtocol: "http",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3255,7 +2824,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -3285,9 +2854,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:        "http2",
-						annDOCertificateID:   "test-certificate",
-						annDOHealthCheckPath: "/health",
+						annDOProtocol:      "http2",
+						annDOCertificateID: "test-certificate",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3333,7 +2901,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -3363,9 +2931,8 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDOProtocol:        "http2",
-						annDOCertificateID:   "test-certificate",
-						annDOHealthCheckPath: "/health",
+						annDOProtocol:      "http2",
+						annDOCertificateID: "test-certificate",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3423,7 +2990,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -3553,7 +3120,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, "/health"),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -3630,7 +3197,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "least_connections",
 				StickySessions: &godo.StickySessions{
 					Type: "none",
@@ -3707,7 +3274,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				SizeSlug:    "lb-medium",
 				StickySessions: &godo.StickySessions{
@@ -3785,7 +3352,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				SizeUnit:    2,
 				StickySessions: &godo.StickySessions{
@@ -3922,7 +3489,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("tcp", 30000, ""),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type:             "cookies",
@@ -3956,7 +3523,6 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:                 "https",
 						annDOCertificateID:            "test-certificate",
-						annDOHealthCheckProtocol:      "http",
 						annDOStickySessionsType:       "cookies",
 						annDOStickySessionsCookieName: "DO-CCM",
 						annDOStickySessionsCookieTTL:  "300",
@@ -4005,7 +3571,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						TlsPassthrough: false,
 					},
 				},
-				HealthCheck: defaultHealthCheck("http", 30000, ""),
+				HealthCheck: defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:   "round_robin",
 				StickySessions: &godo.StickySessions{
 					Type:             "cookies",
@@ -4098,7 +3664,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						CertificateID:  "test-certificate",
 					},
 				},
-				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
+				HealthCheck:         defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:           "round_robin",
 				RedirectHttpToHttps: true,
 				StickySessions: &godo.StickySessions{
@@ -4191,7 +3757,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						CertificateID:  "test-certificate",
 					},
 				},
-				HealthCheck:         defaultHealthCheck("tcp", 30000, ""),
+				HealthCheck:         defaultHealthCheck(kubeProxyHealthPort),
 				Algorithm:           "round_robin",
 				RedirectHttpToHttps: true,
 				StickySessions: &godo.StickySessions{

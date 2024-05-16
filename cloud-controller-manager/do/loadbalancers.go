@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/cloud-provider/api"
+	servicehelpers "k8s.io/cloud-provider/service/helpers"
 	"k8s.io/klog/v2"
 
 	"github.com/digitalocean/godo"
@@ -72,6 +73,8 @@ const (
 	portProtocolUDP = "UDP"
 
 	defaultSecurePort = 443
+
+	kubeProxyHealthPort = 10256
 )
 
 var (
@@ -634,15 +637,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 // buildHealthChecks returns a godo.HealthCheck for service.
 func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
-	healthCheckPort, err := healthCheckPort(service)
-	if err != nil {
-		return nil, err
-	}
-
-	healthCheckProtocol, err := healthCheckProtocol(service)
-	if err != nil {
-		return nil, err
-	}
+	healtCheckPath, healthCheckPort := healthCheckPathAndPort(service)
 
 	checkIntervalSecs, err := healthCheckIntervalSeconds(service)
 	if err != nil {
@@ -661,12 +656,10 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		return nil, err
 	}
 
-	healthCheckPath := healthCheckPath(service)
-
 	return &godo.HealthCheck{
-		Protocol:               healthCheckProtocol,
-		Port:                   healthCheckPort,
-		Path:                   healthCheckPath,
+		Protocol:               protocolHTTP,
+		Port:                   int(healthCheckPort),
+		Path:                   healtCheckPath,
 		CheckIntervalSeconds:   checkIntervalSecs,
 		ResponseTimeoutSeconds: responseTimeoutSecs,
 		UnhealthyThreshold:     unhealthyThreshold,
@@ -892,72 +885,15 @@ func getHostname(service *v1.Service) string {
 	return strings.ToLower(service.Annotations[annDOHostname])
 }
 
-// healthCheckPort returns the health check port specified, defaulting
-// to the first port in the service otherwise.
-func healthCheckPort(service *v1.Service) (int, error) {
-	ports, err := getPorts(service, annDOHealthCheckPort)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get health check port: %v", err)
+// healthCheckPathAndPort returns the health check path and port
+func healthCheckPathAndPort(service *v1.Service) (string, int32) {
+	// If a health check node port is allocated, use that to health check
+	path, healthCheckNodePort := servicehelpers.GetServiceHealthCheckPathPort(service)
+	if path != "" {
+		return path, healthCheckNodePort
 	}
-
-	if len(ports) > 1 {
-		return 0, fmt.Errorf("annotation %s only supports a single port, but found multiple: %v", annDOHealthCheckPort, ports)
-	}
-
-	if len(ports) == 1 {
-		for _, servicePort := range service.Spec.Ports {
-			if int(servicePort.Port) == ports[0] {
-				if servicePort.Protocol == v1.ProtocolUDP {
-					return 0, fmt.Errorf("health check port: %d, cannot be of protocol type UDP", servicePort.Port)
-				}
-				return int(servicePort.NodePort), nil
-			}
-		}
-		return 0, fmt.Errorf("specified health check port %d does not exist on service %s/%s", ports[0], service.Namespace, service.Name)
-	}
-
-	// return the first TCP port found as the healthcheck port
-	for _, p := range service.Spec.Ports {
-		if p.Protocol == v1.ProtocolTCP {
-			return int(p.NodePort), nil
-		}
-	}
-
-	// Otherwise no TCP ports were found
-	return 0, errors.New("no health check port of protocol TCP found")
-}
-
-// healthCheckProtocol returns the health check protocol as specified in the service,
-// falling back to TCP if not specified.
-func healthCheckProtocol(service *v1.Service) (string, error) {
-	protocol := service.Annotations[annDOHealthCheckProtocol]
-	path := healthCheckPath(service)
-
-	if protocol == "" {
-		if path != "" {
-			return protocolHTTP, nil
-		}
-		return protocolTCP, nil
-	}
-
-	switch protocol {
-	case protocolTCP, protocolHTTP, protocolHTTPS:
-	default:
-		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOHealthCheckProtocol)
-	}
-
-	return protocol, nil
-}
-
-// getHealthCheckPath returns the desired path for health checking
-// health check path should default to / if not specified
-func healthCheckPath(service *v1.Service) string {
-	path, ok := service.Annotations[annDOHealthCheckPath]
-	if !ok {
-		return ""
-	}
-
-	return path
+	// Otherwise health check kube-proxy
+	return "/healthz", kubeProxyHealthPort
 }
 
 // healthCheckIntervalSeconds returns the health check interval in seconds

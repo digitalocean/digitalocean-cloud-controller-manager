@@ -87,12 +87,17 @@ func TestHandle(t *testing.T) {
 		{
 			name: "error create when building godo request fails",
 			req: fakeAdmissionRequest(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDOHealthCheckIntervalSeconds: "abc",
+					},
+				},
 				Spec: corev1.ServiceSpec{
 					Type: corev1.ServiceTypeLoadBalancer,
 				},
 			}, nil),
 			expectedAllowed: false,
-			expectedMessage: "failed to build DO API request: failed to build base load balancer request: no health check port of protocol TCP found",
+			expectedMessage: "failed to build DO API request: failed to build base load balancer request: failed to parse health check interval annotation \"service.beta.kubernetes.io/do-loadbalancer-healthcheck-check-interval-seconds\": strconv.Atoi: parsing \"abc\": invalid syntax",
 		},
 		{
 			name: "error create when godo answers has no resp and error",
