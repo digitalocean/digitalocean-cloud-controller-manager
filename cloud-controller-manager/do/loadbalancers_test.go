@@ -160,6 +160,10 @@ func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Cer
 }
 
 func defaultHealthCheck(port int) *godo.HealthCheck {
+	return healthCheck(protocolHTTP, port, "/healthz")
+}
+
+func healthCheck(protocol string, port int, path string) *godo.HealthCheck {
 	svc := &v1.Service{}
 	is, _ := healthCheckIntervalSeconds(svc)
 	rts, _ := healthCheckResponseTimeoutSeconds(svc)
@@ -167,9 +171,9 @@ func defaultHealthCheck(port int) *godo.HealthCheck {
 	ht, _ := healthCheckHealthyThreshold(svc)
 
 	return &godo.HealthCheck{
-		Protocol:               protocolHTTP,
+		Protocol:               protocol,
 		Port:                   port,
-		Path:                   "/healthz",
+		Path:                   path,
 		CheckIntervalSeconds:   is,
 		ResponseTimeoutSeconds: rts,
 		UnhealthyThreshold:     ut,
@@ -2473,7 +2477,687 @@ func Test_buildHealthCheck(t *testing.T) {
 			}
 		})
 	}
+}
 
+func Test_buildHealthCheckOld(t *testing.T) {
+	testcases := []struct {
+		name         string
+		service      *v1.Service
+		healthcheck  *godo.HealthCheck
+		errMsgPrefix string
+	}{
+		{
+			name: "tcp health check",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "default health check with http service protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "http",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "default health check with https service protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "https",
+						annDOCertificateID:          "test-certificate",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "default health check with TLS passthrough",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "https",
+						annDOTLSPassThrough:         "true",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "https health check",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "https",
+						annDOCertificateID:          "test-certificate",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "http2 health check",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "http2",
+						annDOCertificateID:          "test-certificate",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "https health check with TLS passthrough",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "https",
+						annDOTLSPassThrough:         "true",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "http2 health check with TLS passthrough",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "http2",
+						annDOTLSPassThrough:         "true",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("tcp", 30000, ""),
+		},
+		{
+			name: "explicit http health check protocol and tcp payload protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "tcp",
+						annDOHealthCheckProtocol:    "http",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("http", 30000, ""),
+		},
+		{
+			name: "explicit http health check protocol and https payload protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "https",
+						annDOCertificateID:          "test-certificate",
+						annDOHealthCheckProtocol:    "http",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("http", 30000, ""),
+		},
+		{
+			name: "explicit http health check protocol and http2 payload protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "http2",
+						annDOCertificateID:          "test-certificate",
+						annDOHealthCheckProtocol:    "http",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("http", 30000, ""),
+		},
+		{
+			name: "explicit https health check protocol and tcp payload protocol",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "tcp",
+						annDOHealthCheckProtocol:    "https",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("https", 30000, ""),
+		},
+		{
+			name: "http health check with https and certificate",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "https",
+						annDOCertificateID:          "test-certificate",
+						annDOHealthCheckProtocol:    "http",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("http", 30000, ""),
+		},
+		{
+			name: "http health check with path",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "http",
+						annDOHealthCheckPath:        "/health",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("http", 30000, "/health"),
+		},
+		{
+			name: "invalid health check using protocol override",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckProtocol:    "invalid",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("invalid protocol %q specified in annotation %q", "invalid", annDOHealthCheckProtocol),
+		},
+		{
+			name: "health check with custom port",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOProtocol:               "http",
+						annDOHealthCheckPath:        "/health",
+						annDOHealthCheckPort:        "636",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			healthcheck: healthCheck("http", 32000, "/health"),
+		},
+		{
+			name: "invalid health check using port override with non-existent port",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort:        "9999",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(332),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("specified health check port %d does not exist on service default/test", 9999),
+		},
+		{
+			name: "invalid health check using port override with non-numeric port",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort:        "invalid",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(332),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: "failed to get health check port: strconv.Atoi: parsing \"invalid\": invalid syntax",
+		},
+		{
+			name: "invalid health check using port override with multiple ports",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort:        "636,332",
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(636),
+							NodePort: int32(30000),
+						},
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(332),
+							NodePort: int32(32000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("annotation %s only supports a single port, but found multiple: [636 332]", annDOHealthCheckPort),
+		},
+		{
+			name: "default numeric parameters",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDORevertToOldHealthCheck: "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "tcp",
+				Port:                   30000,
+				CheckIntervalSeconds:   3,
+				ResponseTimeoutSeconds: 5,
+				UnhealthyThreshold:     3,
+				HealthyThreshold:       5,
+			},
+		},
+		{
+			name: "custom numeric parameters",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckIntervalSeconds:        "1",
+						annDOHealthCheckResponseTimeoutSeconds: "3",
+						annDOHealthCheckUnhealthyThreshold:     "1",
+						annDOHealthCheckHealthyThreshold:       "2",
+						annDORevertToOldHealthCheck:            "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			healthcheck: &godo.HealthCheck{
+				Protocol:               "tcp",
+				Port:                   30000,
+				CheckIntervalSeconds:   1,
+				ResponseTimeoutSeconds: 3,
+				UnhealthyThreshold:     1,
+				HealthyThreshold:       2,
+			},
+		},
+		{
+			name: "invalid check interval",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckIntervalSeconds: "invalid",
+						annDORevertToOldHealthCheck:     "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check interval annotation %q:", annDOHealthCheckIntervalSeconds),
+		},
+		{
+			name: "invalid response timeout",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckResponseTimeoutSeconds: "invalid",
+						annDORevertToOldHealthCheck:            "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check response timeout annotation %q:", annDOHealthCheckResponseTimeoutSeconds),
+		},
+		{
+			name: "invalid unhealthy threshold",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckUnhealthyThreshold: "invalid",
+						annDORevertToOldHealthCheck:        "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check unhealthy threshold annotation %q:", annDOHealthCheckUnhealthyThreshold),
+		},
+		{
+			name: "invalid healthy threshold",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckHealthyThreshold: "invalid",
+						annDORevertToOldHealthCheck:      "",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			errMsgPrefix: fmt.Sprintf("failed to parse health check healthy threshold annotation %q:", annDOHealthCheckHealthyThreshold),
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			healthcheck, err := buildHealthCheck(test.service)
+			if !reflect.DeepEqual(healthcheck, test.healthcheck) {
+				t.Fatalf("got health check:\n\n%v\n\nwant:\n\n%s\n", healthcheck, test.healthcheck)
+			}
+
+			wantErr := test.errMsgPrefix != ""
+			if wantErr && !strings.HasPrefix(err.Error(), test.errMsgPrefix) {
+				t.Fatalf("got error:\n\n%s\n\nwant prefix:\n\n%s\n", err, test.errMsgPrefix)
+			}
+		})
+	}
 }
 
 func Test_buildStickySessions(t *testing.T) {
