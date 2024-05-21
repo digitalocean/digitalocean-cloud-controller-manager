@@ -108,7 +108,18 @@ You have to supply the value as string (ex. `"true"`, not `true`), otherwise you
 
 ## service.beta.kubernetes.io/do-loadbalancer-certificate-id
 
-Specifies the certificate ID used for https. To list available certificates and their IDs, install [doctl](https://github.com/digitalocean/doctl) and run `doctl compute certificate list`.
+Specifies the certificate ID used for https. To list available certificates and their IDs, install [doctl](https://github.com/digitalocean/doctl) and run `doctl compute certificate list`. Either
+`service.beta.kubernetes.io/do-loadbalancer-certificate-id` OR `service.beta.kubernetes.io/do-loadbalancer-certificate-name` can be supplied, with the former
+taking precedence if both are provided.
+
+## service.beta.kubernetes.io/do-loadbalancer-certificate-name
+
+Specifies the certificate name used for https. To list available certificates and their IDs, install [doctl](https://github.com/digitalocean/doctl) and run `doctl compute certificate list`. Either
+`service.beta.kubernetes.io/do-loadbalancer-certificate-id` OR `service.beta.kubernetes.io/do-loadbalancer-certificate-name` can be supplied, with the former
+taking precedence if both are provided.
+
+If using Let's Encrypt certificate, we suggest using the name of the certificate since the ID of the certificate will update each time it is rotated. The name of the certificate is required
+to be unique within the scope of an account.
 
 ## service.beta.kubernetes.io/do-loadbalancer-hostname
 

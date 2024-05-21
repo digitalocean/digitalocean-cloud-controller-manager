@@ -1173,10 +1173,10 @@ func findCertificateID(ctx context.Context, service *v1.Service, godoClient *god
 	}
 	lbCert, _, err := godoClient.Certificates.ListByName(ctx, certificateName, &godo.ListOptions{Page: 1, PerPage: 1})
 	if err != nil {
-		return "", fmt.Errorf("failed to get certificate by name: %s error: %w", certificateName, err)
+		return "", fmt.Errorf("failed to get certificate by name: %q error: %s", certificateName, err)
 	}
 	if len(lbCert) == 0 {
-		return "", fmt.Errorf("certificate with name: %s not found", certificateName)
+		return "", fmt.Errorf("certificate with name: %q not found", certificateName)
 	}
 	return lbCert[0].ID, nil
 }
