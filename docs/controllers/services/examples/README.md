@@ -46,7 +46,7 @@ ID                                      IP                Name                  
 
 For the sake of example, assume you have a valid key/cert pair for your HTTPS certificate at `key.pem` and `cert.pem`.
 
-Now we can create a certificate to ues for your loadbalancer:
+Now we can create a certificate to use for your loadbalancer:
 
 ```bash
 doctl compute certificate create --name=lb-example --private-key-path=key.pem --leaf-certificate-path=cert.pem
