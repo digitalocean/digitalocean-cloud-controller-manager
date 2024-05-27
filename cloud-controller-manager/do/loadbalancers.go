@@ -529,9 +529,21 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, error) {
 	lbName := getLoadBalancerName(service)
 
-	forwardingRules, err := buildForwardingRules(service)
+	lbType, err := getType(service)
 	if err != nil {
 		return nil, err
+	}
+	var forwardingRules []godo.ForwardingRule
+	if lbType == godo.LoadBalancerTypeRegionalNetwork {
+		forwardingRules, err = buildRegionalNetworkForwardingRule(service)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		forwardingRules, err = buildForwardingRules(service)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	healthCheck, err := buildHealthCheck(service)
@@ -581,10 +593,6 @@ func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, e
 	}
 
 	httpIdleTimeoutSeconds, err := getHttpIdleTimeoutSeconds(service)
-	if err != nil {
-		return nil, err
-	}
-	lbType, err := getType(service)
 	if err != nil {
 		return nil, err
 	}
@@ -787,6 +795,28 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		forwardingRules = append(forwardingRules, *h3)
 	}
 
+	return forwardingRules, nil
+}
+
+func buildRegionalNetworkForwardingRule(service *v1.Service) ([]godo.ForwardingRule, error) {
+	var forwardingRules []godo.ForwardingRule
+	for _, port := range service.Spec.Ports {
+		var protocol string
+		switch port.Protocol {
+		case portProtocolTCP:
+			protocol = protocolTCP
+		case portProtocolUDP:
+			protocol = protocolUDP
+		default:
+			return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
+		}
+		forwardingRules = append(forwardingRules, godo.ForwardingRule{
+			EntryProtocol:  protocol,
+			EntryPort:      int(port.Port),
+			TargetProtocol: protocol,
+			TargetPort:     int(port.Port),
+		})
+	}
 	return forwardingRules, nil
 }
 

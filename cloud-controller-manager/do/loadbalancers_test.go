@@ -2176,6 +2176,95 @@ func Test_buildForwardingRules(t *testing.T) {
 	}
 }
 
+func Test_buildRegionalNetworkForwardingRules(t *testing.T) {
+	testcases := []struct {
+		name            string
+		service         *v1.Service
+		forwardingRules []godo.ForwardingRule
+		err             error
+	}{
+		{
+			"tcp forwarding rule",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "tcp",
+					EntryPort:      80,
+					TargetProtocol: "tcp",
+					TargetPort:     80,
+				},
+			},
+			nil,
+		},
+		{
+			"udp forwarding rule",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "UDP",
+							Port:     int32(53),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "udp",
+					EntryPort:      53,
+					TargetProtocol: "udp",
+					TargetPort:     53,
+				},
+			},
+			nil,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			forwardingRules, err := buildRegionalNetworkForwardingRule(test.service)
+			if !reflect.DeepEqual(forwardingRules, test.forwardingRules) {
+				t.Error("unexpected forwarding rules")
+				t.Logf("expected: %v", test.forwardingRules)
+				t.Logf("actual: %v", forwardingRules)
+			}
+
+			if !reflect.DeepEqual(err, test.err) {
+				t.Error("unexpected error")
+				t.Logf("expected: %v", test.err)
+				t.Logf("actual: %v", err)
+			}
+		})
+	}
+}
+
 func Test_buildHealthCheck(t *testing.T) {
 	testcases := []struct {
 		name         string
