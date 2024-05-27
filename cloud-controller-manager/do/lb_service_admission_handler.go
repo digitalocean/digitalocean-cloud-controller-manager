@@ -80,7 +80,7 @@ func (h *LBServiceAdmissionHandler) handle(ctx context.Context, req admission.Re
 
 	lbID := svc.Annotations[annDOLoadBalancerID]
 
-	lbReq, err := h.buildLoadBalancerRequest(&svc)
+	lbReq, err := h.buildLoadBalancerRequest(ctx, &svc)
 	if err != nil {
 		return admission.Denied(fmt.Sprintf("failed to build DO API request: %s", err))
 	}
@@ -105,7 +105,7 @@ func (h *LBServiceAdmissionHandler) validateUpdate(ctx context.Context, req admi
 	// We ignore errors when building the old service's godo request because
 	// it is allowed to be wrong. In cases where it errors, it can potentially
 	// get fixed after the update.
-	oldReq, _ := h.buildLoadBalancerRequest(&oldSvc)
+	oldReq, _ := h.buildLoadBalancerRequest(ctx, &oldSvc)
 	if cmp.Equal(oldReq, lbReq) {
 		return admission.Allowed("new service has irrelevant changes")
 	}
@@ -130,8 +130,8 @@ func (h *LBServiceAdmissionHandler) validateCreate(ctx context.Context, lbReq *g
 	return h.mapGodoRespToAdmissionResp(resp, err)
 }
 
-func (h *LBServiceAdmissionHandler) buildLoadBalancerRequest(svc *corev1.Service) (*godo.LoadBalancerRequest, error) {
-	lbReq, err := buildLoadBalancerRequest(svc)
+func (h *LBServiceAdmissionHandler) buildLoadBalancerRequest(ctx context.Context, svc *corev1.Service) (*godo.LoadBalancerRequest, error) {
+	lbReq, err := buildLoadBalancerRequest(ctx, svc, h.godoClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build base load balancer request: %s", err)
 	}

@@ -96,10 +96,15 @@ const (
 	// This is optional and defaults to false.
 	annDOTLSPassThrough = annDOLoadBalancerBase + "tls-passthrough"
 
-	// annDOCertificateID is the annotation specifying the certificate ID
-	// used for https protocol. This annotation is required if annDOTLSPorts
+	// annDOCertificateID is the annotation specifying the certificate ID.
+	// used for https protocol. Either this annotation OR annDOCertificateName is required if annDOTLSPorts
 	// is passed.
 	annDOCertificateID = annDOLoadBalancerBase + "certificate-id"
+
+	// annDOCertificateName is the annotation specifying the certificate name.
+	// used for https protocol. Either this annotation OR annDOCertificateID is required if annDOTLSPorts
+	// is passed.
+	annDOCertificateName = annDOLoadBalancerBase + "certificate-name"
 
 	// annDOHostname is the annotation specifying the hostname to use for the LB.
 	annDOHostname = annDOLoadBalancerBase + "hostname"

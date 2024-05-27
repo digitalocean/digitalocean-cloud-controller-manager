@@ -294,7 +294,11 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	}
 
 	lbCertID := getCertificateIDFromLB(lb)
-	serviceCertID := getCertificateID(service)
+	serviceCertID, err := findCertificateID(ctx, service, l.resources.gclient)
+	if err != nil {
+		return nil, err
+	}
+
 	err = l.recordUpdatedLetsEncryptCert(ctx, service, lbCertID, serviceCertID)
 	if err != nil {
 		return nil, err
@@ -529,7 +533,7 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 	return dropletIDs, nil
 }
 
-func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, error) {
+func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClient *godo.Client) (*godo.LoadBalancerRequest, error) {
 	lbName := getLoadBalancerName(service)
 
 	lbType, err := getType(service)
@@ -543,7 +547,7 @@ func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, e
 			return nil, err
 		}
 	} else {
-		forwardingRules, err = buildForwardingRules(service)
+		forwardingRules, err = buildForwardingRules(ctx, service, godoClient)
 		if err != nil {
 			return nil, err
 		}
@@ -621,7 +625,7 @@ func buildLoadBalancerRequest(service *v1.Service) (*godo.LoadBalancerRequest, e
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	req, err := buildLoadBalancerRequest(service)
+	req, err := buildLoadBalancerRequest(ctx, service, l.resources.gclient)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +696,7 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	}, nil
 }
 
-func buildHTTP3ForwardingRule(service *v1.Service) (*godo.ForwardingRule, error) {
+func buildHTTP3ForwardingRule(ctx context.Context, service *v1.Service, godoClient *godo.Client) (*godo.ForwardingRule, error) {
 	http3Port, err := getHTTP3Port(service)
 	if err != nil {
 		return nil, err
@@ -701,7 +705,10 @@ func buildHTTP3ForwardingRule(service *v1.Service) (*godo.ForwardingRule, error)
 		return nil, nil
 	}
 
-	certificateID := getCertificateID(service)
+	certificateID, err := findCertificateID(ctx, service, godoClient)
+	if err != nil {
+		return nil, err
+	}
 	if getTLSPassThrough(service) {
 		return nil, errors.New("TLS passthrough is not allowed to be used in conjunction with HTTP3")
 	}
@@ -726,7 +733,7 @@ func buildHTTP3ForwardingRule(service *v1.Service) (*godo.ForwardingRule, error)
 
 // buildForwardingRules returns the forwarding rules of the Load Balancer of
 // service.
-func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
+func buildForwardingRules(ctx context.Context, service *v1.Service, godoClient *godo.Client) ([]godo.ForwardingRule, error) {
 	var forwardingRules []godo.ForwardingRule
 
 	defaultProtocol, err := getProtocol(service)
@@ -755,7 +762,10 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		return nil, fmt.Errorf("ports from annotations \"%s*-ports\" cannot be shared but found: %s", annDOLoadBalancerBase, strings.Join(portDups, ", "))
 	}
 
-	certificateID := getCertificateID(service)
+	certificateID, err := findCertificateID(ctx, service, godoClient)
+	if err != nil {
+		return nil, err
+	}
 	tlsPassThrough := getTLSPassThrough(service)
 	needSecureProto := certificateID != "" || tlsPassThrough
 
@@ -799,7 +809,7 @@ func buildForwardingRules(service *v1.Service) ([]godo.ForwardingRule, error) {
 		forwardingRules = append(forwardingRules, *forwardingRule)
 	}
 
-	if h3, err := buildHTTP3ForwardingRule(service); err != nil {
+	if h3, err := buildHTTP3ForwardingRule(ctx, service, godoClient); err != nil {
 		return nil, fmt.Errorf("failed to construct http3 forwarding rule: %w", err)
 	} else if h3 != nil {
 		forwardingRules = append(forwardingRules, *h3)
@@ -1140,10 +1150,35 @@ func getStrings(service *v1.Service, anno string) []string {
 	return pieces
 }
 
-// getCertificateID returns the certificate ID of service to use for fowarding
+// getCertificateID returns the certificate ID of service to use for forwarding
 // rules.
 func getCertificateID(service *v1.Service) string {
 	return service.Annotations[annDOCertificateID]
+}
+
+// getCertificateName returns the certificate name of service to use for forwarding
+// rules.
+func getCertificateName(service *v1.Service) string {
+	return service.Annotations[annDOCertificateName]
+}
+
+func findCertificateID(ctx context.Context, service *v1.Service, godoClient *godo.Client) (string, error) {
+	certificateID := getCertificateID(service)
+	if certificateID != "" {
+		return certificateID, nil
+	}
+	certificateName := getCertificateName(service)
+	if certificateName == "" {
+		return "", nil
+	}
+	lbCert, _, err := godoClient.Certificates.ListByName(ctx, certificateName, &godo.ListOptions{Page: 1, PerPage: 1})
+	if err != nil {
+		return "", fmt.Errorf("failed to get certificate by name: %q error: %s", certificateName, err)
+	}
+	if len(lbCert) == 0 {
+		return "", fmt.Errorf("certificate with name: %q not found", certificateName)
+	}
+	return lbCert[0].ID, nil
 }
 
 // getTLSPassThrough returns true if there should be TLS pass through to
