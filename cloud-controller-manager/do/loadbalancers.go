@@ -547,7 +547,7 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 			return nil, err
 		}
 	} else {
-		forwardingRules, err = buildForwardingRules(service, godoClient)
+		forwardingRules, err = buildForwardingRules(ctx, service, godoClient)
 		if err != nil {
 			return nil, err
 		}
