@@ -44,6 +44,10 @@ const (
 	// for DO load balancers. Defaults to the protocol used in annDOProtocol.
 	annDOHealthCheckProtocol = annDOLoadBalancerBase + "healthcheck-protocol"
 
+	// annDORevertToOldHealthCheck is the annotation used to control reverting to the old health check behavior. This
+	// annotation is temporary and will be removed after the deprecation period is over.
+	annDORevertToOldHealthCheck = annDOLoadBalancerBase + "revert-to-old-health-check"
+
 	// annDOHealthCheckIntervalSeconds is the annotation used to specify the
 	// number of seconds between between two consecutive health checks. The
 	// value must be between 3 and 300. Defaults to 3.

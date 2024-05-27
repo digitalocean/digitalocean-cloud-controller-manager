@@ -57,6 +57,13 @@ The number of times a health check must fail for a backend Droplet to be marked 
 
 The number of times a health check must pass for a backend Droplet to be marked "healthy" for the given service and be re-added to the pool. The vaule must be between 2 and 10. If not specified, the default value is 5.
 
+## service.beta.kubernetes.io/do-loadbalancer-revert-to-old-health-check
+
+Reverts the load balancer health check to the previous logic, which health checks the application itself. This is a temporary mitigation to rollback
+to the previous logic in case the updated implementation has an unintended side effect on your application. We don't expect any customers to need to use
+this but has been added in case of emergency. The updated implementation will health check the Kubernetes components that are responsible for routing
+traffic, this will account for pod and node lifecycle such as taints, autoscaling, etc...
+
 ## service.beta.kubernetes.io/do-loadbalancer-http-ports
 
 Specify which ports of the loadbalancer should use the HTTP protocol. This is a comma separated list of ports (e.g. 80,8080).

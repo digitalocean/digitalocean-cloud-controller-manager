@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/cloud-provider/api"
+	servicehelpers "k8s.io/cloud-provider/service/helpers"
 	"k8s.io/klog/v2"
 
 	"github.com/digitalocean/godo"
@@ -72,6 +73,8 @@ const (
 	portProtocolUDP = "UDP"
 
 	defaultSecurePort = 443
+
+	kubeProxyHealthPort = 10256
 )
 
 var (
@@ -634,14 +637,23 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 // buildHealthChecks returns a godo.HealthCheck for service.
 func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
-	healthCheckPort, err := healthCheckPort(service)
-	if err != nil {
-		return nil, err
-	}
+	// Default health check behavior
+	hcPath, hcPort := healthCheckPathAndPort(service)
+	hcProtocol := protocolHTTP
 
-	healthCheckProtocol, err := healthCheckProtocol(service)
-	if err != nil {
-		return nil, err
+	// If the old behavior was requested
+	_, ok := service.Annotations[annDORevertToOldHealthCheck]
+	if ok {
+		var err error
+		hcPath = healthCheckPath(service)
+		hcPort, err = healthCheckPort(service)
+		if err != nil {
+			return nil, err
+		}
+		hcProtocol, err = healthCheckProtocol(service)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	checkIntervalSecs, err := healthCheckIntervalSeconds(service)
@@ -661,12 +673,10 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		return nil, err
 	}
 
-	healthCheckPath := healthCheckPath(service)
-
 	return &godo.HealthCheck{
-		Protocol:               healthCheckProtocol,
-		Port:                   healthCheckPort,
-		Path:                   healthCheckPath,
+		Protocol:               hcProtocol,
+		Port:                   hcPort,
+		Path:                   hcPath,
 		CheckIntervalSeconds:   checkIntervalSecs,
 		ResponseTimeoutSeconds: responseTimeoutSecs,
 		UnhealthyThreshold:     unhealthyThreshold,
@@ -947,6 +957,17 @@ func healthCheckProtocol(service *v1.Service) (string, error) {
 	}
 
 	return protocol, nil
+}
+
+// healthCheckPathAndPort returns the health check path and port
+func healthCheckPathAndPort(service *v1.Service) (string, int) {
+	// If a health check node port is allocated, use that to health check
+	path, healthCheckNodePort := servicehelpers.GetServiceHealthCheckPathPort(service)
+	if path != "" {
+		return path, int(healthCheckNodePort)
+	}
+	// Otherwise health check kube-proxy
+	return "/healthz", kubeProxyHealthPort
 }
 
 // getHealthCheckPath returns the desired path for health checking
