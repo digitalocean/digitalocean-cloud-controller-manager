@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.51 (beta) - May 28, 2024
+
 * Adjusts load balancer health check behaviour to probe Kubernetes components. 
 When `ExternalTrafficPolicy=Cluster`, the health check will be configured to check `kube-proxy`. This ensures that each node is ready to serve LoadBalancer traffic.
 When `ExternalTrafficPolicy=Local`, the configured health check node port will be used which indicates whether the node has active pods.
