@@ -867,10 +867,30 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 }
 
 func buildFirewall(service *v1.Service) *godo.LBFirewall {
+	var allow []string
+	sourceRanges := getSourceRangeRules(service)
+	if len(sourceRanges) > 0 {
+		// source ranges should take precedence over annotation based allow rules
+		allow = sourceRanges
+	} else {
+		allow = getStrings(service, annDOAllowRules)
+	}
 	return &godo.LBFirewall{
 		Deny:  getStrings(service, annDODenyRules),
-		Allow: getStrings(service, annDOAllowRules),
+		Allow: allow,
 	}
+}
+
+// getSourceRangeRules returns loadBalancerSourceRanges in the format
+// `cidr:{source}`
+func getSourceRangeRules(service *v1.Service) []string {
+	sourceRanges := service.Spec.LoadBalancerSourceRanges
+
+	for i, sourceRange := range sourceRanges {
+		sourceRanges[i] = "cidr:" + sourceRange
+	}
+
+	return sourceRanges
 }
 
 func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Service, port int32, certificateID string, tlsPassThrough bool) error {
