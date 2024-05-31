@@ -653,8 +653,9 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	hcPath, hcPort := healthCheckPathAndPort(service)
 	hcProtocol := protocolHTTP
 
-	// If the old behavior was requested
-	_, ok := service.Annotations[annDORevertToOldHealthCheck]
+	// Permit changing the default health check behavior if the override annotation
+	// is set.
+	_, ok := service.Annotations[annDOOverrideHealthCheck]
 	if ok {
 		var err error
 		hcPath = healthCheckPath(service)

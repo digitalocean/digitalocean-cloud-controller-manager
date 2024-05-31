@@ -108,6 +108,17 @@ When a cluster is created in a non-default VPC for the region, the environment v
 
 You can have `digitalocean-cloud-controller-manager` manage an existing load-balancer by creating a `LoadBalancer` Service annotated with the UUID of the load-balancer. However, if it is already managed by another Service/cluster, you have to make sure [to disown it properly](/docs/controllers/services/examples/README.md#changing-ownership-of-a-load-balancer-for-migration-purposes) to prevent conflicting modifications to the load-balancer.
 
+### Health check configuration
+
+digitalocean-cloud-controller-manager automatically sets an LB health check configuration suitable for identifying pod/node availability and facilitating graceful rotation in the event of workload and node replacements. The concrete values depend on the configured external traffic policy:
+
+- `Cluster`: the kube-proxy /healthz endpoint available on each worker node indicating if the node is healthy
+- `Local`: the /healthz endpoint on the separate health check node port (created explicitly by Kubernetes) indicating if the node has active pods
+
+See also [this blog post](https://kubernetes.io/blog/2022/12/30/advancements-in-kubernetes-traffic-engineering/) for details.
+
+In general, health check parameters for port, path, and protocol should not have to be set explicitly. For rare cases where it may be required, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set in addition to the corresponding health check parameter annotations. See the annotation documentation for details.
+
 ## Deployment
 
 ### Token
@@ -178,4 +189,3 @@ To install it, run the following kubectl command:
 kubectl apply -f releases/digitalocean-cloud-controller-manager-admission-server/v0.1.47.yml
 deployment "digitalocean-cloud-controller-manager-admission-server" created
 ```
-
