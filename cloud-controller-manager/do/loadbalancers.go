@@ -34,6 +34,7 @@ import (
 	"k8s.io/cloud-provider/api"
 	servicehelpers "k8s.io/cloud-provider/service/helpers"
 	"k8s.io/klog/v2"
+	utilnet "k8s.io/utils/net"
 
 	"github.com/digitalocean/godo"
 )
@@ -604,6 +605,11 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 		return nil, err
 	}
 
+	fw, err := buildFirewall(service)
+	if err != nil {
+		return nil, err
+	}
+
 	return &godo.LoadBalancerRequest{
 		Name:                         lbName,
 		SizeSlug:                     sizeSlug,
@@ -617,7 +623,7 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 		EnableBackendKeepalive:       enableBackendKeepalive,
 		DisableLetsEncryptDNSRecords: &disableLetsEncryptDNSRecords,
 		HTTPIdleTimeoutSeconds:       httpIdleTimeoutSeconds,
-		Firewall:                     buildFirewall(service),
+		Firewall:                     fw,
 		Type:                         lbType,
 	}, nil
 }
@@ -866,9 +872,12 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	return &forwardingRule, nil
 }
 
-func buildFirewall(service *v1.Service) *godo.LBFirewall {
+func buildFirewall(service *v1.Service) (*godo.LBFirewall, error) {
 	var allow []string
-	sourceRanges := getSourceRangeRules(service)
+	sourceRanges, err := getSourceRangeRules(service)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get source range rules: %s", err)
+	}
 	if len(sourceRanges) > 0 {
 		// source ranges should take precedence over annotation based allow rules
 		allow = sourceRanges
@@ -878,19 +887,26 @@ func buildFirewall(service *v1.Service) *godo.LBFirewall {
 	return &godo.LBFirewall{
 		Deny:  getStrings(service, annDODenyRules),
 		Allow: allow,
-	}
+	}, nil
 }
 
 // getSourceRangeRules returns loadBalancerSourceRanges in the format
 // `cidr:{source}`
-func getSourceRangeRules(service *v1.Service) []string {
-	sourceRanges := service.Spec.LoadBalancerSourceRanges
-
-	for i, sourceRange := range sourceRanges {
-		sourceRanges[i] = "cidr:" + sourceRange
+func getSourceRangeRules(service *v1.Service) ([]string, error) {
+	if len(service.Spec.LoadBalancerSourceRanges) == 0 {
+		return nil, nil
+	}
+	specs := service.Spec.LoadBalancerSourceRanges
+	ipnets, err := utilnet.ParseIPNets(specs...)
+	if err != nil {
+		return nil, fmt.Errorf("service.Spec.LoadBalancerSourceRanges: %v is not valid. Expecting a list of IP ranges. For example, 10.0.0.0/24. Error msg: %v", specs, err)
 	}
 
-	return sourceRanges
+	var sourceAllows []string
+	for _, sourceRange := range ipnets {
+		sourceAllows = append(sourceAllows, fmt.Sprintf("cidr:%s", sourceRange))
+	}
+	return sourceAllows, nil
 }
 
 func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Service, port int32, certificateID string, tlsPassThrough bool) error {
