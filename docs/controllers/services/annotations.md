@@ -223,4 +223,6 @@ Specifies the comma seperated ALLOW firewall rules for the load-balancer
 
 **Note**
 
-Rules must be in the format `{type}:{source}` (ex. `ip:1.2.3.4,cidr:2.3.0.0/16`)
+Rules must be in the format `{type}:{source}` (ex. `ip:1.2.3.4,cidr:2.3.0.0/16`).
+
+These rules will be ignored if `LoadBalancerSourceRanges` is set, which is the prefered way to enter allow rules.
