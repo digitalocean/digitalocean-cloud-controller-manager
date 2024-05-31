@@ -2327,7 +2327,7 @@ func Test_buildHealthCheck(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDORevertToOldHealthCheck: "",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 
@@ -2361,10 +2361,10 @@ func Test_buildHealthCheck(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDORevertToOldHealthCheck: "",
-						annDOHealthCheckProtocol:    "http",
-						annDOHealthCheckPort:        "81",
-						annDOHealthCheckPath:        "/test",
+						annDOOverrideHealthCheck: "",
+						annDOHealthCheckProtocol: "http",
+						annDOHealthCheckPort:     "81",
+						annDOHealthCheckPath:     "/test",
 					},
 				},
 
@@ -2582,7 +2582,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDORevertToOldHealthCheck: "",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2605,8 +2605,8 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "http",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "http",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2629,9 +2629,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "https",
-						annDOCertificateID:          "test-certificate",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "https",
+						annDOCertificateID:       "test-certificate",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2654,9 +2654,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "https",
-						annDOTLSPassThrough:         "true",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "https",
+						annDOTLSPassThrough:      "true",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2679,9 +2679,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "https",
-						annDOCertificateID:          "test-certificate",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "https",
+						annDOCertificateID:       "test-certificate",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2704,9 +2704,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "http2",
-						annDOCertificateID:          "test-certificate",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "http2",
+						annDOCertificateID:       "test-certificate",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2729,9 +2729,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "https",
-						annDOTLSPassThrough:         "true",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "https",
+						annDOTLSPassThrough:      "true",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2754,9 +2754,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "http2",
-						annDOTLSPassThrough:         "true",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "http2",
+						annDOTLSPassThrough:      "true",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2779,9 +2779,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "tcp",
-						annDOHealthCheckProtocol:    "http",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "tcp",
+						annDOHealthCheckProtocol: "http",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2804,10 +2804,10 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "https",
-						annDOCertificateID:          "test-certificate",
-						annDOHealthCheckProtocol:    "http",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "https",
+						annDOCertificateID:       "test-certificate",
+						annDOHealthCheckProtocol: "http",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2830,10 +2830,10 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "http2",
-						annDOCertificateID:          "test-certificate",
-						annDOHealthCheckProtocol:    "http",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "http2",
+						annDOCertificateID:       "test-certificate",
+						annDOHealthCheckProtocol: "http",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2856,9 +2856,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "tcp",
-						annDOHealthCheckProtocol:    "https",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "tcp",
+						annDOHealthCheckProtocol: "https",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2881,10 +2881,10 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "https",
-						annDOCertificateID:          "test-certificate",
-						annDOHealthCheckProtocol:    "http",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "https",
+						annDOCertificateID:       "test-certificate",
+						annDOHealthCheckProtocol: "http",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2907,9 +2907,9 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "http",
-						annDOHealthCheckPath:        "/health",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "http",
+						annDOHealthCheckPath:     "/health",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2932,8 +2932,8 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOHealthCheckProtocol:    "invalid",
-						annDORevertToOldHealthCheck: "",
+						annDOHealthCheckProtocol: "invalid",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2956,10 +2956,10 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOProtocol:               "http",
-						annDOHealthCheckPath:        "/health",
-						annDOHealthCheckPort:        "636",
-						annDORevertToOldHealthCheck: "",
+						annDOProtocol:            "http",
+						annDOHealthCheckPath:     "/health",
+						annDOHealthCheckPort:     "636",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -2989,8 +2989,8 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Namespace: "default",
 					UID:       "abc123",
 					Annotations: map[string]string{
-						annDOHealthCheckPort:        "9999",
-						annDORevertToOldHealthCheck: "",
+						annDOHealthCheckPort:     "9999",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3019,8 +3019,8 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOHealthCheckPort:        "invalid",
-						annDORevertToOldHealthCheck: "",
+						annDOHealthCheckPort:     "invalid",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3049,8 +3049,8 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDOHealthCheckPort:        "636,332",
-						annDORevertToOldHealthCheck: "",
+						annDOHealthCheckPort:     "636,332",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3079,7 +3079,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					Name: "test",
 					UID:  "abc123",
 					Annotations: map[string]string{
-						annDORevertToOldHealthCheck: "",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3113,7 +3113,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 						annDOHealthCheckResponseTimeoutSeconds: "3",
 						annDOHealthCheckUnhealthyThreshold:     "1",
 						annDOHealthCheckHealthyThreshold:       "2",
-						annDORevertToOldHealthCheck:            "",
+						annDOOverrideHealthCheck:               "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3144,7 +3144,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOHealthCheckIntervalSeconds: "invalid",
-						annDORevertToOldHealthCheck:     "",
+						annDOOverrideHealthCheck:        "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3168,7 +3168,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOHealthCheckResponseTimeoutSeconds: "invalid",
-						annDORevertToOldHealthCheck:            "",
+						annDOOverrideHealthCheck:               "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3192,7 +3192,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOHealthCheckUnhealthyThreshold: "invalid",
-						annDORevertToOldHealthCheck:        "",
+						annDOOverrideHealthCheck:           "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3216,7 +3216,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					UID:  "abc123",
 					Annotations: map[string]string{
 						annDOHealthCheckHealthyThreshold: "invalid",
-						annDORevertToOldHealthCheck:      "",
+						annDOOverrideHealthCheck:         "",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3870,7 +3870,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Name: "test",
 					UID:  "foobar123",
 					Annotations: map[string]string{
-						annDORevertToOldHealthCheck: "",
+						annDOOverrideHealthCheck: "",
 					},
 				},
 				Spec: v1.ServiceSpec{

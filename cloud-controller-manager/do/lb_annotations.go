@@ -44,9 +44,13 @@ const (
 	// for DO load balancers. Defaults to the protocol used in annDOProtocol.
 	annDOHealthCheckProtocol = annDOLoadBalancerBase + "healthcheck-protocol"
 
-	// annDORevertToOldHealthCheck is the annotation used to control reverting to the old health check behavior. This
-	// annotation is temporary and will be removed after the deprecation period is over.
-	annDORevertToOldHealthCheck = annDOLoadBalancerBase + "revert-to-old-health-check"
+	// annDOOverrideHealthCheck is the annotation used to control overriding certain
+	// health check parameters.
+	//
+	// In most cases, it should not be used since
+	// digitalocean-cloud-controller-manager sets a proper health check configuration
+	// automatically.
+	annDOOverrideHealthCheck = annDOLoadBalancerBase + "override-health-check"
 
 	// annDOHealthCheckIntervalSeconds is the annotation used to specify the
 	// number of seconds between between two consecutive health checks. The

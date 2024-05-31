@@ -25,15 +25,19 @@ If `https`, `http2`, or `http3` is specified, then either `service.beta.kubernet
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-port
 
-The service port used to check if a backend droplet is healthy. Defaults to the first port in a service.
+**Note:** digitalocean-cloud-controller-manager automatically chooses a proper health check port. In general, the parameter does not need to be specified. For a specified value to become effective, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set explicitly.
 
-**Note:** Users must specify a port exposed by the Service, not the NodePort.
+The service port used to check if a backend droplet is healthy. Defaults to the first port in a service. A NodePort must not be defined.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-path
+
+**Note:** digitalocean-cloud-controller-manager automatically chooses a proper health check path. In general, the parameter does not need to be specified. For a specified value to become effective, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set additionally.
 
 The path used to check if a backend droplet is healthy. Defaults to "/".
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol
+
+**Note:** digitalocean-cloud-controller-manager automatically chooses a proper health check protocol. In general, the parameter does not need to be specified. For a specified value to become effective, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set additionally.
 
 The health check protocol to use to check if a backend droplet is healthy. Defaults to `tcp` if not specified. Options are `tcp`, `http`, and `https`.
 
@@ -57,12 +61,15 @@ The number of times a health check must fail for a backend Droplet to be marked 
 
 The number of times a health check must pass for a backend Droplet to be marked "healthy" for the given service and be re-added to the pool. The vaule must be between 2 and 10. If not specified, the default value is 5.
 
-## service.beta.kubernetes.io/do-loadbalancer-revert-to-old-health-check
+## service.beta.kubernetes.io/do-loadbalancer-override-health-check
 
-Reverts the load balancer health check to the previous logic, which health checks the application itself. This is a temporary mitigation to rollback
-to the previous logic in case the updated implementation has an unintended side effect on your application. We don't expect any customers to need to use
-this but has been added in case of emergency. The updated implementation will health check the Kubernetes components that are responsible for routing
-traffic, this will account for pod and node lifecycle such as taints, autoscaling, etc...
+digitalocean-cloud-controller-manager automatically chooses proper values for the health check port, path, and protocol. In order to set any of these explicitly, this annotation must be specified additionally and set to any value.
+
+If the annotation is set, then all of the following annotations (either any implicit or explicit values) will become effective as well:
+
+- `service.beta.kubernetes.io/do-loadbalancer-healthcheck-port`
+- `service.beta.kubernetes.io/do-loadbalancer-healthcheck-path`
+- `service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol`
 
 ## service.beta.kubernetes.io/do-loadbalancer-http-ports
 
