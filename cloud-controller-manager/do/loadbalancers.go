@@ -899,7 +899,7 @@ func getSourceRangeRules(service *v1.Service) ([]string, error) {
 	specs := service.Spec.LoadBalancerSourceRanges
 	ipnets, err := utilnet.ParseIPNets(specs...)
 	if err != nil {
-		return nil, fmt.Errorf("service.Spec.LoadBalancerSourceRanges: %v is not valid. Expecting a list of IP ranges. For example, 10.0.0.0/24. Error msg: %v", specs, err)
+		return nil, fmt.Errorf("failed to parse spec.loadBalancerSourceRanges %q: %s (expected format for an IP address is 10.0.0.0/24)", specs, err)
 	}
 
 	var sourceAllows []string
