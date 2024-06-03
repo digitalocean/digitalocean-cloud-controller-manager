@@ -6160,6 +6160,7 @@ func Test_buildFirewall(t *testing.T) {
 		name             string
 		service          *v1.Service
 		expectedFirewall *godo.LBFirewall
+		wantErr          bool
 	}{
 		{
 			name: "annotation not set",
@@ -6220,11 +6221,75 @@ func Test_buildFirewall(t *testing.T) {
 				Allow: []string{"ip:1.2.3.4", "ip:1.2.3.5"},
 			},
 		},
+		{
+			name: "source ranges not set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+				Spec: v1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{},
+				},
+			},
+			expectedFirewall: &godo.LBFirewall{},
+		},
+		{
+			name: "source ranges set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+				Spec: v1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{"1.2.0.0/16"},
+				},
+			},
+			expectedFirewall: &godo.LBFirewall{
+				Allow: []string{"cidr:1.2.0.0/16"},
+			},
+		},
+		{
+			name: "source ranges and annotations set",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDODenyRules:  "cidr:1.2.0.0/16",
+						annDOAllowRules: "ip:1.2.3.4,ip:1.2.3.5",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{"1.3.0.0/16"},
+				},
+			},
+			expectedFirewall: &godo.LBFirewall{
+				Deny:  []string{"cidr:1.2.0.0/16"},
+				Allow: []string{"cidr:1.3.0.0/16"},
+			},
+		},
+		{
+			name: "source ranges invalid",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+				},
+				Spec: v1.ServiceSpec{
+					LoadBalancerSourceRanges: []string{"1.3.0.12"},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			firewall := buildFirewall(test.service)
+			firewall, err := buildFirewall(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
 
 			if test.expectedFirewall == nil && firewall != nil {
 				t.Errorf("expected nil firewall, got %v", firewall)
