@@ -6155,6 +6155,85 @@ func Test_getType(t *testing.T) {
 	}
 }
 
+func Test_getNetwork(t *testing.T) {
+	var (
+		external = godo.LoadBalancerNetworkTypeExternal
+		internal = godo.LoadBalancerNetworkTypeInternal
+	)
+	testcases := []struct {
+		name     string
+		service  *v1.Service
+		wantErr  bool
+		expected *string
+	}{
+		{
+			name: "no value defaults to EXTERNAL",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					UID:         "abc123",
+					Annotations: map[string]string{},
+				},
+			},
+			wantErr:  false,
+			expected: &external,
+		}, {
+			name: "annotation set to EXTERNAL",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDONetwork: godo.LoadBalancerNetworkTypeExternal,
+					},
+				},
+			},
+			wantErr:  false,
+			expected: &external,
+		},
+		{
+			name: "annotation set to INTERNAL",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDONetwork: godo.LoadBalancerNetworkTypeInternal,
+					},
+				},
+			},
+			wantErr:  false,
+			expected: &internal,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDONetwork: "abcd",
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			lbType, err := getType(test.service)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+
+			if test.expected != nil && lbType != *test.expected {
+				t.Fatalf("got http idle timeout seconds %v, want %v", lbType, test.expected)
+			}
+		})
+	}
+}
+
 func Test_buildFirewall(t *testing.T) {
 	testcases := []struct {
 		name             string

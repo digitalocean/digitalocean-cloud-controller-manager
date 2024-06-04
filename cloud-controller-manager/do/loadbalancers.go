@@ -541,6 +541,10 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 	if err != nil {
 		return nil, err
 	}
+	lbNetwork, err := getNetwork(service)
+	if err != nil {
+		return nil, err
+	}
 	var forwardingRules []godo.ForwardingRule
 	if lbType == godo.LoadBalancerTypeRegionalNetwork {
 		forwardingRules, err = buildRegionalNetworkForwardingRule(service)
@@ -625,6 +629,7 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 		HTTPIdleTimeoutSeconds:       httpIdleTimeoutSeconds,
 		Firewall:                     fw,
 		Type:                         lbType,
+		Network:                      lbNetwork,
 	}, nil
 }
 
@@ -1386,6 +1391,17 @@ func getType(service *v1.Service) (string, error) {
 		return "", fmt.Errorf("only LB types supported are (%s, %s)", godo.LoadBalancerTypeRegional, godo.LoadBalancerTypeRegionalNetwork)
 	}
 	return name, nil
+}
+
+func getNetwork(service *v1.Service) (string, error) {
+	network, ok := service.Annotations[annDONetwork]
+	if !ok || network == "" {
+		return godo.LoadBalancerNetworkTypeExternal, nil
+	}
+	if !(network == godo.LoadBalancerNetworkTypeExternal || network == godo.LoadBalancerNetworkTypeInternal) {
+		return "", fmt.Errorf("only LB networks supported are (%s, %s)", godo.LoadBalancerNetworkTypeExternal, godo.LoadBalancerNetworkTypeInternal)
+	}
+	return network, nil
 }
 
 func findDups(lists ...[]int) []string {

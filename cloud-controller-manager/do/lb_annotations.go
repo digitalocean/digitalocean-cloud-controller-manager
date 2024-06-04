@@ -181,4 +181,8 @@ const (
 	// annDOType is the annotation used to specify the type of the load balancer. Either REGIONAL or REGIONAL_NETWORK (currently in closed alpha)
 	// are permitted. If no type is provided, then it will default REGIONAL.
 	annDOType = annDOLoadBalancerBase + "type"
+
+	// annDONetwork is the annotation used to specify the network type of the load balancer. Either EXTERNAL or INTERNAL (currently in closed alpha)
+	// are permitted. If no network is provided, then it will default EXTERNAL.
+	annDONetwork = annDOLoadBalancerBase + "network"
 )
