@@ -3680,6 +3680,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -3757,6 +3758,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -3846,6 +3848,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -3979,6 +3982,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4056,6 +4060,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4134,6 +4139,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4212,6 +4218,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4350,6 +4357,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieTtlSeconds: 300,
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4432,6 +4440,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					CookieTtlSeconds: 300,
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4524,6 +4533,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -4617,6 +4627,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Type: "none",
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(true),
+				Network:                      godo.LoadBalancerNetworkTypeExternal,
 			},
 			nil,
 		},
@@ -6222,13 +6233,13 @@ func Test_getNetwork(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			lbType, err := getType(test.service)
+			lbType, err := getNetwork(test.service)
 			if test.wantErr != (err != nil) {
 				t.Errorf("got error %q, want error: %t", err, test.wantErr)
 			}
 
 			if test.expected != nil && lbType != *test.expected {
-				t.Fatalf("got http idle timeout seconds %v, want %v", lbType, test.expected)
+				t.Fatalf("got lb network %v, want %v", lbType, *test.expected)
 			}
 		})
 	}
