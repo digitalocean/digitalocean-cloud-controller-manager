@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.52 (beta) - June  4, 2024
+
 * Adding support for specifiying `loadBalancerSourceRanges` in the service spec. Source ranges take precedence over annotation based allow rules (`service.beta.kubernetes.io/do-loadbalancer-allow-rules`).
 
 ## v0.1.51 (beta) - May 28, 2024
