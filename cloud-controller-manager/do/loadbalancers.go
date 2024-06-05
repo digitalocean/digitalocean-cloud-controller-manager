@@ -1394,8 +1394,8 @@ func getType(service *v1.Service) (string, error) {
 }
 
 func getNetwork(service *v1.Service) (string, error) {
-	network, ok := service.Annotations[annDONetwork]
-	if !ok || network == "" {
+	network := service.Annotations[annDONetwork]
+	if network == "" {
 		return godo.LoadBalancerNetworkTypeExternal, nil
 	}
 	if !(network == godo.LoadBalancerNetworkTypeExternal || network == godo.LoadBalancerNetworkTypeInternal) {
