@@ -1,5 +1,9 @@
 ## unreleased
 
+* Adding support for internal load balancers (NOTE: this is a closed beta feature, contact DigitalOcean 
+  support to review its public availability). This is enabled by setting a new annotation `service.beta.kubernetes.io/do-loadbalancer-network`
+  to `INTERNAL`.
+
 ## v0.1.52 (beta) - June  4, 2024
 
 * Adding support for specifiying `loadBalancerSourceRanges` in the service spec. Source ranges take precedence over annotation based allow rules (`service.beta.kubernetes.io/do-loadbalancer-allow-rules`).
