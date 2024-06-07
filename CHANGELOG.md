@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.53 (beta) - June  7, 2024
+
 * Adding support for internal load balancers (NOTE: this is a closed beta feature, contact DigitalOcean 
   support to review its public availability). This is enabled by setting a new annotation `service.beta.kubernetes.io/do-loadbalancer-network`
   to `INTERNAL`.
