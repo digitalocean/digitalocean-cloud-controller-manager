@@ -6,7 +6,7 @@ toolchain go1.22.2
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	github.com/digitalocean/godo v1.117.0
+	github.com/digitalocean/godo v1.117.1-0.20240611182056-2abf3ae0efbb
 	github.com/go-logr/logr v1.4.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
