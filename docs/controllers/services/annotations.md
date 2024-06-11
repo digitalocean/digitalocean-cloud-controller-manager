@@ -27,17 +27,23 @@ If `https`, `http2`, or `http3` is specified, then either `service.beta.kubernet
 
 **Note:** digitalocean-cloud-controller-manager automatically chooses a proper health check port. In general, the parameter does not need to be specified. For a specified value to become effective, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set explicitly.
 
+An exception to the above is when Proxy Protocol is also enabled via the `service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol` annotation: in that case, a custom health check port _must_ be specified. (This limitation will be dropped in the future.)
+
 The service port used to check if a backend droplet is healthy. Defaults to the first port in a service. A NodePort must not be defined.
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-path
 
 **Note:** digitalocean-cloud-controller-manager automatically chooses a proper health check path. In general, the parameter does not need to be specified. For a specified value to become effective, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set additionally.
 
+An exception to the above is when Proxy Protocol is also enabled via the `service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol` annotation: in that case, a custom health check path _must_ be specified. (This limitation will be dropped in the future.)
+
 The path used to check if a backend droplet is healthy. Defaults to "/".
 
 ## service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol
 
 **Note:** digitalocean-cloud-controller-manager automatically chooses a proper health check protocol. In general, the parameter does not need to be specified. For a specified value to become effective, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set additionally.
+
+An exception to the above is when Proxy Protocol is also enabled via the `service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol` annotation: in that case, a custom health check protocol _must_ be specified. (This limitation will be dropped in the future.)
 
 The health check protocol to use to check if a backend droplet is healthy. Defaults to `tcp` if not specified. Options are `tcp`, `http`, and `https`.
 

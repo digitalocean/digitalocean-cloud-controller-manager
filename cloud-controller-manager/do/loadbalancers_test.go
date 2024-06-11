@@ -2555,7 +2555,7 @@ func Test_buildHealthCheck(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			healthcheck, err := buildHealthCheck(test.service)
+			healthcheck, err := buildHealthCheck(test.service, false)
 			if !reflect.DeepEqual(healthcheck, test.healthcheck) {
 				t.Fatalf("got health check:\n\n%v\n\nwant:\n\n%s\n", healthcheck, test.healthcheck)
 			}
@@ -2570,10 +2570,11 @@ func Test_buildHealthCheck(t *testing.T) {
 
 func Test_buildHealthCheckOld(t *testing.T) {
 	testcases := []struct {
-		name         string
-		service      *v1.Service
-		healthcheck  *godo.HealthCheck
-		errMsgPrefix string
+		name                string
+		service             *v1.Service
+		healthcheck         *godo.HealthCheck
+		enableProxyProtocol bool
+		errMsgPrefix        string
 	}{
 		{
 			name: "tcp health check",
@@ -3137,6 +3138,31 @@ func Test_buildHealthCheckOld(t *testing.T) {
 			},
 		},
 		{
+			name: "proxy protocol enforces old health check behavior",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHealthCheckPort: "80",
+						annDOHealthCheckPath: "/alive",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			enableProxyProtocol: true,
+			healthcheck:         healthCheck("http", 30000, "/alive"),
+		},
+		{
 			name: "invalid check interval",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3236,7 +3262,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			healthcheck, err := buildHealthCheck(test.service)
+			healthcheck, err := buildHealthCheck(test.service, test.enableProxyProtocol)
 			if !reflect.DeepEqual(healthcheck, test.healthcheck) {
 				t.Fatalf("got health check:\n\n%v\n\nwant:\n\n%s\n", healthcheck, test.healthcheck)
 			}

@@ -558,7 +558,12 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 		}
 	}
 
-	healthCheck, err := buildHealthCheck(service)
+	enableProxyProtocol, err := getEnableProxyProtocol(service)
+	if err != nil {
+		return nil, err
+	}
+
+	healthCheck, err := buildHealthCheck(service, enableProxyProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -585,11 +590,6 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 	}
 
 	redirectHTTPToHTTPS, err := getRedirectHTTPToHTTPS(service)
-	if err != nil {
-		return nil, err
-	}
-
-	enableProxyProtocol, err := getEnableProxyProtocol(service)
 	if err != nil {
 		return nil, err
 	}
@@ -659,15 +659,15 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 }
 
 // buildHealthChecks returns a godo.HealthCheck for service.
-func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
+func buildHealthCheck(service *v1.Service, enableProxyProtocol bool) (*godo.HealthCheck, error) {
 	// Default health check behavior
 	hcPath, hcPort := healthCheckPathAndPort(service)
 	hcProtocol := protocolHTTP
 
 	// Permit changing the default health check behavior if the override annotation
-	// is set.
+	// is set or proxy protocol is to be used.
 	_, ok := service.Annotations[annDOOverrideHealthCheck]
-	if ok {
+	if ok || enableProxyProtocol {
 		var err error
 		hcPath = healthCheckPath(service)
 		hcPort, err = healthCheckPort(service)

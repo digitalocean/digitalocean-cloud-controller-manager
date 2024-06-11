@@ -1,5 +1,7 @@
 ## unreleased
 
+* Disable automatic health check configuration when Proxy Protocol is enabled. This is required because the default health check endpoints do not expect a Proxy Protocol header.
+
 ## v0.1.53 (beta) - June  7, 2024
 
 * Adding support for internal load balancers (NOTE: this is a closed beta feature, contact DigitalOcean 

@@ -119,6 +119,8 @@ See also [this blog post](https://kubernetes.io/blog/2022/12/30/advancements-in-
 
 In general, health check parameters for port, path, and protocol should not have to be set explicitly. For rare cases where it may be required, the annotation `service.beta.kubernetes.io/do-loadbalancer-override-health-check` must be set in addition to the corresponding health check parameter annotations. See the annotation documentation for details.
 
+**IMPORTANT:** the LB health check configuration is not automatically set when Proxy Protocol is enabled. In that case, all relevant health check parameters must be specified due to incompatibility between Proxy Protocol and the default health check endpoints.  
+
 ## Deployment
 
 ### Token
