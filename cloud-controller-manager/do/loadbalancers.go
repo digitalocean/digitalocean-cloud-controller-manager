@@ -663,6 +663,8 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 	// Default health check behavior
 	hcPath, hcPort := healthCheckPathAndPort(service)
 	hcProtocol := protocolHTTP
+	// Disable PROXY protocol when health checking kube-proxy or the health check node port (which don't support it)
+	proxyProtocol := godo.PtrTo(false)
 
 	// Permit changing the default health check behavior if the override annotation
 	// is set.
@@ -678,6 +680,8 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Revert to the behaviour on the LB
+		proxyProtocol = nil
 	}
 
 	checkIntervalSecs, err := healthCheckIntervalSeconds(service)
@@ -705,6 +709,7 @@ func buildHealthCheck(service *v1.Service) (*godo.HealthCheck, error) {
 		ResponseTimeoutSeconds: responseTimeoutSecs,
 		UnhealthyThreshold:     unhealthyThreshold,
 		HealthyThreshold:       healthyThreshold,
+		ProxyProtocol:          proxyProtocol,
 	}, nil
 }
 

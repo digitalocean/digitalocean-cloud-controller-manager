@@ -1,5 +1,13 @@
 ## unreleased
 
+* Fixes an issue with load balancer health checks when the LB is using PROXY protocol. The new health check 
+  implementation (introduced in v0.1.51), now probes either kube proxy (Cluster) or the health check node port (Local).
+  If the LB enables PROXY protocol, this alters the health check behavior to also use PROXY protocol. Since these Kubernetes
+  components don't support PROXY protocol, this caused worker nodes to be marked as unhealthy. Support was added to the
+  load balancer health check to optionally enable/disable PROXY protocol. When using the default health check implementation
+  the health check will disable PROXY protocol. If the `service.beta.kubernetes.io/do-loadbalancer-override-health-check` is
+  provided, then the health check will default to the setting on the LB.
+
 ## v0.1.53 (beta) - June  7, 2024
 
 * Adding support for internal load balancers (NOTE: this is a closed beta feature, contact DigitalOcean 

@@ -160,10 +160,10 @@ func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Cer
 }
 
 func defaultHealthCheck(port int) *godo.HealthCheck {
-	return healthCheck(protocolHTTP, port, "/healthz")
+	return healthCheck(protocolHTTP, port, "/healthz", godo.PtrTo(false))
 }
 
-func healthCheck(protocol string, port int, path string) *godo.HealthCheck {
+func healthCheck(protocol string, port int, path string, proxyProtocol *bool) *godo.HealthCheck {
 	svc := &v1.Service{}
 	is, _ := healthCheckIntervalSeconds(svc)
 	rts, _ := healthCheckResponseTimeoutSeconds(svc)
@@ -178,6 +178,7 @@ func healthCheck(protocol string, port int, path string) *godo.HealthCheck {
 		ResponseTimeoutSeconds: rts,
 		UnhealthyThreshold:     ut,
 		HealthyThreshold:       ht,
+		ProxyProtocol:          proxyProtocol,
 	}
 }
 
@@ -2295,6 +2296,7 @@ func Test_buildHealthCheck(t *testing.T) {
 				ResponseTimeoutSeconds: 5,
 				UnhealthyThreshold:     3,
 				HealthyThreshold:       5,
+				ProxyProtocol:          godo.PtrTo(false),
 			},
 		},
 		{
@@ -2318,6 +2320,7 @@ func Test_buildHealthCheck(t *testing.T) {
 				ResponseTimeoutSeconds: 5,
 				UnhealthyThreshold:     3,
 				HealthyThreshold:       5,
+				ProxyProtocol:          godo.PtrTo(false),
 			},
 		},
 		{
@@ -2423,6 +2426,7 @@ func Test_buildHealthCheck(t *testing.T) {
 				ResponseTimeoutSeconds: 5,
 				UnhealthyThreshold:     3,
 				HealthyThreshold:       5,
+				ProxyProtocol:          godo.PtrTo(false),
 			},
 		},
 		{
@@ -2457,6 +2461,7 @@ func Test_buildHealthCheck(t *testing.T) {
 				ResponseTimeoutSeconds: 3,
 				UnhealthyThreshold:     1,
 				HealthyThreshold:       2,
+				ProxyProtocol:          godo.PtrTo(false),
 			},
 		},
 		{
@@ -2596,7 +2601,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "default health check with http service protocol",
@@ -2620,7 +2625,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "default health check with https service protocol",
@@ -2645,7 +2650,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "default health check with TLS passthrough",
@@ -2670,7 +2675,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "https health check",
@@ -2695,7 +2700,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "http2 health check",
@@ -2720,7 +2725,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "https health check with TLS passthrough",
@@ -2745,7 +2750,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "http2 health check with TLS passthrough",
@@ -2770,7 +2775,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("tcp", 30000, ""),
+			healthcheck: healthCheck("tcp", 30000, "", nil),
 		},
 		{
 			name: "explicit http health check protocol and tcp payload protocol",
@@ -2795,7 +2800,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("http", 30000, ""),
+			healthcheck: healthCheck("http", 30000, "", nil),
 		},
 		{
 			name: "explicit http health check protocol and https payload protocol",
@@ -2821,7 +2826,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("http", 30000, ""),
+			healthcheck: healthCheck("http", 30000, "", nil),
 		},
 		{
 			name: "explicit http health check protocol and http2 payload protocol",
@@ -2847,7 +2852,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("http", 30000, ""),
+			healthcheck: healthCheck("http", 30000, "", nil),
 		},
 		{
 			name: "explicit https health check protocol and tcp payload protocol",
@@ -2872,7 +2877,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("https", 30000, ""),
+			healthcheck: healthCheck("https", 30000, "", nil),
 		},
 		{
 			name: "http health check with https and certificate",
@@ -2898,7 +2903,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("http", 30000, ""),
+			healthcheck: healthCheck("http", 30000, "", nil),
 		},
 		{
 			name: "http health check with path",
@@ -2923,7 +2928,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("http", 30000, "/health"),
+			healthcheck: healthCheck("http", 30000, "/health", nil),
 		},
 		{
 			name: "invalid health check using protocol override",
@@ -2979,7 +2984,7 @@ func Test_buildHealthCheckOld(t *testing.T) {
 					},
 				},
 			},
-			healthcheck: healthCheck("http", 32000, "/health"),
+			healthcheck: healthCheck("http", 32000, "/health", nil),
 		},
 		{
 			name: "invalid health check using port override with non-existent port",
