@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.54 (beta) - June 12, 2024
+
 * Fixes an issue with load balancer health checks when the LB is using PROXY protocol. The new health check 
   implementation (introduced in v0.1.51), now probes either kube proxy (Cluster) or the health check node port (Local).
   If the LB enables PROXY protocol, this alters the health check behavior to also use PROXY protocol. Since these Kubernetes
