@@ -287,3 +287,7 @@ func mustCopy(v interface{}) interface{} {
 	w, err := copystructure.Copy(v)
 	return copystructure.Must(w, err)
 }
+
+func boolPtr(value bool) *bool {
+	return &value
+}
