@@ -708,7 +708,7 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 			fwReq, err := fm.createReconciledFirewallRequest(test.serviceList)
 
 			if (err != nil && test.expectedError == nil) || (err == nil && test.expectedError != nil) {
-				t.Errorf("incorrect firewall config\nwant: %#v\n got: %#v", test.expectedError, err)
+				t.Fatalf("expected error %q, got %q", test.expectedError, err)
 			}
 			if diff := cmp.Diff(test.firewallRequest, fwReq); diff != "" {
 				t.Errorf("createReconciledFirewallRequest() mismatch (-want +got):\n%s", diff)

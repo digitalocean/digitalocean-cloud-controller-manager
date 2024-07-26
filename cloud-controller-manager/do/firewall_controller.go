@@ -316,11 +316,11 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 		} else if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
 			lbType, err := getType(svc)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to get load balancer type for service %s/%s: %v", svc.Namespace, svc.Name, err)
 			}
 			lbNetwork, err := getNetwork(svc)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to get load balancer network for service %s/%s: %v", svc.Namespace, svc.Name, err)
 			}
 			if lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
 				_, port := healthCheckPathAndPort(svc)
