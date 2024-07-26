@@ -630,6 +630,212 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "reconcile firewall based on added loadbalancer service",
+			firewallRequest: &godo.FirewallRequest{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol:  "tcp",
+						PortRange: "31000",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{"test-lb-id"},
+						},
+					},
+					{
+						Protocol:  "udp",
+						PortRange: "31000",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{"test-lb-id"},
+						},
+					},
+				},
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+						UID:  "abc123",
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "test-lb-id",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeLoadBalancer,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port1",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(31000),
+							},
+							{
+								Name:     "port2",
+								Protocol: v1.ProtocolUDP,
+								NodePort: int32(31000),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "reconcile firewall when loadbalancer does not allocate nodeports",
+			firewallRequest: &godo.FirewallRequest{
+				Name:          testWorkerFWName,
+				InboundRules:  nil,
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+						UID:  "abc123",
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "test-lb-id",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type:                          v1.ServiceTypeLoadBalancer,
+						AllocateLoadBalancerNodePorts: boolPtr(false),
+					},
+				},
+			},
+		},
+		{
+			name: "reconcile firewall when loadbalancer id not assigned",
+			firewallRequest: &godo.FirewallRequest{
+				Name:          testWorkerFWName,
+				InboundRules:  nil,
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test",
+						UID:  "abc123",
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeLoadBalancer,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port1",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(31000),
+							},
+							{
+								Name:     "port2",
+								Protocol: v1.ProtocolUDP,
+								NodePort: int32(31000),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "reconcile firewall when multiple loadbalancers added",
+			firewallRequest: &godo.FirewallRequest{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol:  "tcp",
+						PortRange: "30000",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{"lb-test-1"},
+						},
+					},
+					{
+						Protocol:  "udp",
+						PortRange: "31000",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{"lb-test-2"},
+						},
+					},
+				},
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test1",
+						UID:  "abc123",
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lb-test-1",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeLoadBalancer,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port1",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(30000),
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test2",
+						UID:  "abc456",
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lb-test-2",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeLoadBalancer,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port2",
+								Protocol: v1.ProtocolUDP,
+								NodePort: int32(31000),
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test3",
+						UID:  "abc789",
+					},
+					Spec: v1.ServiceSpec{
+						Type: v1.ServiceTypeLoadBalancer,
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port3",
+								Protocol: v1.ProtocolTCP,
+								NodePort: int32(32000),
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test4",
+						UID:  "abc0",
+						Annotations: map[string]string{
+							annDOLoadBalancerID: "lb-test-3",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type:                          v1.ServiceTypeLoadBalancer,
+						AllocateLoadBalancerNodePorts: boolPtr(false),
+						Ports: []v1.ServicePort{
+							{
+								Name:     "port4",
+								Protocol: v1.ProtocolUDP,
+								NodePort: int32(34000),
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testcases {
