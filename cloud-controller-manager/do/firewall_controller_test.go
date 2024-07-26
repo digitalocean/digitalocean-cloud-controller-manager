@@ -427,28 +427,14 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 				InboundRules: []godo.InboundRule{
 					{
 						Protocol:  "tcp",
-						PortRange: "31000",
-						Sources: &godo.Sources{
-							Addresses: []string{"0.0.0.0/0", "::/0"},
-						},
-					},
-					{
-						Protocol:  "udp",
-						PortRange: "31000",
+						PortRange: "30000",
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "tcp",
-						PortRange: "30000",
-						Sources: &godo.Sources{
-							Addresses: []string{"0.0.0.0/0", "::/0"},
-						},
-					},
-					{
-						Protocol:  "udp",
-						PortRange: "30000",
+						PortRange: "31000",
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
@@ -456,6 +442,20 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 					{
 						Protocol:  "tcp",
 						PortRange: "32727",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "udp",
+						PortRange: "30000",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "udp",
+						PortRange: "31000",
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
@@ -538,6 +538,20 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(443),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(80),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
 				},
 				OutboundRules: testOutboundRules,
 				Tags:          testWorkerFWTags,
@@ -554,6 +568,16 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 					Spec: v1.ServiceSpec{
 						Type:                  v1.ServiceTypeLoadBalancer,
 						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyCluster,
+						Ports: []v1.ServicePort{
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     80,
+							},
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     443,
+							},
+						},
 					},
 				},
 			},
@@ -566,6 +590,20 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 					{
 						Protocol:  "tcp",
 						PortRange: strconv.Itoa(15000),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(443),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(80),
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
@@ -587,6 +625,16 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 						Type:                  v1.ServiceTypeLoadBalancer,
 						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
 						HealthCheckNodePort:   15000,
+						Ports: []v1.ServicePort{
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     80,
+							},
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     443,
+							},
+						},
 					},
 				},
 			},

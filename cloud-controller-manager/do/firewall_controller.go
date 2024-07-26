@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -270,21 +271,25 @@ func (fm *firewallManager) updateFirewall(ctx context.Context, fwID string, fr *
 	return fm.executeInstrumentedFirewallOperationUpdate(ctx, fwID, fr)
 }
 
+type portProtocol struct {
+	port     int
+	protocol string
+}
+
 // createReconciledFirewallRequest creates a firewall request that has the correct rules, name and tag
 func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Service) (*godo.FirewallRequest, error) {
 	var nodePortInboundRules []godo.InboundRule
-	healthCheckPorts := make(map[int]struct{})
+	loadBalancerPorts := make(map[portProtocol]struct{})
 	for _, svc := range serviceList {
-		managed, err := isManaged(svc)
-		if err != nil {
-			klog.Warningf("managing service %s/%s for which no correct management flag setting could be detected: %s", svc.Namespace, svc.Name, err)
-			managed = true
-		}
-		if !managed {
-			continue
-		}
-
 		if svc.Spec.Type == v1.ServiceTypeNodePort {
+			managed, err := isManaged(svc)
+			if err != nil {
+				klog.Warningf("managing service %s/%s for which no correct management flag setting could be detected: %s", svc.Namespace, svc.Name, err)
+				managed = true
+			}
+			if !managed {
+				continue
+			}
 			// this is a nodeport service so we should check for existing inbound rules on all ports.
 			for _, servicePort := range svc.Spec.Ports {
 				// In the odd case that a failure is asynchronous causing the NodePort to be set to zero.
@@ -323,23 +328,46 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 				return nil, fmt.Errorf("failed to get load balancer network for service %s/%s: %v", svc.Namespace, svc.Name, err)
 			}
 			if lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
-				_, port := healthCheckPathAndPort(svc)
-				if port == 0 {
+				// Add the health check port
+				_, healthCheckPort := healthCheckPathAndPort(svc)
+				if healthCheckPort == 0 {
 					continue
 				}
-				healthCheckPorts[port] = struct{}{}
+				loadBalancerPorts[portProtocol{protocol: "tcp", port: healthCheckPort}] = struct{}{}
+
+				// Add the services (port, protocol)
+				var protocol string
+				for _, servicePort := range svc.Spec.Ports {
+					switch servicePort.Protocol {
+					case v1.ProtocolTCP:
+						protocol = "tcp"
+					case v1.ProtocolUDP:
+						protocol = "udp"
+					default:
+						klog.Warningf("unsupported service protocol %v, skipping service port %v", servicePort.Protocol, servicePort.Name)
+						continue
+					}
+					loadBalancerPorts[portProtocol{protocol: protocol, port: int(servicePort.Port)}] = struct{}{}
+				}
 			}
 		}
 	}
-	for port := range healthCheckPorts {
+	for p := range loadBalancerPorts {
 		nodePortInboundRules = append(nodePortInboundRules, godo.InboundRule{
-			Protocol:  "tcp",
-			PortRange: strconv.Itoa(port),
+			Protocol:  p.protocol,
+			PortRange: strconv.Itoa(p.port),
 			Sources: &godo.Sources{
 				Addresses: []string{"0.0.0.0/0", "::/0"},
 			},
 		})
 	}
+	// Sort for deterministic output
+	sort.SliceStable(nodePortInboundRules, func(i, j int) bool {
+		if nodePortInboundRules[i].Protocol == nodePortInboundRules[j].Protocol {
+			return nodePortInboundRules[i].PortRange < nodePortInboundRules[j].PortRange
+		}
+		return nodePortInboundRules[i].Protocol < nodePortInboundRules[j].Protocol
+	})
 	return &godo.FirewallRequest{
 		Name:          fm.workerFirewallName,
 		InboundRules:  nodePortInboundRules,
