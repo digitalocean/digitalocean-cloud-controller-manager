@@ -1,5 +1,9 @@
 ## unreleased
 
+* When using the LoadBalancer `service.beta.kubernetes.io/do-loadbalancer-type=REGIONAL_NETWORK` (under closed beta), firewall rules
+are added to open up the underlying health check port and all the defined (port, protocols) defined on the service. This is to
+permit traffic to arrive directly on the underlying worker nodes.
+
 ## v0.1.54 (beta) - June 12, 2024
 
 * Fixes an issue with load balancer health checks when the LB is using PROXY protocol. The new health check 

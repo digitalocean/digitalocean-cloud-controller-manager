@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -296,6 +297,7 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 		firewallRequest    *godo.FirewallRequest
 		firewallController FirewallController
 		serviceList        []*v1.Service
+		expectedError      error
 	}{
 		{
 			name: "nothing to reconcile when there are no changes",
@@ -425,28 +427,14 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 				InboundRules: []godo.InboundRule{
 					{
 						Protocol:  "tcp",
-						PortRange: "31000",
-						Sources: &godo.Sources{
-							Addresses: []string{"0.0.0.0/0", "::/0"},
-						},
-					},
-					{
-						Protocol:  "udp",
-						PortRange: "31000",
+						PortRange: "30000",
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
 					},
 					{
 						Protocol:  "tcp",
-						PortRange: "30000",
-						Sources: &godo.Sources{
-							Addresses: []string{"0.0.0.0/0", "::/0"},
-						},
-					},
-					{
-						Protocol:  "udp",
-						PortRange: "30000",
+						PortRange: "31000",
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
@@ -454,6 +442,20 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 					{
 						Protocol:  "tcp",
 						PortRange: "32727",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "udp",
+						PortRange: "30000",
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "udp",
+						PortRange: "31000",
 						Sources: &godo.Sources{
 							Addresses: []string{"0.0.0.0/0", "::/0"},
 						},
@@ -518,6 +520,119 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 								Name:     "port4",
 								Protocol: v1.ProtocolUDP,
 								NodePort: int32(32727),
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "reconcile firewall with REGIONAL_NETWORK LB w/ externalTrafficPolicy=Cluster",
+			firewallRequest: &godo.FirewallRequest{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(kubeProxyHealthPort),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(443),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(80),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+				},
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "regional_network",
+						UID:  "abc123",
+						Annotations: map[string]string{
+							annDOType: godo.LoadBalancerTypeRegionalNetwork,
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type:                  v1.ServiceTypeLoadBalancer,
+						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyCluster,
+						Ports: []v1.ServicePort{
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     80,
+							},
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     443,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "reconcile firewall with REGIONAL_NETWORK LB w/ externalTrafficPolicy=Local",
+			firewallRequest: &godo.FirewallRequest{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(15000),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(443),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(80),
+						Sources: &godo.Sources{
+							Addresses: []string{"0.0.0.0/0", "::/0"},
+						},
+					},
+				},
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "regional_network",
+						UID:  "abc123",
+						Annotations: map[string]string{
+							annDOType: godo.LoadBalancerTypeRegionalNetwork,
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type:                  v1.ServiceTypeLoadBalancer,
+						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+						HealthCheckNodePort:   15000,
+						Ports: []v1.ServicePort{
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     80,
+							},
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     443,
 							},
 						},
 					},
@@ -638,7 +753,11 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 				workerFirewallTags: testWorkerFWTags,
 				workerFirewallName: testWorkerFWName,
 			}
-			fwReq := fm.createReconciledFirewallRequest(test.serviceList)
+			fwReq, err := fm.createReconciledFirewallRequest(test.serviceList)
+
+			if (err != nil && test.expectedError == nil) || (err == nil && test.expectedError != nil) {
+				t.Fatalf("expected error %q, got %q", test.expectedError, err)
+			}
 			if diff := cmp.Diff(test.firewallRequest, fwReq); diff != "" {
 				t.Errorf("createReconciledFirewallRequest() mismatch (-want +got):\n%s", diff)
 			}
@@ -675,15 +794,18 @@ func TestFirewallController_ensureReconciledFirewall(t *testing.T) {
 		}
 	}
 
-	serviceToFirewall := func(fm *firewallManager, svc *v1.Service) *godo.Firewall {
-		fr := fm.createReconciledFirewallRequest([]*v1.Service{svc})
+	serviceToFirewall := func(fm *firewallManager, svc *v1.Service) (*godo.Firewall, error) {
+		fr, err := fm.createReconciledFirewallRequest([]*v1.Service{svc})
+		if err != nil {
+			return nil, err
+		}
 		return &godo.Firewall{
 			ID:            "id",
 			Name:          fr.Name,
 			InboundRules:  fr.InboundRules,
 			OutboundRules: fr.OutboundRules,
 			Tags:          fr.Tags,
-		}
+		}, nil
 	}
 
 	tests := []struct {
@@ -757,7 +879,10 @@ func TestFirewallController_ensureReconciledFirewall(t *testing.T) {
 
 			// Populate the firewall cache.
 			if test.nodePortForCachedFirewall != nil {
-				fw := serviceToFirewall(fwManager, nodePortToService(*test.nodePortForCachedFirewall))
+				fw, err := serviceToFirewall(fwManager, nodePortToService(*test.nodePortForCachedFirewall))
+				if err != nil {
+					t.Fatal(err)
+				}
 				fwManager.fwCache.updateCache(fw)
 			}
 
