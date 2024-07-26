@@ -1,5 +1,8 @@
 ## unreleased
 
+* When using `service.beta.kubernetes.io/do-loadbalancer-type=REGIONAL_NETWORK` (under closed beta) a firewall rule
+  is now added to permit the LB layer to health check the appropriate port.
+
 ## v0.1.54 (beta) - June 12, 2024
 
 * Fixes an issue with load balancer health checks when the LB is using PROXY protocol. The new health check 

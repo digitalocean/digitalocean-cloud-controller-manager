@@ -271,8 +271,9 @@ func (fm *firewallManager) updateFirewall(ctx context.Context, fwID string, fr *
 }
 
 // createReconciledFirewallRequest creates a firewall request that has the correct rules, name and tag
-func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Service) *godo.FirewallRequest {
+func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Service) (*godo.FirewallRequest, error) {
 	var nodePortInboundRules []godo.InboundRule
+	healthCheckPorts := make(map[int]struct{})
 	for _, svc := range serviceList {
 		managed, err := isManaged(svc)
 		if err != nil {
@@ -312,14 +313,39 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 					},
 				)
 			}
+		} else if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
+			lbType, err := getType(svc)
+			if err != nil {
+				return nil, err
+			}
+			lbNetwork, err := getNetwork(svc)
+			if err != nil {
+				return nil, err
+			}
+			if lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
+				_, port := healthCheckPathAndPort(svc)
+				if port == 0 {
+					continue
+				}
+				healthCheckPorts[port] = struct{}{}
+			}
 		}
+	}
+	for port := range healthCheckPorts {
+		nodePortInboundRules = append(nodePortInboundRules, godo.InboundRule{
+			Protocol:  "tcp",
+			PortRange: strconv.Itoa(port),
+			Sources: &godo.Sources{
+				Addresses: []string{"0.0.0.0/0", "::/0"},
+			},
+		})
 	}
 	return &godo.FirewallRequest{
 		Name:          fm.workerFirewallName,
 		InboundRules:  nodePortInboundRules,
 		OutboundRules: allowAllOutboundRules,
 		Tags:          fm.workerFirewallTags,
-	}
+	}, nil
 }
 
 // isManaged returns if the given Service should be firewall-managed based on the
@@ -399,7 +425,10 @@ func (fc *FirewallController) ensureReconciledFirewall(ctx context.Context) (ski
 	if err != nil {
 		return false, fmt.Errorf("failed to list services: %v", err)
 	}
-	fr := fc.fwManager.createReconciledFirewallRequest(serviceList)
+	fr, err := fc.fwManager.createReconciledFirewallRequest(serviceList)
+	if err != nil {
+		return false, fmt.Errorf("failed to create reconciled firewall request: %v", err)
+	}
 
 	fw, err := fc.fwManager.GetPreferFromCache(ctx)
 	if err != nil {
