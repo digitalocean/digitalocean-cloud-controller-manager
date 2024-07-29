@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.55 (beta) - July 29, 2024
+
 * When using the LoadBalancer `service.beta.kubernetes.io/do-loadbalancer-type=REGIONAL_NETWORK` (under closed beta), firewall rules
 are added to open up the underlying health check port and all the defined (port, protocols) defined on the service. This is to
 permit traffic to arrive directly on the underlying worker nodes.
