@@ -1,10 +1,14 @@
 ## unreleased
 
+* When using the LoadBalancer `service.beta.kubernetes.io/do-loadbalancer-target-protocol` annotation with any of `http`, 
+  `https`, `http2` or `http3` specification, the forwarding target protocol is overridden from the implicit default `http`
+  protocol.
+
 ## v0.1.55 (beta) - July 29, 2024
 
 * When using the LoadBalancer `service.beta.kubernetes.io/do-loadbalancer-type=REGIONAL_NETWORK` (under closed beta), firewall rules
-are added to open up the underlying health check port and all the defined (port, protocols) defined on the service. This is to
-permit traffic to arrive directly on the underlying worker nodes.
+  are added to open up the underlying health check port and all the defined (port, protocols) defined on the service. This is to
+  permit traffic to arrive directly on the underlying worker nodes.
 
 ## v0.1.54 (beta) - June 12, 2024
 

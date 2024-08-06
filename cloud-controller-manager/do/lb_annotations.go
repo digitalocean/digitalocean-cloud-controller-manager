@@ -32,6 +32,11 @@ const (
 	// is overwritten to https. Options are tcp, http and https. Defaults to tcp.
 	annDOProtocol = annDOLoadBalancerBase + "protocol"
 
+	// annDOTargetProtocol is the annotation used to specify the target protocol
+	// for DO load balancers. If unspecified, load balancers are configured with
+	// annDOProtocol specification. Options are http, https, http2 and  http3.
+	annDOTargetProtocol = annDOLoadBalancerBase + "target-protocol"
+
 	// annDOHealthCheckPath is the annotation used to specify the health check path
 	// for DO load balancers. Defaults to '/'.
 	annDOHealthCheckPath = annDOLoadBalancerBase + "healthcheck-path"

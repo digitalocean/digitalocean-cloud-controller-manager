@@ -915,7 +915,7 @@ func Test_getProtocol(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			protocol, err := getProtocol(test.service)
+			protocol, err := getProtocol(test.service, annDOProtocol)
 			if protocol != test.protocol {
 				t.Error("unexpected protocol")
 				t.Logf("expected: %q", test.protocol)
@@ -2154,6 +2154,128 @@ func Test_buildForwardingRules(t *testing.T) {
 					EntryProtocol:  "http3",
 					EntryPort:      443,
 					TargetProtocol: "http",
+					TargetPort:     18080,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"invalid target protocol annotation returns error",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTP2Ports:     "443",
+						annDOTargetProtocol: "abcd",
+						annDOCertificateID:  "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(18080),
+						},
+					},
+				},
+			},
+			nil,
+			errors.New("failed to build TLS part(s) of forwarding rule: invalid protocol \"abcd\" specified in annotation \"service.beta.kubernetes.io/do-loadbalancer-protocol\""),
+		},
+		{
+			"unsupported target protocol annotation value returns error",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTP2Ports:     "443",
+						annDOTargetProtocol: "tcp",
+						annDOCertificateID:  "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(18080),
+						},
+					},
+				},
+			},
+			nil,
+			errors.New("failed to build TLS part(s) of forwarding rule: target protocol annotation is not supported for TCP or UDP"),
+		},
+		{
+			"support same SSL terminated forwarding protocols (http2 -> http2)",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTP2Ports:     "443",
+						annDOTargetProtocol: "http2",
+						annDOCertificateID:  "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(18080),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "http2",
+					TargetPort:     18080,
+					CertificateID:  "test-certificate",
+					TlsPassthrough: false,
+				},
+			},
+			nil,
+		},
+		{
+			"support different SSL terminated forwarding protocols (http2 -> https)",
+			&v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "abc123",
+					Annotations: map[string]string{
+						annDOHTTP2Ports:     "443",
+						annDOTargetProtocol: "https",
+						annDOCertificateID:  "test-certificate",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(443),
+							NodePort: int32(18080),
+						},
+					},
+				},
+			},
+			[]godo.ForwardingRule{
+				{
+					EntryProtocol:  "http2",
+					EntryPort:      443,
+					TargetProtocol: "https",
 					TargetPort:     18080,
 					CertificateID:  "test-certificate",
 					TlsPassthrough: false,

@@ -733,13 +733,24 @@ func buildHTTP3ForwardingRule(ctx context.Context, service *v1.Service, godoClie
 		return nil, errors.New("certificate ID is required for HTTP3")
 	}
 
+	var targetProtocol string
+	if _, err := getProtocol(service, annDOTargetProtocol, func(protocol string) { targetProtocol = protocol }); err != nil {
+		return nil, err
+	}
+	if targetProtocol == protocolTCP || targetProtocol == protocolUDP {
+		return nil, fmt.Errorf("target protocol annotation is not supported for TCP or UDP")
+	}
+	if targetProtocol == "" {
+		targetProtocol = protocolHTTP
+	}
+
 	for _, port := range service.Spec.Ports {
 		if port.Port == int32(http3Port) {
 			return &godo.ForwardingRule{
 				EntryProtocol:  protocolHTTP3,
 				EntryPort:      http3Port,
 				CertificateID:  certificateID,
-				TargetProtocol: protocolHTTP,
+				TargetProtocol: targetProtocol,
 				TargetPort:     int(port.NodePort),
 			}, nil
 		}
@@ -753,7 +764,7 @@ func buildHTTP3ForwardingRule(ctx context.Context, service *v1.Service, godoClie
 func buildForwardingRules(ctx context.Context, service *v1.Service, godoClient *godo.Client) ([]godo.ForwardingRule, error) {
 	var forwardingRules []godo.ForwardingRule
 
-	defaultProtocol, err := getProtocol(service)
+	defaultProtocol, err := getProtocol(service, annDOProtocol)
 	if err != nil {
 		return nil, err
 	}
@@ -928,6 +939,14 @@ func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Ser
 		return errors.New("either certificate id should be set or tls pass through enabled, not both")
 	}
 
+	var targetProtocol string
+	if _, err := getProtocol(service, annDOTargetProtocol, func(protocol string) { targetProtocol = protocol }); err != nil {
+		return err
+	}
+	if targetProtocol == protocolTCP || targetProtocol == protocolUDP {
+		return fmt.Errorf("target protocol annotation is not supported for TCP or UDP")
+	}
+
 	if tlsPassThrough {
 		forwardingRule.TlsPassthrough = tlsPassThrough
 		// We don't explicitly set the TargetProtocol here since in buildForwardingRule
@@ -936,7 +955,11 @@ func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Ser
 		// to match the EntryProtocol.
 	} else {
 		forwardingRule.CertificateID = certificateID
-		forwardingRule.TargetProtocol = protocolHTTP
+		if targetProtocol != "" {
+			forwardingRule.TargetProtocol = targetProtocol
+		} else {
+			forwardingRule.TargetProtocol = protocolHTTP
+		}
 	}
 
 	return nil
@@ -968,9 +991,10 @@ func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
 	}, nil
 }
 
-// getProtocol returns the desired protocol of service.
-func getProtocol(service *v1.Service) (string, error) {
-	protocol, ok := service.Annotations[annDOProtocol]
+// getProtocol returns the service protocol as per the passed annotation,
+// additionally invokes list of callback functions if provided.
+func getProtocol(service *v1.Service, annotation string, opts ...func(protocol string)) (string, error) {
+	protocol, ok := service.Annotations[annotation]
 	if !ok {
 		return protocolTCP, nil
 	}
@@ -979,6 +1003,10 @@ func getProtocol(service *v1.Service) (string, error) {
 	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2, protocolHTTP3:
 	default:
 		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOProtocol)
+	}
+
+	for _, opt := range opts {
+		opt(protocol)
 	}
 
 	return protocol, nil
