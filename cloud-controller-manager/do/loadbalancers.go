@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -80,6 +81,9 @@ const (
 
 var (
 	errLBNotFound = errors.New("loadbalancer not found")
+
+	supportedEntryProtocols  = []string{protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2, protocolHTTP3}
+	supportedTargetProtocols = []string{protocolHTTP, protocolHTTPS, protocolHTTP2, protocolHTTP3}
 )
 
 func buildK8sTag(val string) string {
@@ -734,11 +738,11 @@ func buildHTTP3ForwardingRule(ctx context.Context, service *v1.Service, godoClie
 	}
 
 	var targetProtocol string
-	if _, err := getProtocol(service, annDOTargetProtocol, func(protocol string) { targetProtocol = protocol }); err != nil {
+	if targetProtocol, err = getTargetProtocol(service); err != nil {
 		return nil, err
 	}
 	if targetProtocol == protocolTCP || targetProtocol == protocolUDP {
-		return nil, fmt.Errorf("target protocol annotation is not supported for TCP or UDP")
+		return nil, errors.New("target protocol annotation is not supported for TCP or UDP")
 	}
 	if targetProtocol == "" {
 		targetProtocol = protocolHTTP
@@ -764,7 +768,7 @@ func buildHTTP3ForwardingRule(ctx context.Context, service *v1.Service, godoClie
 func buildForwardingRules(ctx context.Context, service *v1.Service, godoClient *godo.Client) ([]godo.ForwardingRule, error) {
 	var forwardingRules []godo.ForwardingRule
 
-	defaultProtocol, err := getProtocol(service, annDOProtocol)
+	defaultProtocol, err := getEntryProtocol(service)
 	if err != nil {
 		return nil, err
 	}
@@ -939,12 +943,15 @@ func buildTLSForwardingRule(forwardingRule *godo.ForwardingRule, service *v1.Ser
 		return errors.New("either certificate id should be set or tls pass through enabled, not both")
 	}
 
-	var targetProtocol string
-	if _, err := getProtocol(service, annDOTargetProtocol, func(protocol string) { targetProtocol = protocol }); err != nil {
+	var (
+		targetProtocol string
+		err            error
+	)
+	if targetProtocol, err = getTargetProtocol(service); err != nil {
 		return err
 	}
 	if targetProtocol == protocolTCP || targetProtocol == protocolUDP {
-		return fmt.Errorf("target protocol annotation is not supported for TCP or UDP")
+		return errors.New("target protocol annotation is not supported for TCP or UDP")
 	}
 
 	if tlsPassThrough {
@@ -991,22 +998,40 @@ func buildStickySessions(service *v1.Service) (*godo.StickySessions, error) {
 	}, nil
 }
 
-// getProtocol returns the service protocol as per the passed annotation,
-// additionally invokes list of callback functions if provided.
-func getProtocol(service *v1.Service, annotation string, opts ...func(protocol string)) (string, error) {
+func getEntryProtocol(service *v1.Service) (string, error) {
+	protocol, err := getProtocol(service, annDOProtocol, supportedEntryProtocols)
+	if err != nil {
+		return "", err
+	}
+
+	if protocol == "" {
+		protocol = protocolTCP
+	}
+
+	return protocol, nil
+}
+
+func getTargetProtocol(service *v1.Service) (string, error) {
+	protocol, err := getProtocol(service, annDOTargetProtocol, supportedTargetProtocols)
+	if err != nil {
+		return "", err
+	}
+
+	if protocol == "" {
+		protocol = protocolHTTP
+	}
+
+	return protocol, nil
+}
+
+func getProtocol(service *v1.Service, annotation string, supportedProtocols []string) (string, error) {
 	protocol, ok := service.Annotations[annotation]
 	if !ok {
-		return protocolTCP, nil
+		return "", nil
 	}
 
-	switch protocol {
-	case protocolTCP, protocolHTTP, protocolHTTPS, protocolHTTP2, protocolHTTP3:
-	default:
-		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annDOProtocol)
-	}
-
-	for _, opt := range opts {
-		opt(protocol)
+	if !slices.Contains(supportedProtocols, protocol) {
+		return "", fmt.Errorf("invalid protocol %q specified in annotation %q", protocol, annotation)
 	}
 
 	return protocol, nil

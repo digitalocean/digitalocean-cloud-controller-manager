@@ -915,7 +915,7 @@ func Test_getProtocol(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			protocol, err := getProtocol(test.service, annDOProtocol)
+			protocol, err := getEntryProtocol(test.service)
 			if protocol != test.protocol {
 				t.Error("unexpected protocol")
 				t.Logf("expected: %q", test.protocol)
@@ -2185,7 +2185,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("failed to build TLS part(s) of forwarding rule: invalid protocol \"abcd\" specified in annotation \"service.beta.kubernetes.io/do-loadbalancer-protocol\""),
+			errors.New("failed to build TLS part(s) of forwarding rule: invalid protocol \"abcd\" specified in annotation \"service.beta.kubernetes.io/do-loadbalancer-target-protocol\""),
 		},
 		{
 			"unsupported target protocol annotation value returns error",
@@ -2211,7 +2211,7 @@ func Test_buildForwardingRules(t *testing.T) {
 				},
 			},
 			nil,
-			errors.New("failed to build TLS part(s) of forwarding rule: target protocol annotation is not supported for TCP or UDP"),
+			errors.New("failed to build TLS part(s) of forwarding rule: invalid protocol \"tcp\" specified in annotation \"service.beta.kubernetes.io/do-loadbalancer-target-protocol\""),
 		},
 		{
 			"support same SSL terminated forwarding protocols (http2 -> http2)",

@@ -34,7 +34,7 @@ const (
 
 	// annDOTargetProtocol is the annotation used to specify the target protocol
 	// for DO load balancers. If unspecified, load balancers are configured with
-	// annDOProtocol specification. Options are http, https, http2 and  http3.
+	// annDOProtocol specification. Options are http, https, http2, and  http3.
 	annDOTargetProtocol = annDOLoadBalancerBase + "target-protocol"
 
 	// annDOHealthCheckPath is the annotation used to specify the health check path
