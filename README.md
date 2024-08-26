@@ -188,7 +188,7 @@ This will create a binary with version `dev` and docker image pushed to
 
 To create the docker image and generate the manifests, go to the actions page on GitHub and click "Run Workflow". 
 Specify the GitHub `<tag>` that you want to create, making sure it is prefixed with a `v`.
-Running the workflow also requires that you temporarily add your user to the "specified actors to bypass" list in the master [branch protection rules settings](https://github.com/digitalocean/digitalocean-cloud-controller-manager/settings/branch_protection_rules).
+Running the workflow also requires that you temporarily turn off "Require a pull request before merging" setting in the master [branch protection rules settings](https://github.com/digitalocean/digitalocean-cloud-controller-manager/settings/branches). **Don't forget to turn it back on once the release is done!**
 
 The workflow does the following:
 
