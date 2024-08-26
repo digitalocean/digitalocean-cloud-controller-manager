@@ -1,5 +1,11 @@
 ## unreleased
 
+* Update dependencies: (@d-honeybadger)
+  - k8s.io packages v0.31.0
+  - sigs.k8s.io/controller-runtime v0.19.0
+  - github.com/prometheus/client_golang v1.20.2
+* Update go to 1.23 (@d-honeybadger)
+
 ## v0.1.55 (beta) - July 29, 2024
 
 * When using the LoadBalancer `service.beta.kubernetes.io/do-loadbalancer-type=REGIONAL_NETWORK` (under closed beta), firewall rules
