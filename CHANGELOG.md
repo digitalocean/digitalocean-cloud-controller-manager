@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.56 (beta) - August 26, 2024
+
 * Update dependencies: (@d-honeybadger)
   - k8s.io packages v0.31.0
   - sigs.k8s.io/controller-runtime v0.19.0
