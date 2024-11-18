@@ -79,6 +79,11 @@ You might also need to provide your DigitalOcean access token in
 the cloud controller to start, but in that case, you will not be able to
 validate integration with DigitalOcean API.
 
+The `DO_IP_ADDR_FAMILIES` is used to configure the required IP families and the
+order in which the addresses should be populated in nodes status. The accepted values
+are one of the `"ipv4", "ipv6"` or a comma-separated list of multiple IP address
+families. IPv4 is the default, if not set or empty.
+
 Please note that if you use a Kubernetes cluster created on DigitalOcean, there
 will be a cloud controller manager running in the cluster already, so your local
 one will compete for API access with it.

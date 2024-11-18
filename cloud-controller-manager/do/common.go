@@ -25,6 +25,15 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+type IPFamily string
+
+var ipFamilies []IPFamily
+
+const (
+	ipv4Family = "ipv4"
+	ipv6Family = "ipv6"
+)
+
 // apiResultsPerPage is the maximum page size that DigitalOcean's api supports.
 const apiResultsPerPage = 200
 
@@ -129,17 +138,50 @@ func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
 
-	privateIP, err := droplet.PrivateIPv4()
-	if err != nil || privateIP == "" {
-		return nil, fmt.Errorf("could not get private ip: %v", err)
+	// default case when DO_IP_ADDR_FAMILIES is not set
+	if ipFamilies == nil {
+		addr, err := discoverAddress(droplet, ipv4Family)
+		if err != nil {
+			return nil, fmt.Errorf("could not get addresses for %s : %v", ipv4Family, err)
+		}
+		addresses = append(addresses, addr...)
+	} else {
+		for _, i := range ipFamilies {
+			addr, err := discoverAddress(droplet, i)
+			if err != nil {
+				return nil, fmt.Errorf("could not get addresses for %s : %v", i, err)
+			}
+			addresses = append(addresses, addr...)
+		}
 	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
 
-	publicIP, err := droplet.PublicIPv4()
-	if err != nil || publicIP == "" {
-		return nil, fmt.Errorf("could not get public ip: %v", err)
+	return addresses, nil
+}
+
+func discoverAddress(droplet *godo.Droplet, family IPFamily) ([]v1.NodeAddress, error) {
+	var addresses []v1.NodeAddress
+
+	switch family {
+	case ipv4Family:
+		privateIP, err := droplet.PrivateIPv4()
+		if err != nil || privateIP == "" {
+			return nil, fmt.Errorf("could not get private ip: %v", err)
+		}
+		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
+
+		publicIP, err := droplet.PublicIPv4()
+		if err != nil || publicIP == "" {
+			return nil, fmt.Errorf("could not get public ip: %v", err)
+		}
+		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIP})
+		return addresses, nil
+	case ipv6Family:
+		publicIPv6, err := droplet.PublicIPv6()
+		if err != nil || publicIPv6 == "" {
+			return nil, fmt.Errorf("could not get public ipv6: %v", err)
+		}
+		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv6})
+		return addresses, nil
 	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIP})
-
 	return addresses, nil
 }

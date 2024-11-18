@@ -135,6 +135,12 @@ func newFakeDroplet() *godo.Droplet {
 					Type:      "public",
 				},
 			},
+			V6: []godo.NetworkV6{
+				{
+					IPAddress: "2a01::10",
+					Type:      "public",
+				},
+			},
 		},
 		Region: &godo.Region{
 			Name: "test-region",
@@ -157,6 +163,12 @@ func newFakeShutdownDroplet() *godo.Droplet {
 				},
 				{
 					IPAddress: "99.99.99.99",
+					Type:      "public",
+				},
+			},
+			V6: []godo.NetworkV6{
+				{
+					IPAddress: "2a01::10",
 					Type:      "public",
 				},
 			},
@@ -203,8 +215,12 @@ func TestNodeAddresses(t *testing.T) {
 			Type:    v1.NodeExternalIP,
 			Address: "99.99.99.99",
 		},
+		{
+			Type:    v1.NodeExternalIP,
+			Address: "2a01::10",
+		},
 	}
-
+	ipFamilies = []IPFamily{ipv4Family, ipv6Family}
 	addresses, err := instances.NodeAddresses(context.TODO(), "test-droplet")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {
@@ -240,7 +256,7 @@ func TestNodeAddressesByProviderID(t *testing.T) {
 			Address: "99.99.99.99",
 		},
 	}
-
+	ipFamilies = []IPFamily{ipv4Family}
 	addresses, err := instances.NodeAddressesByProviderID(context.TODO(), "digitalocean://123")
 
 	if !reflect.DeepEqual(addresses, expectedAddresses) {

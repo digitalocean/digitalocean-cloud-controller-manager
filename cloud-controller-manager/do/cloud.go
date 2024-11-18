@@ -57,6 +57,7 @@ const (
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
 	regionEnv                   string = "REGION"
 	doAPIRateLimitQPSEnv        string = "DO_API_RATE_LIMIT_QPS"
+	doIPAddrFamiliesEnv         string = "DO_IP_ADDR_FAMILIES"
 )
 
 var version string
@@ -156,6 +157,11 @@ func newCloud() (cloudprovider.Interface, error) {
 			return nil, fmt.Errorf("environment variable %q requires host and port in the format <host>:<port> when exposing metrics: %v", metricsAddr, err)
 		}
 		addr = fmt.Sprintf("%s:%s", addrHost, addrPort)
+	}
+
+	ipf, set := os.LookupEnv(doIPAddrFamiliesEnv)
+	if set && !validateAndSetIPFamilies(ipf) {
+		return nil, fmt.Errorf("invalid value set for environment variable %q", doIPAddrFamiliesEnv)
 	}
 
 	return &cloud{
@@ -279,4 +285,16 @@ func (c *cloud) ScrubDNS(nameservers, searches []string) (nsOut, srchOut []strin
 
 func (c *cloud) HasClusterID() bool {
 	return false
+}
+
+func validateAndSetIPFamilies(ipf string) bool {
+	for _, v := range strings.Split(ipf, ",") {
+		ipf := strings.TrimSpace(v)
+		if ipf == ipv4Family || ipf == ipv6Family {
+			ipFamilies = append(ipFamilies, IPFamily(ipf))
+		} else {
+			return false
+		}
+	}
+	return true
 }

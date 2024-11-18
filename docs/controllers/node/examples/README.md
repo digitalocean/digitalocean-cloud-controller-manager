@@ -68,6 +68,8 @@ status:
     type: InternalIP
   - address: 138.197.174.81
     type: ExternalIP
+  - address: 2a03:b0c0:3:d0::e68:a001
+    type: ExternalIP
   allocatable:
     cpu: "4"
     memory: 6012700Ki
@@ -80,7 +82,7 @@ status:
 
 DigitalOcean cloud controller manager has made the cluster aware of the size of the node, in this case c-4 (4 core high CPU droplet). It has also assigned the node
 a failure domain which the scheduler can use for region failovers. Note also that the correct addresses were assigned to the node. The `InternalIP` now represents
-the private IP of the droplet, and the `ExternalIP` is it's public IP.
+the private IP of the droplet, and the `ExternalIP` is it's public IP. The order and IP families depends on the env variable `DO_IP_ADDR_FAMILIES`.
 
 ## Node clean up
 
