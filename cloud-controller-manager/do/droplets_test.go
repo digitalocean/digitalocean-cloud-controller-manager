@@ -32,6 +32,7 @@ import (
 
 type fakeDropletService struct {
 	listFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listWithGPUsFunc   func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	listByTagFunc      func(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	listByNameFunc     func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	getFunc            func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
@@ -48,6 +49,10 @@ type fakeDropletService struct {
 
 func (f *fakeDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	return f.listFunc(ctx, opt)
+}
+
+func (f *fakeDropletService) ListWithGPUs(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	return f.listWithGPUsFunc(ctx, opt)
 }
 
 func (f *fakeDropletService) ListByTag(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
