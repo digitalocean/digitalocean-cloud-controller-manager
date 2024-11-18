@@ -32,6 +32,7 @@ import (
 
 type fakeDropletService struct {
 	listFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listWithGPUsFunc   func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	listByTagFunc      func(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	listByNameFunc     func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
 	getFunc            func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
@@ -48,6 +49,10 @@ type fakeDropletService struct {
 
 func (f *fakeDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
 	return f.listFunc(ctx, opt)
+}
+
+func (f *fakeDropletService) ListWithGPUs(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+	return f.listWithGPUsFunc(ctx, opt)
 }
 
 func (f *fakeDropletService) ListByTag(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
@@ -88,6 +93,18 @@ func (f *fakeDropletService) Snapshots(ctx context.Context, dropletID int, opt *
 
 func (f *fakeDropletService) Backups(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error) {
 	return f.backupsFunc(ctx, dropletID, opt)
+}
+
+func (f *fakeDropletService) GetBackupPolicy(ctx context.Context, dropletID int) (*godo.DropletBackupPolicy, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
+}
+
+func (f *fakeDropletService) ListBackupPolicies(ctx context.Context, opt *godo.ListOptions) (map[int]*godo.DropletBackupPolicy, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
+}
+
+func (f *fakeDropletService) ListSupportedBackupPolicies(ctx context.Context) ([]*godo.SupportedBackupPolicy, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
 }
 
 func (f *fakeDropletService) Actions(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error) {
