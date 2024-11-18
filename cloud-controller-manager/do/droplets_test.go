@@ -90,6 +90,18 @@ func (f *fakeDropletService) Backups(ctx context.Context, dropletID int, opt *go
 	return f.backupsFunc(ctx, dropletID, opt)
 }
 
+func (f *fakeDropletService) GetBackupPolicy(ctx context.Context, dropletID int) (*godo.DropletBackupPolicy, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
+}
+
+func (f *fakeDropletService) ListBackupPolicies(ctx context.Context, opt *godo.ListOptions) (map[int]*godo.DropletBackupPolicy, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
+}
+
+func (f *fakeDropletService) ListSupportedBackupPolicies(ctx context.Context) ([]*godo.SupportedBackupPolicy, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
+}
+
 func (f *fakeDropletService) Actions(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error) {
 	return f.actionsFunc(ctx, dropletID, opt)
 }
