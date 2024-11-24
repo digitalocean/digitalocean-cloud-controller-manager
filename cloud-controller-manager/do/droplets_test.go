@@ -17,14 +17,19 @@ limitations under the License.
 package do
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"reflect"
+	"strings"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cloudprovider "k8s.io/cloud-provider"
 
 	"github.com/digitalocean/godo"
@@ -168,137 +173,92 @@ func newFakeShutdownDroplet() *godo.Droplet {
 	}
 }
 
-var _ cloudprovider.Instances = new(instances)
+var _ cloudprovider.InstancesV2 = new(instances)
 
-func TestNodeAddresses(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
-	}
-	fake.listByNameFunc = func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
-	}
-
-	res := &resources{gclient: newFakeDropletClient(fake)}
-	instances := newInstances(res, "nyc1")
-
-	expectedAddresses := []v1.NodeAddress{
+func TestInstanceExists(t *testing.T) {
+	tests := []struct {
+		name        string
+		fake        *fakeDropletService
+		expected    bool
+		expectedErr string
+	}{
 		{
-			Type:    v1.NodeHostName,
-			Address: "test-droplet",
+			name: "instance exists",
+			fake: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					droplet := newFakeDroplet()
+					resp := newFakeOKResponse()
+					return droplet, resp, nil
+				},
+			},
+			expected: true,
 		},
 		{
-			Type:    v1.NodeInternalIP,
-			Address: "10.0.0.0",
+			name: "instance not found",
+			fake: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					droplet := newFakeDroplet()
+					resp := newFakeNotFoundResponse()
+					return droplet, resp, newFakeNotFoundErrorResponse()
+				},
+			},
+			expected:    false,
+			expectedErr: "",
 		},
 		{
-			Type:    v1.NodeExternalIP,
-			Address: "99.99.99.99",
+			name: "error getting instance",
+			fake: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					resp := newFakeNotOKResponse()
+					return nil, resp, &godo.ErrorResponse{
+						Response: &http.Response{
+							Request: &http.Request{
+								Method: "GET",
+								URL:    &url.URL{},
+							},
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewBufferString("boom")),
+						},
+					}
+				},
+			},
+			expected:    false,
+			expectedErr: "error checking if instance exists: GET : 500 ",
 		},
 	}
 
-	addresses, err := instances.NodeAddresses(context.TODO(), "test-droplet")
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	if !reflect.DeepEqual(addresses, expectedAddresses) {
-		t.Errorf("unexpected node addresses. got: %v want: %v", addresses, expectedAddresses)
-	}
-
-	if err != nil {
-		t.Errorf("unexpected err, expected nil. got: %v", err)
+			res := &resources{gclient: newFakeDropletClient(tc.fake)}
+			instances := newInstances(res, "nyc1")
+			exists, err := instances.InstanceExists(context.TODO(), &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-droplet",
+				},
+				Spec: v1.NodeSpec{
+					ProviderID: "digitalocean://1234",
+				},
+			})
+			if tc.expectedErr != "" {
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Fatalf("got error %v, expected %s", err, tc.expectedErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("got error %v, expected nil", err)
+			}
+			if tc.expected != exists {
+				t.Fatalf("got %v, expected %v", exists, tc.expected)
+			}
+		})
 	}
 }
 
-func TestNodeAddressesByProviderID(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		resp := newFakeOKResponse()
-		return droplet, resp, nil
-	}
-	res := &resources{gclient: newFakeDropletClient(fake)}
-	instances := newInstances(res, "nyc1")
-
-	expectedAddresses := []v1.NodeAddress{
-		{
-			Type:    v1.NodeHostName,
-			Address: "test-droplet",
-		},
-		{
-			Type:    v1.NodeInternalIP,
-			Address: "10.0.0.0",
-		},
-		{
-			Type:    v1.NodeExternalIP,
-			Address: "99.99.99.99",
-		},
-	}
-
-	addresses, err := instances.NodeAddressesByProviderID(context.TODO(), "digitalocean://123")
-
-	if !reflect.DeepEqual(addresses, expectedAddresses) {
-		t.Errorf("unexpected node addresses. got: %v want: %v", addresses, expectedAddresses)
-	}
-
-	if err != nil {
-		t.Errorf("unexpected err, expected nil. got: %v", err)
-	}
-}
-
-func TestInstanceID(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
-	}
-
-	res := &resources{gclient: newFakeDropletClient(fake)}
-	instances := newInstances(res, "nyc1")
-
-	id, err := instances.InstanceID(context.TODO(), "test-droplet")
-	if err != nil {
-		t.Errorf("expected nil error, got: %v", err)
-	}
-
-	if id != "123" {
-		t.Errorf("expected id 123, got: %s", id)
-	}
-}
-
-func TestInstanceType(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		droplets := []godo.Droplet{*droplet}
-
-		resp := newFakeOKResponse()
-		return droplets, resp, nil
-	}
-
-	res := &resources{gclient: newFakeDropletClient(fake)}
-	instances := newInstances(res, "nyc1")
-
-	instanceType, err := instances.InstanceType(context.TODO(), "test-droplet")
-	if err != nil {
-		t.Errorf("expected nil error, got: %v", err)
-	}
-
-	if instanceType != "2gb" {
-		t.Errorf("expected type 2gb, got: %s", instanceType)
-	}
-}
-
-func Test_InstanceShutdownByProviderID(t *testing.T) {
+func TestInstanceShutdown(t *testing.T) {
 	fake := &fakeDropletService{}
 	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
 		droplet := newFakeShutdownDroplet()
@@ -309,13 +269,73 @@ func Test_InstanceShutdownByProviderID(t *testing.T) {
 	res := &resources{gclient: newFakeDropletClient(fake)}
 	instances := newInstances(res, "nyc1")
 
-	shutdown, err := instances.InstanceShutdownByProviderID(context.TODO(), "digitalocean://123")
+	shutdown, err := instances.InstanceShutdown(context.TODO(), &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-droplet",
+		},
+		Spec: v1.NodeSpec{
+			ProviderID: "digitalocean://123",
+		},
+	})
 	if err != nil {
 		t.Errorf("unexpected error: %s", err)
 	}
 
 	if !shutdown {
 		t.Errorf("expected node to be shutdown, but it wasn't")
+	}
+}
+
+func TestInstanceMetadata(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		resp := newFakeOKResponse()
+		return droplet, resp, nil
+	}
+	res := &resources{gclient: newFakeDropletClient(fake)}
+	instances := newInstances(res, "nyc1")
+
+	expectedAddresses := []v1.NodeAddress{
+		{
+			Type:    v1.NodeHostName,
+			Address: "test-droplet",
+		},
+		{
+			Type:    v1.NodeInternalIP,
+			Address: "10.0.0.0",
+		},
+		{
+			Type:    v1.NodeExternalIP,
+			Address: "99.99.99.99",
+		},
+	}
+
+	metadata, err := instances.InstanceMetadata(context.TODO(), &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-droplet",
+		},
+		Spec: v1.NodeSpec{
+			ProviderID: "digitalocean://123",
+		},
+	})
+	if err != nil {
+		t.Errorf("unexpected err, expected nil. got: %v", err)
+	}
+
+	if !reflect.DeepEqual(metadata.NodeAddresses, expectedAddresses) {
+		t.Errorf("unexpected node addresses. got: %v want: %v", metadata.NodeAddresses, expectedAddresses)
+	}
+
+	if metadata.ProviderID != "digitalocean://123" {
+		t.Errorf("unexpected node providerID. got: %v, want: %v", metadata.ProviderID, "digitalocean://123")
+	}
+
+	if metadata.InstanceType != "2gb" {
+		t.Errorf("unexpected node instance type. got: %v want: %v", metadata.InstanceType, newFakeDroplet().SizeSlug)
+	}
+	if metadata.Region != "test1" {
+		t.Errorf("unexpected node region. got: %v want: %v", metadata.Region, newFakeDroplet().Region)
 	}
 }
 
@@ -371,57 +391,6 @@ func Test_dropletIDFromProviderID(t *testing.T) {
 				t.Errorf("actual err: %v", err)
 				t.Errorf("expected err: %v", testcase.err)
 				t.Error("unexpected err")
-			}
-		})
-	}
-}
-
-func TestDropletMatching(t *testing.T) {
-	tests := []struct {
-		name     string
-		nodeName string
-		wantErr  error
-	}{
-		{
-			name:     "internal IP matches",
-			nodeName: "10.0.0.0",
-			wantErr:  nil,
-		},
-		{
-			name:     "external IP matches",
-			nodeName: "99.99.99.99",
-			wantErr:  nil,
-		},
-		{
-			name:     "no match",
-			nodeName: "1.2.3.4",
-			wantErr:  cloudprovider.InstanceNotFound,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(fmt.Sprintf(test.name), func(t *testing.T) {
-			fake := &fakeDropletService{}
-			fake.listFunc = func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-				droplet := newFakeDroplet()
-				droplets := []godo.Droplet{*droplet}
-
-				resp := newFakeOKResponse()
-				return droplets, resp, nil
-			}
-
-			res := &resources{gclient: newFakeDropletClient(fake)}
-			instances := newInstances(res, "nyc1")
-
-			addresses, err := instances.NodeAddresses(context.Background(), types.NodeName(test.nodeName))
-			if err != test.wantErr {
-				t.Fatalf("got error %v, want %v", err, test.wantErr)
-			}
-
-			gotAddrs := addresses != nil
-			wantAddrs := err == nil
-			if gotAddrs != wantAddrs {
-				t.Errorf("got addresses %#v, want addresses: %t", addresses, wantAddrs)
 			}
 		})
 	}
