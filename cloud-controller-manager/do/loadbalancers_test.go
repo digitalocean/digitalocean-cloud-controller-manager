@@ -132,6 +132,7 @@ func createLB() *godo.LoadBalancer {
 		ID:     "load-balancer-id",
 		Name:   "afoobar123",
 		IP:     "10.0.0.1",
+		IPv6:   "fd53::b001",
 		Status: lbStatusActive,
 	}
 }
@@ -141,6 +142,7 @@ func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Cer
 		ID:     lbID,
 		Name:   "afoobar123",
 		IP:     "10.0.0.1",
+		IPv6:   "fd53::b001",
 		Status: lbStatusActive,
 		ForwardingRules: []godo.ForwardingRule{
 			{
@@ -4999,6 +5001,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 						ID:     "load-balancer-id",
 						Name:   "afoobar123",
 						IP:     "10.0.0.1",
+						IPv6:   "fd53::b001",
 						Status: lbStatusActive,
 					},
 				}, newFakeOKResponse(), nil
@@ -5028,6 +5031,9 @@ func Test_GetLoadBalancer(t *testing.T) {
 					{
 						IP: "10.0.0.1",
 					},
+					{
+						IP: "fd53::b001",
+					},
 				},
 			},
 			exists: true,
@@ -5041,6 +5047,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 						ID:     "load-balancer-id",
 						Name:   "my-load-balancer-123",
 						IP:     "10.0.0.1",
+						IPv6:   "fd53::b001",
 						Status: lbStatusActive,
 					},
 				}, newFakeOKResponse(), nil
@@ -5071,6 +5078,9 @@ func Test_GetLoadBalancer(t *testing.T) {
 					{
 						IP: "10.0.0.1",
 					},
+					{
+						IP: "fd53::b001",
+					},
 				},
 			},
 			exists: true,
@@ -5084,6 +5094,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 						ID:     "load-balancer-id",
 						Name:   "afoobar123",
 						IP:     "10.0.0.1",
+						IPv6:   "fd53::b001",
 						Status: lbStatusActive,
 					},
 				}, newFakeOKResponse(), nil
@@ -5103,6 +5114,9 @@ func Test_GetLoadBalancer(t *testing.T) {
 					{
 						IP: "10.0.0.1",
 					},
+					{
+						IP: "fd53::b001",
+					},
 				},
 			},
 			exists: true,
@@ -5115,6 +5129,7 @@ func Test_GetLoadBalancer(t *testing.T) {
 					ID:     "load-balancer-id",
 					Name:   "afoobar123",
 					IP:     "10.0.0.1",
+					IPv6:   "fd53::b001",
 					Status: lbStatusActive,
 				}, newFakeOKResponse(), nil
 			},
@@ -5146,6 +5161,9 @@ func Test_GetLoadBalancer(t *testing.T) {
 				Ingress: []v1.LoadBalancerIngress{
 					{
 						IP: "10.0.0.1",
+					},
+					{
+						IP: "fd53::b001",
 					},
 				},
 			},
@@ -5321,6 +5339,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					{
 						IP: "10.0.0.1",
 					},
+					{
+						IP: "fd53::b001",
+					},
 				},
 			},
 			err: nil,
@@ -5395,6 +5416,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					{
 						IP: "10.0.0.1",
 					},
+					{
+						IP: "fd53::b001",
+					},
 				},
 			},
 			err: nil,
@@ -5467,6 +5491,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				Ingress: []v1.LoadBalancerIngress{
 					{
 						IP: "10.0.0.1",
+					},
+					{
+						IP: "fd53::b001",
 					},
 				},
 			},
@@ -5544,6 +5571,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				Ingress: []v1.LoadBalancerIngress{
 					{
 						IP: "10.0.0.1",
+					},
+					{
+						IP: "fd53::b001",
 					},
 				},
 			},
@@ -5632,6 +5662,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 							{
 								IP: "10.0.0.1",
 							},
+							{
+								IP: "fd53::b001",
+							},
 						},
 					},
 				},
@@ -5641,6 +5674,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				Ingress: []v1.LoadBalancerIngress{
 					{
 						IP: "10.0.0.1",
+					},
+					{
+						IP: "fd53::b001",
 					},
 				},
 			},
@@ -5758,6 +5794,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 					{
 						Name:   lbName,
 						IP:     "10.0.0.1",
+						IPv6:   "fd53::b001",
 						Status: lbStatusActive,
 					},
 				}, newFakeOKResponse(), nil
@@ -5780,6 +5817,7 @@ func Test_EnsureLoadBalancerDeleted(t *testing.T) {
 					{
 						Name:   lbName,
 						IP:     "10.0.0.1",
+						IPv6:   "fd53::b001",
 						Status: lbStatusActive,
 					},
 				}, newFakeOKResponse(), nil
