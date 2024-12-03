@@ -1,5 +1,11 @@
 ## unreleased
 
+## v0.1.57 (beta) - December 3, 2024
+
+* Update dependencies
+  - godo v1.131.0
+* Migrate to CCM InstancesV2
+
 ## v0.1.56 (beta) - August 26, 2024
 
 * Update dependencies: (@d-honeybadger)
