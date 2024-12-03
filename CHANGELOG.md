@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.57 (beta) - December  3, 2024
+
 ## v0.1.57 (beta) - December 3, 2024
 
 * Update dependencies
