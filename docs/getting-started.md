@@ -182,7 +182,7 @@ NOTE: the deployments in `releases/` are meant to serve as an example. They will
 
 ### Cloud controller manager admission server
 
-The admission server is optional (to know more about it, read the [admission-server doc](./docs/admission-server.md)).
+The admission server is optional (to know more about it, read the [admission-server doc](./admission-server.md)).
 To install it, run the following kubectl command:
 
 ```bash
