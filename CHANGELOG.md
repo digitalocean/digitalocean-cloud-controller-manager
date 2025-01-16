@@ -1,6 +1,6 @@
 ## unreleased
 
-## v0.1.58 (beta) - December  3, 2024
+* Add IPv6 address to the LoadBalancer Service Ingress list (@jvasilevsky)
 * Update dependencies: (@eomolo)
   - k8s.io packages v0.32.0
   - sigs.k8s.io/controller-runtime v0.19.4
