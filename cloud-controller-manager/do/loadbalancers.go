@@ -145,12 +145,20 @@ func (l *loadBalancers) GetLoadBalancer(ctx context.Context, clusterName string,
 		return nil, false, err
 	}
 
-	return &v1.LoadBalancerStatus{
-		Ingress: []v1.LoadBalancerIngress{
-			{
-				IP: lb.IP,
-			},
+	ingress := []v1.LoadBalancerIngress{
+		{
+			IP: lb.IP,
 		},
+	}
+
+	if lb.IPv6 != "" {
+		ingress = append(ingress, v1.LoadBalancerIngress{
+			IP: lb.IPv6,
+		})
+	}
+
+	return &v1.LoadBalancerStatus{
+		Ingress: ingress,
 	}, true, nil
 }
 
@@ -244,13 +252,19 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		}, nil
 	}
 
-	return &v1.LoadBalancerStatus{
-		Ingress: []v1.LoadBalancerIngress{
-			{
-				IP: lb.IP,
-			},
+	ingress := []v1.LoadBalancerIngress{
+		{
+			IP: lb.IP,
 		},
-	}, nil
+	}
+
+	if lb.IPv6 != "" {
+		ingress = append(ingress, v1.LoadBalancerIngress{
+			IP: lb.IPv6,
+		})
+	}
+
+	return &v1.LoadBalancerStatus{Ingress: ingress}, nil
 }
 
 func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
