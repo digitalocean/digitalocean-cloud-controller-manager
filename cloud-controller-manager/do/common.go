@@ -25,7 +25,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// apiResultsPerPage is the maximum page size that DigitalOcean's api supports.
+// max page size is 200, but choose a smaller value b/c sometimes objects being listed
+// are very large and the response gets too big with 200 objects
 const apiResultsPerPage = 50
 
 func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
