@@ -3,10 +3,11 @@
 * Add IPv6 address to the LoadBalancer Service Ingress list (@jvasilevsky)
 * Update dependencies: (@eomolo)
   - k8s.io packages v0.32.0
-  - sigs.k8s.io/controller-runtime v0.19.4
+  - sigs.k8s.io/controller-runtime v0.20.0
   - github.com/prometheus/client_golang v1.20.5
   - godo v1.133.0
 * Update go to 1.23.4 (@eomolo)
+* Reduce the number of results per page when listing objects via DO API (@d-honeybadger)
 
 ## v0.1.57 (beta) - December 3, 2024
 
