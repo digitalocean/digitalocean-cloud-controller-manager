@@ -26,7 +26,7 @@ import (
 )
 
 // apiResultsPerPage is the maximum page size that DigitalOcean's api supports.
-const apiResultsPerPage = 200
+const apiResultsPerPage = 50
 
 func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
 	list := []godo.Droplet{}
