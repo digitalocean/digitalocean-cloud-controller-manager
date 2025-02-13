@@ -19,6 +19,7 @@ package do
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -94,6 +95,7 @@ func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan str
 		case <-stopCh:
 			return
 		}
+		ticker.Reset(period + (time.Second * time.Duration(rand.Int31n(300))))
 	}
 }
 
