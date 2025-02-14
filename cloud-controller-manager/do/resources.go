@@ -135,7 +135,7 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
-	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, time.Second*time.Duration(rand.Int31n(300)), stopCh, r.syncTags)
+	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, time.Second*time.Duration(rand.Int31n(600)), stopCh, r.syncTags)
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate
