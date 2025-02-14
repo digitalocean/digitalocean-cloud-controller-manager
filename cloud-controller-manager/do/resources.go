@@ -95,7 +95,6 @@ func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan str
 		case <-stopCh:
 			return
 		}
-		ticker.Reset(period + (time.Second * time.Duration(rand.Int31n(300))))
 	}
 }
 
@@ -128,7 +127,9 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
-	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
+	syncPeriod := controllerSyncTagsPeriod + (time.Second * time.Duration(rand.Int31n(300)))
+	klog.Infof("sync tags period: %s", syncPeriod)
+	go r.syncer.Sync("tags syncer", syncPeriod, stopCh, r.syncTags)
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate
