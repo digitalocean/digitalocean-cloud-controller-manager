@@ -33,9 +33,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
+var (
+	controllerSyncTagsPeriod = (15 * time.Minute) + (time.Second * time.Duration(rand.Int31n(300)))
+)
+
 const (
-	controllerSyncTagsPeriod = 15 * time.Minute
-	syncTagsTimeout          = 1 * time.Minute
+	syncTagsTimeout = 1 * time.Minute
 )
 
 type tagMissingError struct {
@@ -127,9 +130,8 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
-	syncPeriod := controllerSyncTagsPeriod + (time.Second * time.Duration(rand.Int31n(300)))
-	klog.Infof("sync tags period: %s", syncPeriod)
-	go r.syncer.Sync("tags syncer", syncPeriod, stopCh, r.syncTags)
+	klog.Infof("sync tags period: %s", controllerSyncTagsPeriod)
+	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate
