@@ -33,12 +33,9 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var (
-	controllerSyncTagsPeriod = (15 * time.Minute) + (time.Second * time.Duration(rand.Int31n(300)))
-)
-
 const (
-	syncTagsTimeout = 1 * time.Minute
+	controllerSyncTagsPeriod = 15 * time.Minute
+	syncTagsTimeout          = 1 * time.Minute
 )
 
 type tagMissingError struct {
@@ -75,18 +72,26 @@ func newResources(clusterID, clusterVPCID string, publicAccessFW publicAccessFir
 }
 
 type syncer interface {
-	Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error)
+	Sync(name string, period time.Duration, initialDelay time.Duration, stopCh <-chan struct{}, fn func() error)
 }
 
 type tickerSyncer struct{}
 
-func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error) {
+func (s *tickerSyncer) Sync(name string, period time.Duration, initialDelay time.Duration, stopCh <-chan struct{}, fn func() error) {
 	ticker := time.NewTicker(period)
 	defer ticker.Stop()
 
 	// manually call to avoid initial tick delay
 	if err := fn(); err != nil {
 		klog.Errorf("%s failed: %s", name, err)
+	}
+
+	initialDelayTicker := time.NewTicker(initialDelay)
+	defer initialDelayTicker.Stop()
+	select {
+	case <-initialDelayTicker.C:
+	case <-stopCh:
+		return
 	}
 
 	for {
@@ -130,8 +135,7 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
-	klog.Infof("sync tags period: %s", controllerSyncTagsPeriod)
-	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
+	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, time.Second*time.Duration(rand.Int31n(300)), stopCh, r.syncTags)
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate
