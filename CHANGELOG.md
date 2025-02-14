@@ -1,5 +1,7 @@
 ## unreleased
 
+* Add an initial random delay when syncing the tags to load balancers (@olove)
+
 ## v0.1.58 (beta) - January 17, 2025
 
 * Add IPv6 address to the LoadBalancer Service Ingress list (@jvasilevsky)
