@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.59 (beta) - February 14, 2025
+
 * Add an initial random delay when syncing the tags to load balancers (@olove)
 
 ## v0.1.58 (beta) - January 17, 2025
