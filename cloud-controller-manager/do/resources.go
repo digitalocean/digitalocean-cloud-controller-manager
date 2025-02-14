@@ -19,6 +19,7 @@ package do
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -71,18 +72,24 @@ func newResources(clusterID, clusterVPCID string, publicAccessFW publicAccessFir
 }
 
 type syncer interface {
-	Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error)
+	Sync(name string, period time.Duration, initialDelay time.Duration, stopCh <-chan struct{}, fn func() error)
 }
 
 type tickerSyncer struct{}
 
-func (s *tickerSyncer) Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error) {
+func (s *tickerSyncer) Sync(name string, period time.Duration, initialDelay time.Duration, stopCh <-chan struct{}, fn func() error) {
 	ticker := time.NewTicker(period)
 	defer ticker.Stop()
 
 	// manually call to avoid initial tick delay
 	if err := fn(); err != nil {
 		klog.Errorf("%s failed: %s", name, err)
+	}
+
+	select {
+	case <-time.After(initialDelay):
+	case <-stopCh:
+		return
 	}
 
 	for {
@@ -126,7 +133,7 @@ func (r *ResourcesController) Run(stopCh <-chan struct{}) {
 		klog.Info("No cluster ID configured -- skipping cluster dependent syncers.")
 		return
 	}
-	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, stopCh, r.syncTags)
+	go r.syncer.Sync("tags syncer", controllerSyncTagsPeriod, time.Second*time.Duration(rand.Int31n(600)), stopCh, r.syncTags)
 }
 
 // syncTags synchronizes tags. Currently, this is only needed to associate

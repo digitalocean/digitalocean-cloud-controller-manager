@@ -125,7 +125,7 @@ func newRecordingSyncer(stopOn int, stopCh chan struct{}) *recordingSyncer {
 	}
 }
 
-func (s *recordingSyncer) Sync(name string, period time.Duration, stopCh <-chan struct{}, fn func() error) {
+func (s *recordingSyncer) Sync(name string, period time.Duration, initialDelay time.Duration, stopCh <-chan struct{}, fn func() error) {
 	recordingFn := func() error {
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
@@ -139,7 +139,7 @@ func (s *recordingSyncer) Sync(name string, period time.Duration, stopCh <-chan 
 		return fn()
 	}
 
-	s.tickerSyncer.Sync(name, period, stopCh, recordingFn)
+	s.tickerSyncer.Sync(name, period, initialDelay, stopCh, recordingFn)
 }
 
 var (
