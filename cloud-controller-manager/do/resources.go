@@ -86,10 +86,8 @@ func (s *tickerSyncer) Sync(name string, period time.Duration, initialDelay time
 		klog.Errorf("%s failed: %s", name, err)
 	}
 
-	initialDelayTicker := time.NewTicker(initialDelay)
-	defer initialDelayTicker.Stop()
 	select {
-	case <-initialDelayTicker.C:
+	case <-time.After(initialDelay):
 	case <-stopCh:
 		return
 	}
