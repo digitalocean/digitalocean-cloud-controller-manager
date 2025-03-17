@@ -1,5 +1,30 @@
 # Change Log
 
+## [v1.140.0] - 2025-03-14
+
+- #800 - @lee-aaron - support Spaces Keys GET by Access Key ID
+
+## [v1.139.0] - 2025-03-12
+
+- #798 - @dylanrhysscott - Fix: Update godo to use simplified template response and provide consistent struct naming
+- #796 - @apinonformoso - fix partner interconnect attachment json request response
+- #795 - @dylanrhysscott - CON-11904 Ensure taints are correctly returned via node template endpoint
+- #794 - @brunograsselli - Update partner interconnect attachment comments
+- #793 - @apinonformoso - add auth_key field
+- #789 - @guptado - [VPC-3917] Update get service key response model
+
+## [v1.138.0] - 2025-03-18
+
+- #785 - @guptado - Support partner interconnect GetBgpAuthKey and RegenerateServiceKey operations
+- #787 - @andrewsomething - ci: upgrade to actions/cache@v4
+- #786 - @m3co-code - add flags for doks routing-agent plugin
+- #784 - @asaha2 - Support name and id filters for list op
+
+## [v1.137.0] - 2025-02-12
+
+- #782 - @apinonformoso - fix partner interconnect json tag
+- #781 - @dylanrhysscott - CON-11810 Implement GetNodePoolTemplate endpoint for DOKS godo client
+
 ## [v1.136.0] - 2025-01-28
 
 - #776 - @danaelhe - Databases: Support online-migrations
