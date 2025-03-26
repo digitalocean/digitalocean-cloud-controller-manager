@@ -303,6 +303,8 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
 			if ok && respErr.Response.StatusCode == http.StatusNotFound {
+				// something is wrong with the certificate from the service annotation; update it
+				updateServiceAnnotation(service, annDOCertificateID, lbCertID)
 				return nil
 			}
 			return fmt.Errorf("failed to get DO certificate for load-balancer: %s", err)
