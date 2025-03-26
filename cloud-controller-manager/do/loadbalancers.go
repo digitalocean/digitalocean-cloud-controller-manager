@@ -291,6 +291,11 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 			return fmt.Errorf("failed to get DO certificate for load-balancer: %s", err)
 		}
 
+		// Prevent unnecessary API call if the LB cert isn't a LE cert.
+		if lbCert.Type != certTypeLetsEncrypt {
+			return nil
+		}
+
 		// Pull the certificate name from the serviceCertID (annotation)
 		// This is so that we can determine if the certificate ID has changed
 		// due to a LetsEncrypt cert renewal or due to manually changing the certificate
@@ -304,9 +309,10 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 		}
 
 		// Only re-pave the annotation if the certificate names match.
-		if lbCert.Type == certTypeLetsEncrypt && lbCert.Name == annCert.Name {
+		if lbCert.Name == annCert.Name {
 			updateServiceAnnotation(service, annDOCertificateID, lbCertID)
 		}
+
 	}
 
 	return nil

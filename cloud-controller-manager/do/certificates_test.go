@@ -177,8 +177,8 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				service, _ := createServiceAndCert(lb.ID, "meow", certTypeLetsEncrypt)
 				return service
 			},
-			expectedServiceCertID: "lb-cert-id",
-			expectedLBCertID:      "lb-cert-id",
+			expectedServiceCertID: "meow",
+			expectedLBCertID:      "meow",
 		},
 		{
 			name: "[lets_encrypt] LB cert ID does not exit and service cert ID does",
