@@ -88,6 +88,14 @@ func createServiceAndCert(lbID, certID, certType string) (*v1.Service, *godo.Cer
 	return s, c
 }
 
+func createCertWithName(certID string, certName string, certType string) *godo.Certificate {
+	return &godo.Certificate{
+		ID:   certID,
+		Name: certName,
+		Type: certType,
+	}
+}
+
 func createServiceWithCert(lbID, certID string) *v1.Service {
 	s := createService(lbID)
 	s.Annotations[annDOCertificateID] = certID
@@ -140,6 +148,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 		expectedServiceCertID   string
 		expectedServiceCertName string
 		expectedLBCertID        string
+		expectedLBCertName      string
 		err                     error
 	}{
 		// lets_encrypt test cases
@@ -177,8 +186,8 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				service, _ := createServiceAndCert(lb.ID, "meow", certTypeLetsEncrypt)
 				return service
 			},
-			expectedServiceCertID: "meow",
-			expectedLBCertID:      "meow",
+			expectedServiceCertID: "lb-cert-id",
+			expectedLBCertID:      "lb-cert-id",
 		},
 		{
 			name: "[lets_encrypt] LB cert ID does not exit and service cert ID does",
@@ -193,7 +202,42 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			expectedServiceCertID: "service-cert-id",
 			expectedLBCertID:      "service-cert-id",
 		},
+		{
+			name: "[lets_encrypt] LB cert ID differs from service cert ID and both exist, different name",
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, cert := createHTTPSLB("test-lb-id", "lb-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+				cert.Name = "meow1"
+				certService.store[cert.ID] = cert
 
+				svcert := createCertWithName("service-cert-id", "meow2", certTypeLetsEncrypt)
+
+				service := createServiceWithCert(lb.ID, "service-cert-id")
+				certService.store[svcert.ID] = svcert
+				return service
+			},
+			expectedServiceCertID: "service-cert-id",
+			expectedLBCertID:      "service-cert-id",
+			expectedLBCertName:    "meow2",
+		},
+		{
+			name: "[lets_encrypt] LB cert ID differs from service cert ID and both exist, same name",
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, cert := createHTTPSLB("test-lb-id", "lb-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+				cert.Name = "meow1"
+				certService.store[cert.ID] = cert
+
+				svcert := createCertWithName("service-cert-id", "meow1", certTypeLetsEncrypt)
+
+				service := createServiceWithCert(lb.ID, "service-cert-id")
+				certService.store[svcert.ID] = svcert
+				return service
+			},
+			expectedServiceCertID: "lb-cert-id",
+			expectedLBCertID:      "lb-cert-id",
+			expectedLBCertName:    "meow1",
+		},
 		// custom test cases
 		{
 			name: "[custom] LB cert ID and service cert ID match",
@@ -344,6 +388,17 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				lbCertID := getCertificateIDFromLB(godoLoadBalancer)
 				if test.expectedLBCertID != lbCertID {
 					t.Errorf("got load-balancer certificate ID: %s, want: %s", test.expectedLBCertID, lbCertID)
+				}
+
+				if test.expectedLBCertName != "" {
+
+					lbCert, _, err := fakeResources.gclient.Certificates.Get(context.Background(), lbCertID)
+					if err != nil {
+						t.Fatalf("failed to get certificate %q from fake client: %s", lbCertID, err)
+					}
+					if test.expectedLBCertName != lbCert.Name {
+						t.Errorf("got lb certificate name: %s, want: %s", test.expectedLBCertName, lbCert.Name)
+					}
 				}
 			})
 		}
