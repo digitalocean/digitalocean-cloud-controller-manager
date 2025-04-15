@@ -36,8 +36,8 @@ github.com/coreos/go-systemd/v22/journal
 # github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 ## explicit
 github.com/davecgh/go-spew/spew
-# github.com/digitalocean/godo v1.136.0
-## explicit; go 1.22
+# github.com/digitalocean/godo v1.142.0
+## explicit; go 1.23
 github.com/digitalocean/godo
 github.com/digitalocean/godo/metrics
 # github.com/emicklei/go-restful/v3 v3.12.1
