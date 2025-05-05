@@ -223,6 +223,7 @@ const (
 	AppDatabaseSpecEngine_MongoDB    AppDatabaseSpecEngine = "MONGODB"
 	AppDatabaseSpecEngine_Kafka      AppDatabaseSpecEngine = "KAFKA"
 	AppDatabaseSpecEngine_Opensearch AppDatabaseSpecEngine = "OPENSEARCH"
+	AppDatabaseSpecEngine_Valkey     AppDatabaseSpecEngine = "VALKEY"
 )
 
 // AppDedicatedIp Represents a dedicated egress ip.
@@ -330,7 +331,8 @@ type AppIngressSpecRule struct {
 
 // AppIngressSpecRuleMatch The match configuration for a rule.
 type AppIngressSpecRuleMatch struct {
-	Path *AppIngressSpecRuleStringMatch `json:"path,omitempty"`
+	Path      *AppIngressSpecRuleStringMatch `json:"path,omitempty"`
+	Authority *AppIngressSpecRuleStringMatch `json:"authority,omitempty"`
 }
 
 // AppIngressSpecRuleRoutingComponent The component routing configuration.
@@ -361,6 +363,7 @@ type AppIngressSpecRuleRoutingRedirect struct {
 type AppIngressSpecRuleStringMatch struct {
 	// Prefix-based match. For example, `/api` will match `/api`, `/api/`, and any nested paths such as `/api/v1/endpoint`.
 	Prefix string `json:"prefix,omitempty"`
+	Exact  string `json:"exact,omitempty"`
 }
 
 // AppJobSpec struct for AppJobSpec
@@ -468,7 +471,7 @@ type AppLogDestinationSpecPapertrail struct {
 type AppMaintenanceSpec struct {
 	// Indicates whether maintenance mode should be enabled for the app.
 	Enabled bool `json:"enabled,omitempty"`
-	// Indicates whether the app should be archived. Setting this to true implies that enabled is set to true. Note that this feature is currently in closed beta.
+	// Indicates whether the app should be archived. Setting this to true implies that enabled is set to true.
 	Archive bool `json:"archive,omitempty"`
 	// A custom offline page to display when maintenance mode is enabled or the app is archived.
 	OfflinePageURL string `json:"offline_page_url,omitempty"`
