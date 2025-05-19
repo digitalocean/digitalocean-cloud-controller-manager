@@ -941,6 +941,14 @@ func (a *AppIngressSpecRule) GetRedirect() *AppIngressSpecRuleRoutingRedirect {
 	return a.Redirect
 }
 
+// GetAuthority returns the Authority field.
+func (a *AppIngressSpecRuleMatch) GetAuthority() *AppIngressSpecRuleStringMatch {
+	if a == nil {
+		return nil
+	}
+	return a.Authority
+}
+
 // GetPath returns the Path field.
 func (a *AppIngressSpecRuleMatch) GetPath() *AppIngressSpecRuleStringMatch {
 	if a == nil {
@@ -1013,12 +1021,44 @@ func (a *AppIngressSpecRuleRoutingRedirect) GetUri() string {
 	return a.Uri
 }
 
+// GetExact returns the Exact field.
+func (a *AppIngressSpecRuleStringMatch) GetExact() string {
+	if a == nil {
+		return ""
+	}
+	return a.Exact
+}
+
 // GetPrefix returns the Prefix field.
 func (a *AppIngressSpecRuleStringMatch) GetPrefix() string {
 	if a == nil {
 		return ""
 	}
 	return a.Prefix
+}
+
+// GetComponentName returns the ComponentName field.
+func (a *AppInstance) GetComponentName() string {
+	if a == nil {
+		return ""
+	}
+	return a.ComponentName
+}
+
+// GetComponentType returns the ComponentType field.
+func (a *AppInstance) GetComponentType() AppInstanceComponentType {
+	if a == nil {
+		return ""
+	}
+	return a.ComponentType
+}
+
+// GetInstanceName returns the InstanceName field.
+func (a *AppInstance) GetInstanceName() string {
+	if a == nil {
+		return ""
+	}
+	return a.InstanceName
 }
 
 // GetBandwidthAllowanceGib returns the BandwidthAllowanceGib field.
