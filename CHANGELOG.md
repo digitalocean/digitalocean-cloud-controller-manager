@@ -1,9 +1,17 @@
 ## unreleased
 
 ## v0.1.60 (beta) - February 14, 2025
-
+* Update go to 1.24.1 (@okamidash)
 * Fix Certificate ID annotation being erroneously overwritten (@okamidash) https://github.com/digitalocean/digitalocean-cloud-controller-manager/pull/814
-
+* Update dependencies (@okamidash)
+  - golang.org/x/sync v0.14.0
+	- k8s.io/api v0.32.5
+	- k8s.io/apimachinery v0.32.5
+	- k8s.io/client-go v0.32.5
+	- k8s.io/cloud-provider v0.32.5
+	- k8s.io/component-base v0.32.5
+  - k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
+	- sigs.k8s.io/controller-runtime v0.20.4
 ## v0.1.59 (beta) - February 14, 2025
 
 * Add an initial random delay when syncing the tags to load balancers (@olove)
