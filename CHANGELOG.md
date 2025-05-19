@@ -1,5 +1,9 @@
 ## unreleased
 
+## v0.1.60 (beta) - February 14, 2025
+
+* Fix Certificate ID annotation being erroneously overwritten (@okamidash) https://github.com/digitalocean/digitalocean-cloud-controller-manager/pull/814
+
 ## v0.1.59 (beta) - February 14, 2025
 
 * Add an initial random delay when syncing the tags to load balancers (@olove)
