@@ -226,6 +226,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		logLBInfo("CREATE", lbRequest, 2)
 
 		updateServiceAnnotation(service, annDOLoadBalancerID, lb.ID)
+		updateServiceAnnotation(service, annDOType, lb.Type)
 
 	default:
 		// unrecoverable LB retrieval error
@@ -428,6 +429,7 @@ func (l *loadBalancers) retrieveAndAnnotateLoadBalancer(ctx context.Context, ser
 	}
 
 	updateServiceAnnotation(service, annDOLoadBalancerID, lb.ID)
+	updateServiceAnnotation(service, annDOType, lb.Type)
 
 	return lb, nil
 }
