@@ -1425,7 +1425,7 @@ func getDisownLB(service *v1.Service) (bool, error) {
 func getType(service *v1.Service) (string, error) {
 	name, ok := service.Annotations[annDOType]
 	if !ok || name == "" {
-		return godo.LoadBalancerTypeRegional, nil
+		return godo.LoadBalancerTypeRegionalNetwork, nil
 	}
 	if !(name == godo.LoadBalancerTypeRegional || name == godo.LoadBalancerTypeRegionalNetwork) {
 		return "", fmt.Errorf("only LB types supported are (%s, %s)", godo.LoadBalancerTypeRegional, godo.LoadBalancerTypeRegionalNetwork)
