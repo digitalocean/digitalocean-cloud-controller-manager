@@ -3636,6 +3636,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					UID:  "foobar123",
 					Annotations: map[string]string{
 						annDOProtocol: "http",
+						annDOType:     godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3714,6 +3715,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:      "http2",
 						annDOCertificateID: "test-certificate",
+						annDOType:          godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3792,6 +3794,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:      "http2",
 						annDOCertificateID: "test-certificate",
+						annDOType:          godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3881,6 +3884,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					UID:  "foobar123",
 					Annotations: map[string]string{
 						annDOOverrideHealthCheck: "",
+						annDOType:                godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -3938,6 +3942,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						annDOProtocol:            "tcp",
 						annDOHealthCheckPath:     "/health",
 						annDOHealthCheckProtocol: "http",
+						annDOType:                godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4016,6 +4021,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol:  "http",
 						annDOAlgorithm: "least_connections",
+						annDOType:      godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4094,6 +4100,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol: "http",
 						annDOSizeSlug: "lb-medium",
+						annDOType:     godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4173,6 +4180,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 					Annotations: map[string]string{
 						annDOProtocol: "http",
 						annDOSizeUnit: "2",
+						annDOType:     godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4311,6 +4319,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						annDOStickySessionsType:       "cookies",
 						annDOStickySessionsCookieName: "DO-CCM",
 						annDOStickySessionsCookieTTL:  "300",
+						annDOType:                     godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4394,6 +4403,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						annDOStickySessionsType:       "cookies",
 						annDOStickySessionsCookieName: "DO-CCM",
 						annDOStickySessionsCookieTTL:  "300",
+						annDOType:                     godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4477,6 +4487,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						annDORedirectHTTPToHTTPS: "true",
 						annDOTLSPorts:            "443",
 						annDOCertificateID:       "test-certificate",
+						annDOType:                godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -4571,6 +4582,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 						annDOTLSPorts:                     "443",
 						annDOCertificateID:                "test-certificate",
 						annDODisableLetsEncryptDNSRecords: "true",
+						annDOType:                         godo.LoadBalancerTypeRegional,
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -6142,7 +6154,7 @@ func Test_getType(t *testing.T) {
 		expectedType *string
 	}{
 		{
-			name: "no value defaults to REGIONAL",
+			name: "no value defaults to REGIONAL_NETWORK",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test",
@@ -6151,7 +6163,7 @@ func Test_getType(t *testing.T) {
 				},
 			},
 			wantErr:      false,
-			expectedType: &regional,
+			expectedType: &regionalNetwork,
 		}, {
 			name: "annotation set to REGIONAL",
 			service: &v1.Service{

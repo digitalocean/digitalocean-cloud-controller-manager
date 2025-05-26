@@ -359,6 +359,9 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "lbServiceType",
 						UID:  "abc12345",
+						Annotations: map[string]string{
+							annDOType: godo.LoadBalancerTypeRegional,
+						},
 					},
 					Spec: v1.ServiceSpec{
 						Type: v1.ServiceTypeLoadBalancer,

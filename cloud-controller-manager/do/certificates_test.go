@@ -126,6 +126,7 @@ func createService(lbID string) *v1.Service {
 			Annotations: map[string]string{
 				annDOProtocol:       "http",
 				annDOLoadBalancerID: lbID,
+				annDOType:           godo.LoadBalancerTypeRegional,
 			},
 		},
 		Spec: v1.ServiceSpec{
