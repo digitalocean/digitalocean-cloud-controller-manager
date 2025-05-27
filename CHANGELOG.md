@@ -7,6 +7,7 @@
   - k8s.io/component-base@v0.33.1
 * Backfill `service.beta.kubernetes.io/do-loadbalancer-type` annotation into existing LoadBalancers (@olove)
 * Update Go to 1.24.3 (@olove)
+* Fix Certificate ID annotation being erroneously overwritten (@okamidash)
 
 ## v0.1.59 (beta) - February 14, 2025
 
