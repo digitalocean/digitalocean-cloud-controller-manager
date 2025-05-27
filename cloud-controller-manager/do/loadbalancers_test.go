@@ -44,6 +44,7 @@ type fakeLBService struct {
 	store                   map[string]*godo.LoadBalancer
 	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
 	listFn                  func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+	listByNamesFn           func(context.Context, []string, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 	createFn                func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 	updateFn                func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 	deleteFn                func(ctx context.Context, lbID string) (*godo.Response, error)
@@ -60,6 +61,10 @@ func (f *fakeLBService) Get(ctx context.Context, lbID string) (*godo.LoadBalance
 
 func (f *fakeLBService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 	return f.listFn(ctx, listOpts)
+}
+
+func (f *fakeLBService) ListByNames(ctx context.Context, names []string, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+	return f.listByNamesFn(ctx, names, listOpts)
 }
 
 func (f *fakeLBService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
