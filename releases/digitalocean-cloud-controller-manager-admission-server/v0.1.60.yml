@@ -1,0 +1,109 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: digitalocean-cloud-controller-manager-admission-server
+  namespace: kube-system
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: digitalocean-cloud-controller-manager-admission-server
+  template:
+    metadata:
+      labels:
+        app: digitalocean-cloud-controller-manager-admission-server
+    spec:
+      containers:
+      - image: digitalocean/digitalocean-cloud-controller-manager-admission-server:v0.1.60
+        name: digitalocean-cloud-controller-manager-admission-server
+        command:
+          - "/bin/digitalocean-cloud-controller-manager-admission-server"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 50Mi
+        env:
+          - name: DO_ACCESS_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: digitalocean
+                key: access-token
+        ports:
+        - containerPort: 9443
+          name: admission
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: serving-certs
+          readOnly: true
+      volumes:
+      - name: serving-certs
+        secret:
+          defaultMode: 420
+          secretName: digitalocean-cloud-controller-manager-admission-server-serving-certs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: digitalocean-cloud-controller-manager-admission-server
+  namespace: kube-system
+spec:
+  selector:
+    app: digitalocean-cloud-controller-manager-admission-server
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: 9443
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: digitalocean-cloud-controller-manager-admission-server-serving-certs
+  namespace: kube-system
+spec:
+  dnsNames:
+  - digitalocean-cloud-controller-manager-admission-server
+  - digitalocean-cloud-controller-manager-admission-server.kube-system.svc
+  - digitalocean-cloud-controller-manager-admission-server.kube-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: digitalocean-cloud-controller-manager-selfsigned-issuer
+  secretName: digitalocean-cloud-controller-manager-admission-server-serving-certs
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: digitalocean-cloud-controller-manager-selfsigned-issuer
+  namespace: kube-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kube-system/digitalocean-cloud-controller-manager-admission-server-serving-certs
+  name: digitalocean-cloud-controller-manager-admission-webhook
+webhooks:
+- name: validation-webhook.cloud-controller-manager.digitalocean.com
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      namespace: "kube-system"
+      name: "digitalocean-cloud-controller-manager-admission-server"
+      path: "/lb-service"
+  failurePolicy: Ignore
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - services
+    scope: Namespaced
+  sideEffects: None

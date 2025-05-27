@@ -44,6 +44,8 @@ type fakeLBService struct {
 	store                   map[string]*godo.LoadBalancer
 	getFn                   func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
 	listFn                  func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+	listByNamesFn           func(context.Context, []string, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+	listByUUIDs             func(context.Context, []string, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
 	createFn                func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 	updateFn                func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
 	deleteFn                func(ctx context.Context, lbID string) (*godo.Response, error)
@@ -60,6 +62,14 @@ func (f *fakeLBService) Get(ctx context.Context, lbID string) (*godo.LoadBalance
 
 func (f *fakeLBService) List(ctx context.Context, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 	return f.listFn(ctx, listOpts)
+}
+
+func (f *fakeLBService) ListByNames(ctx context.Context, names []string, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+	return f.listByNamesFn(ctx, names, listOpts)
+}
+
+func (f *fakeLBService) ListByUUIDs(ctx context.Context, uuids []string, listOpts *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+	return f.listByUUIDs(ctx, uuids, listOpts)
 }
 
 func (f *fakeLBService) Create(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
@@ -130,6 +140,7 @@ func newFakeLBClient(fakeLB *fakeLBService) *godo.Client {
 func createLB() *godo.LoadBalancer {
 	return &godo.LoadBalancer{
 		ID:     "load-balancer-id",
+		Type:   godo.LoadBalancerTypeRegional,
 		Name:   "afoobar123",
 		IP:     "10.0.0.1",
 		IPv6:   "fd53::b001",
@@ -5270,17 +5281,18 @@ func Test_GetLoadBalancer(t *testing.T) {
 
 func Test_EnsureLoadBalancer(t *testing.T) {
 	testcases := []struct {
-		name              string
-		droplets          []godo.Droplet
-		getFn             func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
-		listFn            func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
-		createFn          func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		updateFn          func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
-		service           *v1.Service
-		newLoadBalancerID *string
-		nodes             []*v1.Node
-		lbStatus          *v1.LoadBalancerStatus
-		err               error
+		name                string
+		droplets            []godo.Droplet
+		getFn               func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error)
+		listFn              func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error)
+		createFn            func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
+		updateFn            func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error)
+		service             *v1.Service
+		newLoadBalancerID   *string
+		newLoadBalancerType *string
+		nodes               []*v1.Node
+		lbStatus            *v1.LoadBalancerStatus
+		err                 error
 	}{
 		{
 			name: "successfully ensured loadbalancer by name, already exists",
@@ -5592,6 +5604,88 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "successfully ensured loadbalancer by Type that didn't exist",
+			droplets: []godo.Droplet{
+				{
+					ID:   100,
+					Name: "node-1",
+				},
+				{
+					ID:   101,
+					Name: "node-2",
+				},
+				{
+					ID:   102,
+					Name: "node-3",
+				},
+			},
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeResponse(http.StatusNotFound), errors.New("LB not found")
+			},
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+			},
+			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				lb := createLB()
+				lb.ID = "load-balancer-id"
+				lb.Type = godo.LoadBalancerTypeRegionalNetwork
+				return lb, newFakeOKResponse(), nil
+			},
+			updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+			},
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+					UID:  "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:       "http",
+						annDOLoadBalancerID: "load-balancer-id",
+						annDOType:           godo.LoadBalancerTypeRegional,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "test",
+							Protocol: "TCP",
+							Port:     int32(80),
+							NodePort: int32(30000),
+						},
+					},
+				},
+			},
+			newLoadBalancerType: stringP(godo.LoadBalancerTypeRegionalNetwork),
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-2",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node-3",
+					},
+				},
+			},
+			lbStatus: &v1.LoadBalancerStatus{
+				Ingress: []v1.LoadBalancerIngress{
+					{
+						IP: "10.0.0.1",
+					},
+					{
+						IP: "fd53::b001",
+					},
+				},
+			},
+			err: nil,
+		},
+		{
 			name:     "failed to ensure existing load-balancer, state is non-active",
 			droplets: []godo.Droplet{},
 			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
@@ -5681,7 +5775,8 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					},
 				},
 			},
-			newLoadBalancerID: stringP(""),
+			newLoadBalancerID:   stringP(""),
+			newLoadBalancerType: stringP(""),
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
 					{
@@ -5745,13 +5840,20 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 					t.Fatalf("failed to get service from kube client: %s", err)
 				}
 
-				gotLoadBalancerID := svc.Annotations[annDOLoadBalancerID]
-				wantLoadBalancerID := "load-balancer-id"
+				gotLoadBalancerID, gotLoadBalancerType := svc.Annotations[annDOLoadBalancerID], svc.Annotations[annDOType]
+				wantLoadBalancerID, wantLoadBalancerType := "load-balancer-id", godo.LoadBalancerTypeRegional
 				if test.newLoadBalancerID != nil {
 					wantLoadBalancerID = *test.newLoadBalancerID
 				}
 				if gotLoadBalancerID != wantLoadBalancerID {
 					t.Errorf("got load-balancer ID %q, want %q", gotLoadBalancerID, wantLoadBalancerID)
+				}
+
+				if test.newLoadBalancerType != nil {
+					wantLoadBalancerType = *test.newLoadBalancerType
+				}
+				if gotLoadBalancerType != wantLoadBalancerType {
+					t.Errorf("got load-balancer Type %q, want %q", gotLoadBalancerType, wantLoadBalancerType)
 				}
 			}
 		})

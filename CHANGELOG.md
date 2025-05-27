@@ -1,5 +1,16 @@
 ## unreleased
 
+## v0.1.60 (beta) - May 27, 2025
+* Updates kubernetes dependencies: (@olove)
+  - k8s.io/api@v0.33.1
+  - k8s.io/apimachinery@v0.33.1
+  - k8s.io/client-go@v0.33.1
+  - k8s.io/cloud-provider@v0.33.1
+  - k8s.io/component-base@v0.33.1
+* Backfill `service.beta.kubernetes.io/do-loadbalancer-type` annotation into existing LoadBalancers (@olove)
+* Update Go to 1.24.3 (@olove)
+* Fix Certificate ID annotation being erroneously overwritten (@okamidash)
+
 ## v0.1.59 (beta) - February 14, 2025
 
 * Add an initial random delay when syncing the tags to load balancers (@olove)
