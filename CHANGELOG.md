@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.61 (beta) - May 29, 2025
+
 ## v0.1.60 (beta) - May 27, 2025
 * Updates kubernetes dependencies: (@olove)
   - k8s.io/api@v0.33.1
