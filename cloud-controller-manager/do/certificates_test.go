@@ -388,7 +388,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 				}
 				lbCertID := getCertificateIDFromLB(godoLoadBalancer)
 				if test.expectedLBCertID != lbCertID {
-					t.Errorf("got load-balancer certificate ID: %s, want: %s", test.expectedLBCertID, lbCertID)
+					t.Errorf("got load-balancer certificate ID: %s, want: %s", lbCertID, test.expectedLBCertID)
 				}
 
 				if test.expectedLBCertName != "" {
