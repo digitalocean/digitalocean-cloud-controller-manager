@@ -151,6 +151,7 @@ func createLB() *godo.LoadBalancer {
 func createHTTPSLB(lbID, certID, certType string) (*godo.LoadBalancer, *godo.Certificate) {
 	lb := &godo.LoadBalancer{
 		ID:     lbID,
+		Type:   godo.LoadBalancerTypeRegional,
 		Name:   "afoobar123",
 		IP:     "10.0.0.1",
 		IPv6:   "fd53::b001",
