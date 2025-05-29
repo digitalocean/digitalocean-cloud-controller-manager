@@ -227,6 +227,7 @@ func fakeService(annotations map[string]string, spec *corev1.ServiceSpec) *corev
 		annotations = make(map[string]string)
 	}
 	annotations["kubernetes.digitalocean.com/load-balancer-id"] = lbID
+	annotations["service.beta.kubernetes.io/do-loadbalancer-type"] = godo.LoadBalancerTypeRegional
 	annotations["service.beta.kubernetes.io/do-loadbalancer-name"] = serviceName
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
