@@ -31,8 +31,8 @@ func TestPrint(t *testing.T) {
 				Protocol:  "tcp",
 				PortRange: "30000",
 				Sources: &godo.Sources{
-					Addresses:        []string{"0.0.0.0"},
-					LoadBalancerUIDs: []string{"irrelevant-lb1"},
+					Addresses: []string{"0.0.0.0"},
+					Tags:      []string{"irrelevant-tag1"},
 				},
 			},
 		},
@@ -41,16 +41,16 @@ func TestPrint(t *testing.T) {
 				Protocol:  "tcp",
 				PortRange: "all",
 				Destinations: &godo.Destinations{
-					Addresses:        []string{"0.0.0.0"},
-					LoadBalancerUIDs: []string{"irrelevant-lb2"},
+					Addresses: []string{"0.0.0.0"},
+					Tags:      []string{"irrelevant-tag2"},
 				},
 			},
 			{
 				Protocol:  "udp",
 				PortRange: "all",
 				Destinations: &godo.Destinations{
-					Addresses:        []string{"0.0.0.0"},
-					LoadBalancerUIDs: []string{"irrelevant-lb3"},
+					Addresses: []string{"0.0.0.0"},
+					Tags:      []string{"irrelevant-tag3"},
 				},
 			},
 		},

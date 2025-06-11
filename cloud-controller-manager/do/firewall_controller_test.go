@@ -538,7 +538,7 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 						Protocol:  "tcp",
 						PortRange: strconv.Itoa(kubeProxyHealthPort),
 						Sources: &godo.Sources{
-							Addresses: []string{"0.0.0.0/0", "::/0"},
+							LoadBalancerUIDs: []string{"2503ee5a-8286-49fa-a053-5aed97fb9213"},
 						},
 					},
 					{
@@ -565,7 +565,8 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 						Name: "regional_network",
 						UID:  "abc123",
 						Annotations: map[string]string{
-							annDOType: godo.LoadBalancerTypeRegionalNetwork,
+							annDOType:           godo.LoadBalancerTypeRegionalNetwork,
+							annDOLoadBalancerID: "2503ee5a-8286-49fa-a053-5aed97fb9213",
 						},
 					},
 					Spec: v1.ServiceSpec{
