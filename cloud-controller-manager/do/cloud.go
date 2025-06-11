@@ -57,6 +57,7 @@ const (
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
 	regionEnv                   string = "REGION"
 	doAPIRateLimitQPSEnv        string = "DO_API_RATE_LIMIT_QPS"
+	defaultLBTypeEnv            string = "DEFAULT_LB_TYPE"
 )
 
 var version string
