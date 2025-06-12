@@ -1,6 +1,7 @@
 ## unreleased
 
 ## v0.1.61 (beta) - May 29, 2025
+* Ensure Network LoadBalancer (NLB) is the default loadbalancer type (@olove)
 
 ## v0.1.60 (beta) - May 27, 2025
 * Updates kubernetes dependencies: (@olove)
