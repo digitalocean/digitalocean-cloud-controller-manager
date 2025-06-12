@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -80,7 +81,14 @@ const (
 
 var (
 	errLBNotFound = errors.New("loadbalancer not found")
+	defaultLBType = godo.LoadBalancerTypeRegionalNetwork
 )
+
+func init() {
+	if lbType := os.Getenv(defaultLBTypeEnv); lbType == godo.LoadBalancerTypeRegional || lbType == godo.LoadBalancerTypeRegionalNetwork {
+		defaultLBType = lbType
+	}
+}
 
 func buildK8sTag(val string) string {
 	return fmt.Sprintf("%s:%s", tagPrefixClusterID, val)
@@ -1427,7 +1435,7 @@ func getDisownLB(service *v1.Service) (bool, error) {
 func getType(service *v1.Service) (string, error) {
 	name, ok := service.Annotations[annDOType]
 	if !ok || name == "" {
-		return godo.LoadBalancerTypeRegionalNetwork, nil
+		return defaultLBType, nil
 	}
 	if !(name == godo.LoadBalancerTypeRegional || name == godo.LoadBalancerTypeRegionalNetwork) {
 		return "", fmt.Errorf("only LB types supported are (%s, %s)", godo.LoadBalancerTypeRegional, godo.LoadBalancerTypeRegionalNetwork)
