@@ -338,13 +338,15 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 					protocol: "tcp",
 					port:     hcp,
 				}
-				if hcp == kubeProxyHealthPort {
+
+				if svc.Annotations[annDOLoadBalancerID] != "" {
 					pp.sources = &godo.Sources{
 						LoadBalancerUIDs: []string{
 							svc.Annotations[annDOLoadBalancerID],
 						},
 					}
 				}
+
 				loadBalancerPorts[pp] = struct{}{}
 				// Add the services (port, protocol)
 				var protocol string

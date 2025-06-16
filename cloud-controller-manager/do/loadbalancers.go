@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -83,12 +82,6 @@ var (
 	errLBNotFound = errors.New("loadbalancer not found")
 	defaultLBType = godo.LoadBalancerTypeRegionalNetwork
 )
-
-func init() {
-	if lbType := os.Getenv(defaultLBTypeEnv); lbType == godo.LoadBalancerTypeRegional || lbType == godo.LoadBalancerTypeRegionalNetwork {
-		defaultLBType = lbType
-	}
-}
 
 func buildK8sTag(val string) string {
 	return fmt.Sprintf("%s:%s", tagPrefixClusterID, val)

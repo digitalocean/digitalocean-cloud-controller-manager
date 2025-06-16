@@ -158,6 +158,10 @@ func newCloud() (cloudprovider.Interface, error) {
 		addr = fmt.Sprintf("%s:%s", addrHost, addrPort)
 	}
 
+	if lbType := os.Getenv(defaultLBTypeEnv); lbType == godo.LoadBalancerTypeRegional || lbType == godo.LoadBalancerTypeRegionalNetwork {
+		defaultLBType = lbType
+	}
+
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(resources, region),
