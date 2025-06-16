@@ -1053,6 +1053,14 @@ func (a *AppInstance) GetComponentType() AppInstanceComponentType {
 	return a.ComponentType
 }
 
+// GetInstanceAlias returns the InstanceAlias field.
+func (a *AppInstance) GetInstanceAlias() string {
+	if a == nil {
+		return ""
+	}
+	return a.InstanceAlias
+}
+
 // GetInstanceName returns the InstanceName field.
 func (a *AppInstance) GetInstanceName() string {
 	if a == nil {
@@ -1493,14 +1501,6 @@ func (a *AppMaintenanceSpec) GetEnabled() bool {
 	return a.Enabled
 }
 
-// GetOfflinePageURL returns the OfflinePageURL field.
-func (a *AppMaintenanceSpec) GetOfflinePageURL() string {
-	if a == nil {
-		return ""
-	}
-	return a.OfflinePageURL
-}
-
 // GetAppID returns the AppID field.
 func (a *AppProposeRequest) GetAppID() string {
 	if a == nil {
@@ -1515,6 +1515,14 @@ func (a *AppProposeRequest) GetSpec() *AppSpec {
 		return nil
 	}
 	return a.Spec
+}
+
+// GetOfflinePageURL returns the OfflinePageURL field.
+func (a *AppMaintenanceSpec) GetOfflinePageURL() string {
+	if a == nil {
+		return ""
+	}
+	return a.OfflinePageURL
 }
 
 // GetAppCost returns the AppCost field.
@@ -1981,6 +1989,22 @@ func (a *AppSpec) GetDatabases() []*AppDatabaseSpec {
 	return a.Databases
 }
 
+// GetDisableEdgeCache returns the DisableEdgeCache field.
+func (a *AppSpec) GetDisableEdgeCache() bool {
+	if a == nil {
+		return false
+	}
+	return a.DisableEdgeCache
+}
+
+// GetDisableEmailObfuscation returns the DisableEmailObfuscation field.
+func (a *AppSpec) GetDisableEmailObfuscation() bool {
+	if a == nil {
+		return false
+	}
+	return a.DisableEmailObfuscation
+}
+
 // GetDomains returns the Domains field.
 func (a *AppSpec) GetDomains() []*AppDomainSpec {
 	if a == nil {
@@ -1995,6 +2019,14 @@ func (a *AppSpec) GetEgress() *AppEgressSpec {
 		return nil
 	}
 	return a.Egress
+}
+
+// GetEnhancedThreatControlEnabled returns the EnhancedThreatControlEnabled field.
+func (a *AppSpec) GetEnhancedThreatControlEnabled() bool {
+	if a == nil {
+		return false
+	}
+	return a.EnhancedThreatControlEnabled
 }
 
 // GetEnvs returns the Envs field.
@@ -3459,6 +3491,14 @@ func (g *GetAppDatabaseConnectionDetailsResponse) GetConnectionDetails() []*GetD
 		return nil
 	}
 	return g.ConnectionDetails
+}
+
+// GetInstances returns the Instances field.
+func (g *GetAppInstancesResponse) GetInstances() []*AppInstance {
+	if g == nil {
+		return nil
+	}
+	return g.Instances
 }
 
 // GetComponentName returns the ComponentName field.
