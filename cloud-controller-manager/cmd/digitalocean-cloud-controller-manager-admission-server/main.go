@@ -30,8 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	"github.com/digitalocean/godo"
+
+	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 )
 
 const (
@@ -39,6 +40,7 @@ const (
 	doOverrideAPIURLEnv        = "DO_OVERRIDE_URL"
 	doClusterIDEnv             = "DO_CLUSTER_ID"
 	doClusterVPCIDEnv          = "DO_CLUSTER_VPC_ID"
+	defaultLBTypeEnv           = "DEFAULT_LB_TYPE"
 )
 
 var loggerVerbosity = flag.Int("v", 0, "logger verbosity")
@@ -65,7 +67,13 @@ func startAdmissionServer() error {
 		return fmt.Errorf("failed to get godo client: %s", err)
 	}
 
-	lbAdmissionHandler := do.NewLBServiceAdmissionHandler(&ll, godoClient)
+	// Default LB Type
+	defaultLBType := godo.LoadBalancerTypeRegionalNetwork
+	if lbType := os.Getenv(defaultLBTypeEnv); lbType == godo.LoadBalancerTypeRegional || lbType == godo.LoadBalancerTypeRegionalNetwork {
+		defaultLBType = lbType
+	}
+
+	lbAdmissionHandler := do.NewLBServiceAdmissionHandler(&ll, godoClient, defaultLBType)
 	if err := lbAdmissionHandler.WithRegion(); err != nil {
 		return fmt.Errorf("failed to inject region into lb service admission handler: %w", err)
 	}
@@ -77,6 +85,9 @@ func startAdmissionServer() error {
 	// VPC ID is optional.
 	vpcID := os.Getenv(doClusterVPCIDEnv)
 	lbAdmissionHandler.WithVPCID(vpcID)
+
+	// Default LB Type
+	lbAdmissionHandler.WithDefaultLBType(defaultLBType)
 
 	ll.Info("registering admission handlers")
 	server.Register("/lb-service", &webhook.Admission{Handler: lbAdmissionHandler})

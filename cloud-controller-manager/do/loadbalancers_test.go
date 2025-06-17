@@ -6312,7 +6312,7 @@ func Test_getType(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			lbType, err := getType(test.service)
+			lbType, err := getType(test.service, godo.LoadBalancerTypeRegionalNetwork)
 			if test.wantErr != (err != nil) {
 				t.Errorf("got error %q, want error: %t", err, test.wantErr)
 			}

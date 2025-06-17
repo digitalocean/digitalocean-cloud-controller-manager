@@ -34,18 +34,20 @@ type LBServiceAdmissionHandler struct {
 	log        *logr.Logger
 	godoClient *godo.Client
 
-	decoder   admission.Decoder
-	region    string
-	clusterID string
-	vpcID     string
+	decoder       admission.Decoder
+	region        string
+	clusterID     string
+	vpcID         string
+	defaultLBType string
 }
 
 // NewLBServiceAdmissionHandler returns a configured instance of LBServiceHandler.
-func NewLBServiceAdmissionHandler(log *logr.Logger, godoClient *godo.Client) *LBServiceAdmissionHandler {
+func NewLBServiceAdmissionHandler(log *logr.Logger, godoClient *godo.Client, defaultLBType string) *LBServiceAdmissionHandler {
 	return &LBServiceAdmissionHandler{
-		log:        log,
-		godoClient: godoClient,
-		decoder:    admission.NewDecoder(runtime.NewScheme()),
+		log:           log,
+		godoClient:    godoClient,
+		decoder:       admission.NewDecoder(runtime.NewScheme()),
+		defaultLBType: defaultLBType,
 	}
 }
 
@@ -131,7 +133,7 @@ func (h *LBServiceAdmissionHandler) validateCreate(ctx context.Context, lbReq *g
 }
 
 func (h *LBServiceAdmissionHandler) buildLoadBalancerRequest(ctx context.Context, svc *corev1.Service) (*godo.LoadBalancerRequest, error) {
-	lbReq, err := buildLoadBalancerRequest(ctx, svc, h.godoClient)
+	lbReq, err := buildLoadBalancerRequest(ctx, svc, h.godoClient, h.defaultLBType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build base load balancer request: %s", err)
 	}
@@ -180,4 +182,9 @@ func (a *LBServiceAdmissionHandler) WithVPCID(vpcID string) {
 // WithClusterID sets the clusterID field of the handler.
 func (a *LBServiceAdmissionHandler) WithClusterID(clusterID string) {
 	a.clusterID = clusterID
+}
+
+// WithDefaultLBType sets the defaultLBType field of the handler.
+func (a *LBServiceAdmissionHandler) WithDefaultLBType(defaultLBType string) {
+	a.defaultLBType = defaultLBType
 }
