@@ -32,6 +32,7 @@ import (
 
 const (
 	dropletShutdownStatus = "off"
+	providerIDPrefix      = "digitalocean://"
 )
 
 // instances implements the InstancesV2() interface
@@ -121,10 +122,14 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 }
 
 func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloudprovider.InstanceMetadata, error) {
-	var dropletID int
-	var err error
+	var (
+		dropletID int
+		err       error
+		droplet   *godo.Droplet
+	)
+
 	if node.Spec.ProviderID == "" {
-		droplet, err := dropletByName(ctx, i.resources.gclient, types.NodeName(node.GetName()))
+		droplet, err = dropletByName(ctx, i.resources.gclient, types.NodeName(node.GetName()))
 		if err != nil {
 			return nil, fmt.Errorf("getting droplet by name: %s", err.Error())
 		}
@@ -134,21 +139,21 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 		if err != nil {
 			return nil, fmt.Errorf("determining droplet ID from providerID: %s", err.Error())
 		}
+		droplet, err = dropletByID(ctx, i.resources.gclient, dropletID)
+		if err != nil {
+			return nil, fmt.Errorf("getting droplet by ID: %s: ", err.Error())
+		}
+		if droplet == nil {
+			return nil, fmt.Errorf("droplet %d for node %s does not exist", dropletID, node.Name)
+		}
 	}
 
-	droplet, err := dropletByID(ctx, i.resources.gclient, dropletID)
-	if err != nil {
-		return nil, fmt.Errorf("getting droplet by ID: %s: ", err.Error())
-	}
-	if droplet == nil {
-		return nil, fmt.Errorf("droplet %d for node %s does not exist", dropletID, node.Name)
-	}
 	nodeAddrs, err := nodeAddresses(droplet)
 	if err != nil {
 		return nil, fmt.Errorf("getting node addresses of droplet %d for node %s: %s", dropletID, node.Name, err.Error())
 	}
 	return &cloudprovider.InstanceMetadata{
-		ProviderID:    strconv.Itoa(dropletID),
+		ProviderID:    fmt.Sprintf("%s%d", providerIDPrefix, dropletID),
 		InstanceType:  droplet.SizeSlug,
 		Region:        droplet.Region.Slug,
 		NodeAddresses: nodeAddrs,
@@ -170,13 +175,11 @@ func dropletIDFromProviderID(providerID string) (int, error) {
 		return 0, errors.New("provider ID cannot be empty")
 	}
 
-	const prefix = "digitalocean://"
-
-	if !strings.HasPrefix(providerID, prefix) {
-		return 0, fmt.Errorf("provider ID %q is missing prefix %q", providerID, prefix)
+	if !strings.HasPrefix(providerID, providerIDPrefix) {
+		return 0, fmt.Errorf("provider ID %q is missing prefix %q", providerID, providerIDPrefix)
 	}
 
-	provIDNum := strings.TrimPrefix(providerID, prefix)
+	provIDNum := strings.TrimPrefix(providerID, providerIDPrefix)
 	if provIDNum == "" {
 		return 0, errors.New("provider ID number cannot be empty")
 	}
