@@ -756,6 +756,7 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 			fm := firewallManager{
 				workerFirewallTags: testWorkerFWTags,
 				workerFirewallName: testWorkerFWName,
+				defaultLBType:      godo.LoadBalancerTypeRegionalNetwork,
 			}
 			fwReq, err := fm.createReconciledFirewallRequest(test.serviceList)
 

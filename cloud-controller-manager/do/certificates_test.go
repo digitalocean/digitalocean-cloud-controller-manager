@@ -352,6 +352,7 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 					region:            "nyc1",
 					lbActiveTimeout:   2,
 					lbActiveCheckTick: 1,
+					defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
 				}
 
 				var err error

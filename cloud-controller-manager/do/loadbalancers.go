@@ -1427,6 +1427,9 @@ func getDisownLB(service *v1.Service) (bool, error) {
 }
 
 func getType(service *v1.Service, defaultLBType string) (string, error) {
+	if defaultLBType == "" || (defaultLBType != godo.LoadBalancerTypeRegional && defaultLBType != godo.LoadBalancerTypeRegionalNetwork) {
+		panic(fmt.Sprintf("defaultLBType must be %s or %s", godo.LoadBalancerTypeRegional, godo.LoadBalancerTypeRegionalNetwork))
+	}
 	name, ok := service.Annotations[annDOType]
 	if !ok || name == "" {
 		return defaultLBType, nil
