@@ -148,7 +148,7 @@ func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloud
 		return nil, fmt.Errorf("getting node addresses of droplet %d for node %s: %s", dropletID, node.Name, err.Error())
 	}
 	return &cloudprovider.InstanceMetadata{
-		ProviderID:    node.Spec.ProviderID, // the providerID may or may not be present according to the interface doc. However, we set this from kubelet.
+		ProviderID:    strconv.Itoa(dropletID),
 		InstanceType:  droplet.SizeSlug,
 		Region:        droplet.Region.Slug,
 		NodeAddresses: nodeAddrs,
