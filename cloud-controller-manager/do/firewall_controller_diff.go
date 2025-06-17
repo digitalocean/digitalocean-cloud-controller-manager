@@ -113,10 +113,13 @@ func compFirewallsEqual(cf1, cf2 *comparableFirewall) (bool, string) {
 	}))
 
 	// Ignore all fields on {In,Out}boundRules.{Sources,Destinations} other than
-	// "Addresses".
+	// "Addresses" and "LoadBalancerUIDs".
 	ruleSourceDestFilter := cmp.FilterPath(func(p cmp.Path) bool {
-		if strings.HasPrefix(p.String(), "InboundRules.Sources") || strings.HasPrefix(p.String(), "OutboundRules.Destinations") {
-			return p.Last().String() != ".Addresses"
+		if strings.HasPrefix(p.String(), "InboundRules.Sources.") || strings.HasPrefix(p.String(), "OutboundRules.Destinations.") {
+			if strings.HasSuffix(p.String(), ".Addresses") || strings.HasSuffix(p.String(), ".LoadBalancerUIDs") {
+				return false
+			}
+			return true
 		}
 
 		return false

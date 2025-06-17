@@ -351,12 +351,198 @@ func TestCompFirewallsEqual(t *testing.T) {
 						Protocol:  "tcp",
 						PortRange: "all",
 						Destinations: &godo.Destinations{
-							Addresses:        []string{"0.0.0.0/0"},
-							LoadBalancerUIDs: []string{"lb1", "lb2"},
+							Addresses:     []string{"0.0.0.0/0"},
+							KubernetesIDs: []string{"kb1", "kb2"},
 						},
 					},
 				},
 				Tags: testWorkerFWTags,
+			},
+			wantEqual: true,
+			wantDiff:  false,
+		},
+		{
+			name: "InboundRules source addresses are different result in a diff",
+			cf1: &comparableFirewall{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol: "tcp",
+						Sources: &godo.Sources{
+							Addresses: []string{
+								"0.0.0.0/0",
+							},
+						},
+					},
+				},
+			},
+			cf2: &comparableFirewall{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol: "tcp",
+						Sources: &godo.Sources{
+							Addresses: []string{
+								"1.2.3.4/32",
+							},
+						},
+					},
+				},
+			},
+			wantEqual: false,
+			wantDiff:  true,
+		},
+		{
+			name: "OutboundRules source addresses are different result in a diff",
+			cf1: &comparableFirewall{
+				Name: testWorkerFWName,
+				OutboundRules: []godo.OutboundRule{
+					{
+						Protocol: "tcp",
+						Destinations: &godo.Destinations{
+							Addresses: []string{
+								"0.0.0.0/0",
+							},
+						},
+					},
+				},
+			},
+			cf2: &comparableFirewall{
+				Name: testWorkerFWName,
+				OutboundRules: []godo.OutboundRule{
+					{
+						Protocol: "tcp",
+						Destinations: &godo.Destinations{
+							Addresses: []string{
+								"1.2.3.4/32",
+							},
+						},
+					},
+				},
+			},
+			wantEqual: false,
+			wantDiff:  true,
+		},
+		{
+			name: "InboundRules source LoadBalancerUIDs are different result in a diff",
+			cf1: &comparableFirewall{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol: "tcp",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{
+								"7ae8d984-b653-4b88-ad10-7074307e729b",
+							},
+						},
+					},
+				},
+			},
+			cf2: &comparableFirewall{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol: "tcp",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{
+								"acf035b5-03be-463f-8657-a3f4f26d0a0a",
+							},
+						},
+					},
+				},
+			},
+			wantEqual: false,
+			wantDiff:  true,
+		},
+		{
+			name: "InboundRules source LoadBalancerUIDs are the same result in no diff",
+			cf1: &comparableFirewall{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol: "tcp",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{
+								"7ae8d984-b653-4b88-ad10-7074307e729b",
+							},
+						},
+					},
+				},
+			},
+			cf2: &comparableFirewall{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol: "tcp",
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{
+								"7ae8d984-b653-4b88-ad10-7074307e729b",
+							},
+						},
+					},
+				},
+			},
+			wantEqual: true,
+			wantDiff:  false,
+		},
+		{
+			name: "OutboundRules source LoadBalancerUIDs are different result in a diff",
+			cf1: &comparableFirewall{
+				Name: testWorkerFWName,
+				OutboundRules: []godo.OutboundRule{
+					{
+						Protocol: "tcp",
+						Destinations: &godo.Destinations{
+							LoadBalancerUIDs: []string{
+								"7ae8d984-b653-4b88-ad10-7074307e729b",
+							},
+						},
+					},
+				},
+			},
+			cf2: &comparableFirewall{
+				Name: testWorkerFWName,
+				OutboundRules: []godo.OutboundRule{
+					{
+						Protocol: "tcp",
+						Destinations: &godo.Destinations{
+							LoadBalancerUIDs: []string{
+								"acf035b5-03be-463f-8657-a3f4f26d0a0a",
+							},
+						},
+					},
+				},
+			},
+			wantEqual: false,
+			wantDiff:  true,
+		},
+		{
+			name: "OutboundRules source LoadBalancerUIDs are the same result in no diff",
+			cf1: &comparableFirewall{
+				Name: testWorkerFWName,
+				OutboundRules: []godo.OutboundRule{
+					{
+						Protocol: "tcp",
+						Destinations: &godo.Destinations{
+							LoadBalancerUIDs: []string{
+								"7ae8d984-b653-4b88-ad10-7074307e729b",
+							},
+						},
+					},
+				},
+			},
+			cf2: &comparableFirewall{
+				Name: testWorkerFWName,
+				OutboundRules: []godo.OutboundRule{
+					{
+						Protocol: "tcp",
+						Destinations: &godo.Destinations{
+							LoadBalancerUIDs: []string{
+								"7ae8d984-b653-4b88-ad10-7074307e729b",
+							},
+						},
+					},
+				},
 			},
 			wantEqual: true,
 			wantDiff:  false,

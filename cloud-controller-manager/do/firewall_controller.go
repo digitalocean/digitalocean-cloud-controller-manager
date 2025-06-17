@@ -87,6 +87,7 @@ type firewallManager struct {
 	workerFirewallName string
 	workerFirewallTags []string
 	metrics            metrics
+	defaultLBType      string
 }
 
 // FirewallController helps to keep cloud provider service firewalls in sync.
@@ -274,6 +275,7 @@ func (fm *firewallManager) updateFirewall(ctx context.Context, fwID string, fr *
 type portProtocol struct {
 	port     int
 	protocol string
+	sources  *godo.Sources
 }
 
 // createReconciledFirewallRequest creates a firewall request that has the correct rules, name and tag
@@ -319,7 +321,7 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 				)
 			}
 		} else if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-			lbType, err := getType(svc)
+			lbType, err := getType(svc, fm.defaultLBType)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get load balancer type for service %s/%s: %v", svc.Namespace, svc.Name, err)
 			}
@@ -329,12 +331,24 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 			}
 			if lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
 				// Add the health check port
-				_, healthCheckPort := healthCheckPathAndPort(svc)
-				if healthCheckPort == 0 {
+				_, hcp := healthCheckPathAndPort(svc)
+				if hcp == 0 {
 					continue
 				}
-				loadBalancerPorts[portProtocol{protocol: "tcp", port: healthCheckPort}] = struct{}{}
+				pp := portProtocol{
+					protocol: "tcp",
+					port:     hcp,
+				}
 
+				if svc.Annotations[annDOLoadBalancerID] != "" {
+					pp.sources = &godo.Sources{
+						LoadBalancerUIDs: []string{
+							svc.Annotations[annDOLoadBalancerID],
+						},
+					}
+				}
+
+				loadBalancerPorts[pp] = struct{}{}
 				// Add the services (port, protocol)
 				var protocol string
 				for _, servicePort := range svc.Spec.Ports {
@@ -353,13 +367,17 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 		}
 	}
 	for p := range loadBalancerPorts {
-		nodePortInboundRules = append(nodePortInboundRules, godo.InboundRule{
+		ir := godo.InboundRule{
 			Protocol:  p.protocol,
 			PortRange: strconv.Itoa(p.port),
 			Sources: &godo.Sources{
 				Addresses: []string{"0.0.0.0/0", "::/0"},
 			},
-		})
+		}
+		if p.sources != nil {
+			ir.Sources = p.sources
+		}
+		nodePortInboundRules = append(nodePortInboundRules, ir)
 	}
 	// Sort for deterministic output
 	sort.SliceStable(nodePortInboundRules, func(i, j int) bool {

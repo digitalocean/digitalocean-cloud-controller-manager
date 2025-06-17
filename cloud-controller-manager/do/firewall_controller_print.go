@@ -70,7 +70,12 @@ func printInboundRule(inboundRule godo.InboundRule) string {
 	rule := fmt.Sprintf("%sProto:%s PortRange:%s", ruleOpeningToken, inboundRule.Protocol, portRange)
 
 	if inboundRule.Sources != nil {
-		rule += fmt.Sprintf(" AddrSources:%s", inboundRule.Sources.Addresses)
+		if len(inboundRule.Sources.Addresses) > 0 {
+			rule += fmt.Sprintf(" AddrSources:%s", inboundRule.Sources.Addresses)
+		}
+		if len(inboundRule.Sources.LoadBalancerUIDs) > 0 {
+			rule += fmt.Sprintf(" LoadBalancerUIDsSources:%s", inboundRule.Sources.LoadBalancerUIDs)
+		}
 	}
 
 	rule += ruleClosingToken

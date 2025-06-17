@@ -57,6 +57,7 @@ const (
 	publicAccessFirewallTagsEnv string = "PUBLIC_ACCESS_FIREWALL_TAGS"
 	regionEnv                   string = "REGION"
 	doAPIRateLimitQPSEnv        string = "DO_API_RATE_LIMIT_QPS"
+	defaultLBTypeEnv            string = "DEFAULT_LB_TYPE"
 )
 
 var version string
@@ -77,6 +78,7 @@ type cloud struct {
 	instances     cloudprovider.InstancesV2
 	loadbalancers cloudprovider.LoadBalancer
 	metrics       metrics
+	defaultLBType string
 
 	resources *resources
 
@@ -157,14 +159,19 @@ func newCloud() (cloudprovider.Interface, error) {
 		addr = fmt.Sprintf("%s:%s", addrHost, addrPort)
 	}
 
+	defaultLBType := godo.LoadBalancerTypeRegionalNetwork
+	if lbType := os.Getenv(defaultLBTypeEnv); lbType == godo.LoadBalancerTypeRegional || lbType == godo.LoadBalancerTypeRegionalNetwork {
+		defaultLBType = lbType
+	}
+
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(resources, region),
-		loadbalancers: newLoadBalancers(resources, region),
+		loadbalancers: newLoadBalancers(resources, region, defaultLBType),
 		metrics:       newMetrics(addr),
 		resources:     resources,
-
-		httpServer: httpServer,
+		defaultLBType: defaultLBType,
+		httpServer:    httpServer,
 	}, nil
 }
 
@@ -198,6 +205,7 @@ func (c *cloud) Initialize(clientBuilder cloudprovider.ControllerClientBuilder, 
 		workerFirewallName: c.resources.firewall.name,
 		workerFirewallTags: c.resources.firewall.tags,
 		metrics:            c.metrics,
+		defaultLBType:      c.defaultLBType,
 	}
 	ctx := context.Background()
 	fc := NewFirewallController(c.resources.kclient, c.client, sharedInformer.Core().V1().Services(), fm)

@@ -4680,6 +4680,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				region:            "nyc3",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
 			}
 			if test.lbr != nil {
 				test.lbr.Firewall = &godo.LBFirewall{}
@@ -4766,9 +4767,10 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 			fakeResources.clusterVPCID = test.vpcID
 
 			lb := &loadBalancers{
-				resources: fakeResources,
-				region:    "nyc3",
-				clusterID: clusterID,
+				resources:     fakeResources,
+				region:        "nyc3",
+				clusterID:     clusterID,
+				defaultLBType: godo.LoadBalancerTypeRegionalNetwork,
 			}
 
 			lbr, err := lb.buildLoadBalancerRequest(context.Background(), service, nodes)
@@ -5819,6 +5821,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				region:            "nyc1",
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
+				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
 			}
 
 			// clusterName param in EnsureLoadBalancer currently not used
@@ -6312,7 +6315,7 @@ func Test_getType(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			lbType, err := getType(test.service)
+			lbType, err := getType(test.service, godo.LoadBalancerTypeRegionalNetwork)
 			if test.wantErr != (err != nil) {
 				t.Errorf("got error %q, want error: %t", err, test.wantErr)
 			}

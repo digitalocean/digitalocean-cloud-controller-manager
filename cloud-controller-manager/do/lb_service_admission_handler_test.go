@@ -399,7 +399,7 @@ func TestHandle(t *testing.T) {
 				updateFn: tc.givenGodoUpdateFn,
 			}
 
-			admissionHandler := NewLBServiceAdmissionHandler(&logr.Logger{}, godoClient)
+			admissionHandler := NewLBServiceAdmissionHandler(&logr.Logger{}, godoClient, godo.LoadBalancerTypeRegionalNetwork)
 
 			resp := admissionHandler.Handle(context.Background(), tc.req)
 			if string(resp.Result.Message) != tc.expectedMessage {
