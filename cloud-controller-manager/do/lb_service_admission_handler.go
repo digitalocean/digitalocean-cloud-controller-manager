@@ -183,8 +183,3 @@ func (a *LBServiceAdmissionHandler) WithVPCID(vpcID string) {
 func (a *LBServiceAdmissionHandler) WithClusterID(clusterID string) {
 	a.clusterID = clusterID
 }
-
-// WithDefaultLBType sets the defaultLBType field of the handler.
-func (a *LBServiceAdmissionHandler) WithDefaultLBType(defaultLBType string) {
-	a.defaultLBType = defaultLBType
-}

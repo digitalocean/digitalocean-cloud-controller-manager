@@ -86,9 +86,6 @@ func startAdmissionServer() error {
 	vpcID := os.Getenv(doClusterVPCIDEnv)
 	lbAdmissionHandler.WithVPCID(vpcID)
 
-	// Default LB Type
-	lbAdmissionHandler.WithDefaultLBType(defaultLBType)
-
 	ll.Info("registering admission handlers")
 	server.Register("/lb-service", &webhook.Admission{Handler: lbAdmissionHandler})
 
