@@ -26,6 +26,7 @@ import (
 
 	"github.com/digitalocean/godo"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cloudprovider "k8s.io/cloud-provider"
 )
 
@@ -92,10 +93,47 @@ func (i *instances) InstanceShutdown(ctx context.Context, node *v1.Node) (bool, 
 	return droplet.Status == dropletShutdownStatus, nil
 }
 
-func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloudprovider.InstanceMetadata, error) {
-	dropletID, err := dropletIDFromProviderID(node.Spec.ProviderID)
+// dropletByName returns a *godo.Droplet for the droplet identified by nodeName.
+//
+// When nodeName identifies more than one droplet, only the first will be
+// considered.
+func dropletByName(ctx context.Context, client *godo.Client, nodeName types.NodeName) (*godo.Droplet, error) {
+	droplets, err := allDropletList(ctx, func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		return client.Droplets.ListByName(ctx, string(nodeName), opt)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("determining droplet ID from providerID: %s", err.Error())
+		return nil, err
+	}
+
+	for _, droplet := range droplets {
+		if droplet.Name == string(nodeName) {
+			return &droplet, nil
+		}
+		addresses, _ := nodeAddresses(&droplet)
+		for _, address := range addresses {
+			if address.Address == string(nodeName) {
+				return &droplet, nil
+			}
+		}
+	}
+
+	return nil, cloudprovider.InstanceNotFound
+}
+
+func (i *instances) InstanceMetadata(ctx context.Context, node *v1.Node) (*cloudprovider.InstanceMetadata, error) {
+	var dropletID int
+	var err error
+	if node.Spec.ProviderID == "" {
+		droplet, err := dropletByName(ctx, i.resources.gclient, types.NodeName(node.GetName()))
+		if err != nil {
+			return nil, fmt.Errorf("getting droplet by name: %s", err.Error())
+		}
+		dropletID = droplet.ID
+	} else {
+		dropletID, err = dropletIDFromProviderID(node.Spec.ProviderID)
+		if err != nil {
+			return nil, fmt.Errorf("determining droplet ID from providerID: %s", err.Error())
+		}
 	}
 
 	droplet, err := dropletByID(ctx, i.resources.gclient, dropletID)
