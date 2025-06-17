@@ -26,7 +26,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	"github.com/digitalocean/godo"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +36,8 @@ import (
 	crlog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/digitalocean/digitalocean-cloud-controller-manager/cloud-controller-manager/do"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -110,7 +111,7 @@ func TestMain(m *testing.M) {
 		Port:    testEnv.WebhookInstallOptions.LocalServingPort,
 		CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
 	})
-	server.Register("/lb-service", &webhook.Admission{Handler: do.NewLBServiceAdmissionHandler(&log, godoClient)})
+	server.Register("/lb-service", &webhook.Admission{Handler: do.NewLBServiceAdmissionHandler(&log, godoClient, godo.LoadBalancerTypeRegionalNetwork)})
 
 	//+kubebuilder:scaffold:scheme
 
