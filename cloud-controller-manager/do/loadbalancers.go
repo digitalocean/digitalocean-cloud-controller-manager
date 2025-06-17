@@ -80,7 +80,6 @@ const (
 
 var (
 	errLBNotFound = errors.New("loadbalancer not found")
-	defaultLBType = godo.LoadBalancerTypeRegionalNetwork
 )
 
 func buildK8sTag(val string) string {
@@ -93,6 +92,7 @@ type loadBalancers struct {
 	clusterID         string
 	lbActiveTimeout   int
 	lbActiveCheckTick int
+	defaultLBType     string
 }
 
 type servicePatcher struct {
@@ -121,12 +121,13 @@ func (sp *servicePatcher) Patch(ctx context.Context, err error) error {
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
-func newLoadBalancers(resources *resources, region string) cloudprovider.LoadBalancer {
+func newLoadBalancers(resources *resources, region string, defaultLBType string) cloudprovider.LoadBalancer {
 	return &loadBalancers{
 		resources:         resources,
 		region:            region,
 		lbActiveTimeout:   defaultActiveTimeout,
 		lbActiveCheckTick: defaultActiveCheckTick,
+		defaultLBType:     defaultLBType,
 	}
 }
 
@@ -572,10 +573,10 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 	return dropletIDs, nil
 }
 
-func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClient *godo.Client) (*godo.LoadBalancerRequest, error) {
+func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClient *godo.Client, defaultLBType string) (*godo.LoadBalancerRequest, error) {
 	lbName := getLoadBalancerName(service)
 
-	lbType, err := getType(service)
+	lbType, err := getType(service, defaultLBType)
 	if err != nil {
 		return nil, err
 	}
@@ -674,7 +675,7 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	req, err := buildLoadBalancerRequest(ctx, service, l.resources.gclient)
+	req, err := buildLoadBalancerRequest(ctx, service, l.resources.gclient, l.defaultLBType)
 	if err != nil {
 		return nil, err
 	}
@@ -1425,7 +1426,7 @@ func getDisownLB(service *v1.Service) (bool, error) {
 	return disownLB, nil
 }
 
-func getType(service *v1.Service) (string, error) {
+func getType(service *v1.Service, defaultLBType string) (string, error) {
 	name, ok := service.Annotations[annDOType]
 	if !ok || name == "" {
 		return defaultLBType, nil

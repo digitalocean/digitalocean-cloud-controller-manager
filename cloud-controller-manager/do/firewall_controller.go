@@ -87,6 +87,7 @@ type firewallManager struct {
 	workerFirewallName string
 	workerFirewallTags []string
 	metrics            metrics
+	defaultLBType      string
 }
 
 // FirewallController helps to keep cloud provider service firewalls in sync.
@@ -320,7 +321,7 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 				)
 			}
 		} else if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
-			lbType, err := getType(svc)
+			lbType, err := getType(svc, fm.defaultLBType)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get load balancer type for service %s/%s: %v", svc.Namespace, svc.Name, err)
 			}
