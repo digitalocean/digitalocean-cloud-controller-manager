@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.62 (beta) - June 18, 2025
+
 * Add optional `DEFAULT_LB_TYPE` environment variable to configure the default load balancer type between `REGIONAL` and `REGIONAL_NETWORK` (@olove)
 * Restrict the kube-proxy health port to be accessible by the load balancer only instead of allowing all IPv4 and IPv6 addresses (@olove)
 * Fixes an issue with nodes that don't have their providerID set from the kubelet configuration. From now on, 
