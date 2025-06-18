@@ -29,12 +29,13 @@ import (
 // are very large and the response gets too big with 200 objects
 const apiResultsPerPage = 50
 
-func allDropletList(ctx context.Context, client *godo.Client) ([]godo.Droplet, error) {
-	list := []godo.Droplet{}
+func allDropletList(ctx context.Context, listFunc func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)) ([]godo.Droplet, error) {
+	var list []godo.Droplet
 
 	opt := &godo.ListOptions{Page: 1, PerPage: apiResultsPerPage}
 	for {
-		droplets, resp, err := client.Droplets.List(ctx, opt)
+		droplets, resp, err := listFunc(ctx, opt)
+
 		if err != nil {
 			return nil, err
 		}

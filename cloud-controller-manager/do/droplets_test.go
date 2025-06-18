@@ -339,6 +339,57 @@ func TestInstanceMetadata(t *testing.T) {
 	}
 }
 
+func TestInstanceMetadataWithoutProviderID(t *testing.T) {
+	fake := &fakeDropletService{}
+	fake.listByNameFunc = func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		droplet := newFakeDroplet()
+		resp := newFakeOKResponse()
+		return []godo.Droplet{*droplet}, resp, nil
+	}
+	res := &resources{gclient: newFakeDropletClient(fake)}
+	instances := newInstances(res, "nyc1")
+
+	expectedAddresses := []v1.NodeAddress{
+		{
+			Type:    v1.NodeHostName,
+			Address: "test-droplet",
+		},
+		{
+			Type:    v1.NodeInternalIP,
+			Address: "10.0.0.0",
+		},
+		{
+			Type:    v1.NodeExternalIP,
+			Address: "99.99.99.99",
+		},
+	}
+
+	metadata, err := instances.InstanceMetadata(context.TODO(), &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-droplet",
+		},
+		Spec: v1.NodeSpec{},
+	})
+	if err != nil {
+		t.Errorf("unexpected err, expected nil. got: %v", err)
+	}
+
+	if !reflect.DeepEqual(metadata.NodeAddresses, expectedAddresses) {
+		t.Errorf("unexpected node addresses. got: %v want: %v", metadata.NodeAddresses, expectedAddresses)
+	}
+
+	if metadata.ProviderID != "digitalocean://123" {
+		t.Errorf("unexpected node providerID. got: %v, want: %v", metadata.ProviderID, "digitalocean://123")
+	}
+
+	if metadata.InstanceType != "2gb" {
+		t.Errorf("unexpected node instance type. got: %v want: %v", metadata.InstanceType, newFakeDroplet().SizeSlug)
+	}
+	if metadata.Region != "test1" {
+		t.Errorf("unexpected node region. got: %v want: %v", metadata.Region, newFakeDroplet().Region)
+	}
+}
+
 func Test_dropletIDFromProviderID(t *testing.T) {
 	testcases := []struct {
 		name       string

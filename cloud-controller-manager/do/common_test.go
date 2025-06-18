@@ -122,7 +122,9 @@ func TestAllDropletList(t *testing.T) {
 		},
 	)
 
-	droplets, err := allDropletList(context.Background(), client)
+	droplets, err := allDropletList(context.Background(), func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+		return client.Droplets.List(ctx, opt)
+	})
 	if err != nil {
 		t.Fatalf("unexpected err: %s", err)
 	}

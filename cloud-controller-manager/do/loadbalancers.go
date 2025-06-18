@@ -533,7 +533,9 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 
 	if len(missingDroplets) > 0 {
 		// Discover missing droplets by matching names.
-		droplets, err := allDropletList(ctx, l.resources.gclient)
+		droplets, err := allDropletList(ctx, func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+			return l.resources.gclient.Droplets.List(ctx, opt)
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list all droplets: %s", err)
 		}
