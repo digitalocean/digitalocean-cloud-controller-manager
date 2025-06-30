@@ -369,9 +369,13 @@ type AppIngressSpecRuleStringMatch struct {
 
 // AppInstance struct for AppInstance
 type AppInstance struct {
-	ComponentName string                   `json:"component_name,omitempty"`
+	// The name of the component this instance belongs to.
+	ComponentName string `json:"component_name,omitempty"`
+	// The unique name identifying this specific instance.
 	InstanceName  string                   `json:"instance_name,omitempty"`
 	ComponentType AppInstanceComponentType `json:"component_type,omitempty"`
+	// An optional alias for the instance, used for display or identification.
+	InstanceAlias string `json:"instance_alias,omitempty"`
 }
 
 // AppInstanceComponentType the model 'AppInstanceComponentType'
@@ -602,6 +606,12 @@ type AppSpec struct {
 	Egress      *AppEgressSpec      `json:"egress,omitempty"`
 	Features    []string            `json:"features,omitempty"`
 	Maintenance *AppMaintenanceSpec `json:"maintenance,omitempty"`
+	// Specification to disable edge (CDN) cache for all domains of the app. Note that this feature is in private preview.
+	DisableEdgeCache bool `json:"disable_edge_cache,omitempty"`
+	// Specification to disable email obfuscation.
+	DisableEmailObfuscation bool `json:"disable_email_obfuscation,omitempty"`
+	// Specification to enable enhanced threat control mode, which takes necessary steps to prevent layer 7 DDoS for all domains of the app. Note that this feature is in private preview.
+	EnhancedThreatControlEnabled bool `json:"enhanced_threat_control_enabled,omitempty"`
 }
 
 // AppStaticSiteSpec struct for AppStaticSiteSpec
