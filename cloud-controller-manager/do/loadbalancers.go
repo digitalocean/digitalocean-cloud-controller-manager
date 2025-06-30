@@ -284,7 +284,7 @@ func getCertificateIDFromLB(lb *godo.LoadBalancer) string {
 // annotation on the Service gets newly-updated certificate ID from the
 // Load Balancer.
 func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, service *v1.Service, lbCertID, serviceCertID string) error {
-	if lbCertID != "" && lbCertID != serviceCertID {
+	if lbCertID != "" && serviceCertID != "" && lbCertID != serviceCertID {
 		lbCert, _, err := l.resources.gclient.Certificates.Get(ctx, lbCertID)
 		if err != nil {
 			respErr, ok := err.(*godo.ErrorResponse)
