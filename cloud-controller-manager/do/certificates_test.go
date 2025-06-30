@@ -239,6 +239,24 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 			expectedLBCertID:      "lb-cert-id",
 			expectedLBCertName:    "meow1",
 		},
+		{
+			name: "[lets_encrypt] LB cert ID exists, service cert annotation nonexistant",
+			setupFn: func(lbService fakeLBService, certService kvCertService) *v1.Service {
+				lb, cert := createHTTPSLB("test-lb-id", "lb-cert-id", certTypeLetsEncrypt)
+				lbService.store[lb.ID] = lb
+				cert.Name = "meow1"
+				certService.store[cert.ID] = cert
+
+				svcert := createCertWithName("service-cert-id", "meow1", certTypeLetsEncrypt)
+
+				service := createService(lb.ID)
+				certService.store[svcert.ID] = svcert
+				return service
+			},
+			expectedServiceCertID: "",
+			expectedLBCertID:      "",
+			expectedLBCertName:    "",
+		},
 		// custom test cases
 		{
 			name: "[custom] LB cert ID and service cert ID match",
