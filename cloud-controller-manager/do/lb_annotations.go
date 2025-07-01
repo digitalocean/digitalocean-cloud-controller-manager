@@ -178,11 +178,16 @@ const (
 	// e.g. - ip:1.2.3.4,cidr:2.3.0.0/16
 	annDOAllowRules = annDOLoadBalancerBase + "allow-rules"
 
-	// annDOType is the annotation used to specify the type of the load balancer. Either REGIONAL or REGIONAL_NETWORK (currently in closed alpha)
+	// annDOType is the annotation used to specify the type of the load balancer. Either REGIONAL or REGIONAL_NETWORK
 	// are permitted. If no type is provided, then it will default REGIONAL.
 	annDOType = annDOLoadBalancerBase + "type"
 
-	// annDONetwork is the annotation used to specify the network type of the load balancer. Either EXTERNAL or INTERNAL (currently in closed alpha)
+	// annDONetwork is the annotation used to specify the network type of the load balancer. Either EXTERNAL or INTERNAL
 	// are permitted. If no network is provided, then it will default EXTERNAL.
 	annDONetwork = annDOLoadBalancerBase + "network"
+
+	// annDONetworkStack is the annotation used to specify the network stack of the load balancer. Either IPV4 or DUALSTACK
+	// are permitted. If load balancer type is REGIONAL then it will default to DUALSTACK. If load balancer type
+	// is REGIONAL_NETWORK then it will default to IPV4.
+	annDONetworkStack = annDOLoadBalancerBase + "network-stack"
 )
