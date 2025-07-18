@@ -242,11 +242,12 @@ Specifies what network addressing will be supported by the load balancer. Option
 
 **Note**
 
-"INTERNAL" load balancer does not support "DUALSTACK" networking
-"REGIONAL_NETWORK" load balancer for managed kubernetes does not support "DUALSTACK" networking
+- "INTERNAL" load balancer does not support "DUALSTACK" networking
+- "REGIONAL_NETWORK" load balancer for managed kubernetes does not support "DUALSTACK" networking
 
-For Load balancer IPv6 support with managed kubernetes please use:
-
+For Load balancer IPv6 support with managed kubernetes, please use:
+```
 do-loadbalancer-type: "REGIONAL"
 do-loadbalancer-network: "EXTERNAL"
 do-loadbalancer-network-stack: "DUALSTACK"
+```

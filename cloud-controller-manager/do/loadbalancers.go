@@ -1461,10 +1461,10 @@ func getNetwork(service *v1.Service) (string, error) {
 func getNetworkStack(service *v1.Service, lbType string, network string) (string, error) {
 	networkStack := service.Annotations[annDONetworkStack]
 	if networkStack == "" {
-		if network == godo.LoadBalancerNetworkTypeInternal || lbType == godo.LoadBalancerTypeRegionalNetwork {
-			return godo.LoadBalancerNetworkStackIPv4, nil
+		if network != godo.LoadBalancerNetworkTypeInternal && lbType != godo.LoadBalancerTypeRegionalNetwork {
+			return godo.LoadBalancerNetworkStackDualstack, nil
 		}
-		return godo.LoadBalancerNetworkStackDualstack, nil
+		return godo.LoadBalancerNetworkStackIPv4, nil
 	}
 	if !(networkStack == godo.LoadBalancerNetworkStackIPv4 || networkStack == godo.LoadBalancerNetworkStackDualstack) {
 		return "", fmt.Errorf("only LB network stacks supported are (%s, %s)", godo.LoadBalancerNetworkStackIPv4, godo.LoadBalancerNetworkStackDualstack)
