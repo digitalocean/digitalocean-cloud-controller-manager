@@ -5,7 +5,7 @@ go 1.24.3
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/digitalocean/godo v1.157.0
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/minio/minio-go v6.0.14+incompatible
