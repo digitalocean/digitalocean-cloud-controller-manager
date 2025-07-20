@@ -305,6 +305,12 @@ type AppFunctionsSpec struct {
 	CORS            *AppCORSPolicy           `json:"cors,omitempty"`
 }
 
+// AppHealth struct for AppHealth
+type AppHealth struct {
+	Components          []*ComponentHealth          `json:"components,omitempty"`
+	FunctionsComponents []*FunctionsComponentHealth `json:"functions_components,omitempty"`
+}
+
 // AppIngressSpec Specification for app ingress configurations.
 type AppIngressSpec struct {
 	LoadBalancer     AppIngressSpecLoadBalancer `json:"load_balancer,omitempty"`
@@ -369,9 +375,13 @@ type AppIngressSpecRuleStringMatch struct {
 
 // AppInstance struct for AppInstance
 type AppInstance struct {
-	ComponentName string                   `json:"component_name,omitempty"`
+	// The name of the component this instance belongs to.
+	ComponentName string `json:"component_name,omitempty"`
+	// The unique name identifying this specific instance.
 	InstanceName  string                   `json:"instance_name,omitempty"`
 	ComponentType AppInstanceComponentType `json:"component_type,omitempty"`
+	// An optional alias for the instance, used for display or identification.
+	InstanceAlias string `json:"instance_alias,omitempty"`
 }
 
 // AppInstanceComponentType the model 'AppInstanceComponentType'
@@ -602,6 +612,12 @@ type AppSpec struct {
 	Egress      *AppEgressSpec      `json:"egress,omitempty"`
 	Features    []string            `json:"features,omitempty"`
 	Maintenance *AppMaintenanceSpec `json:"maintenance,omitempty"`
+	// Specification to disable edge (CDN) cache for all domains of the app. Note that this feature is in private preview.
+	DisableEdgeCache bool `json:"disable_edge_cache,omitempty"`
+	// Specification to disable email obfuscation.
+	DisableEmailObfuscation bool `json:"disable_email_obfuscation,omitempty"`
+	// Specification to enable enhanced threat control mode, which takes necessary steps to prevent layer 7 DDoS for all domains of the app. Note that this feature is in private preview.
+	EnhancedThreatControlEnabled bool `json:"enhanced_threat_control_enabled,omitempty"`
 }
 
 // AppStaticSiteSpec struct for AppStaticSiteSpec
@@ -749,6 +765,26 @@ type DeploymentCauseDetailsGitPush struct {
 	CommitSHA     string               `json:"commit_sha,omitempty"`
 	CommitMessage string               `json:"commit_message,omitempty"`
 }
+
+// ComponentHealth struct for ComponentHealth
+type ComponentHealth struct {
+	Name               string                `json:"name,omitempty"`
+	CPUUsagePercent    float64               `json:"cpu_usage_percent,omitempty"`
+	MemoryUsagePercent float64               `json:"memory_usage_percent,omitempty"`
+	ReplicasDesired    int64                 `json:"replicas_desired,omitempty"`
+	ReplicasReady      int64                 `json:"replicas_ready,omitempty"`
+	State              ComponentHealthStatus `json:"state,omitempty"`
+}
+
+// ComponentHealthStatus the model 'ComponentHealthStatus'
+type ComponentHealthStatus string
+
+// List of ComponentHealthStatus
+const (
+	COMPONENTHEALTHSTATUS_Unknown   ComponentHealthStatus = "UNKNOWN"
+	COMPONENTHEALTHSTATUS_Healthy   ComponentHealthStatus = "HEALTHY"
+	COMPONENTHEALTHSTATUS_Unhealthy ComponentHealthStatus = "UNHEALTHY"
+)
 
 // AppCORSPolicy struct for AppCORSPolicy
 type AppCORSPolicy struct {
@@ -1110,9 +1146,27 @@ type AppDomainValidation struct {
 	TXTValue string `json:"txt_value,omitempty"`
 }
 
+// FunctionsComponentHealth struct for FunctionsComponentHealth
+type FunctionsComponentHealth struct {
+	Name                            string                             `json:"name,omitempty"`
+	FunctionsComponentHealthMetrics []*FunctionsComponentHealthMetrics `json:"functions_component_health_metrics,omitempty"`
+}
+
+// FunctionsComponentHealthMetrics struct for FunctionsComponentHealthMetrics
+type FunctionsComponentHealthMetrics struct {
+	MetricLabel string  `json:"metric_label,omitempty"`
+	MetricValue float64 `json:"metric_value,omitempty"`
+	TimeWindow  string  `json:"time_window,omitempty"`
+}
+
 // GetAppDatabaseConnectionDetailsResponse struct for GetAppDatabaseConnectionDetailsResponse
 type GetAppDatabaseConnectionDetailsResponse struct {
 	ConnectionDetails []*GetDatabaseConnectionDetailsResponse `json:"connection_details,omitempty"`
+}
+
+// GetAppHealthResponse struct for GetAppHealthResponse
+type GetAppHealthResponse struct {
+	AppHealth *AppHealth `json:"app_health,omitempty"`
 }
 
 // GetAppInstancesResponse struct for GetAppInstancesResponse
