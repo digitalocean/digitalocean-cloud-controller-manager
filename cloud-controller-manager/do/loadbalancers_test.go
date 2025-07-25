@@ -3701,6 +3701,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -3780,6 +3781,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -3871,6 +3873,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4007,6 +4010,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4086,6 +4090,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4166,6 +4171,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4246,6 +4252,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4386,6 +4393,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4470,6 +4478,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4564,6 +4573,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(false),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -4659,6 +4669,7 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 				DisableLetsEncryptDNSRecords: godo.PtrTo(true),
 				Network:                      godo.LoadBalancerNetworkTypeExternal,
+				NetworkStack:                 godo.LoadBalancerNetworkStackDualstack,
 			},
 			nil,
 		},
@@ -6401,6 +6412,144 @@ func Test_getNetwork(t *testing.T) {
 
 			if test.expected != nil && lbType != *test.expected {
 				t.Fatalf("got lb network %v, want %v", lbType, *test.expected)
+			}
+		})
+	}
+}
+
+func Test_getNetworkStack(t *testing.T) {
+	var (
+		ipv4      = godo.LoadBalancerNetworkStackIPv4
+		dualstack = godo.LoadBalancerNetworkStackDualstack
+	)
+	testcases := []struct {
+		name      string
+		service   *v1.Service
+		lbType    string
+		lbNetwork string
+		wantErr   bool
+		expected  *string
+	}{
+		{
+			name:      "lb type regional network with no annotation defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name:      "lb type regional with no annotation defaults to DUALSTACK",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name: "lb type regional with annotation set to IPV4",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackIPv4,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name: "lb type regional with annotation set to DUALSTACK",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name: "lb type regional network with annotation set to IPV4",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackIPv4,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name: "lb type regional network with annotation set to DUALSTACK",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   true,
+			expected:  nil,
+		},
+		{
+			name:      "internal regional lb defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name: "internal regional lb with annotation set to DUALSTACK",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			wantErr:   true,
+			expected:  nil,
+		},
+		{
+			name: "illegal value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						annDONetworkStack: "foo",
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   true,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			stack, err := getNetworkStack(test.service, test.lbType, test.lbNetwork)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+			if test.expected != nil && stack != *test.expected {
+				t.Fatalf("got network stack %v, want %v", stack, *test.expected)
+			}
+			if test.expected == nil && stack != "" {
+				t.Fatalf("expected nil/empty network stack, got %v", stack)
 			}
 		})
 	}
