@@ -586,6 +586,10 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 	if err != nil {
 		return nil, err
 	}
+	lbNetworkStack, err := getNetworkStack(service, lbType, lbNetwork)
+	if err != nil {
+		return nil, err
+	}
 	var forwardingRules []godo.ForwardingRule
 	if lbType == godo.LoadBalancerTypeRegionalNetwork {
 		forwardingRules, err = buildRegionalNetworkForwardingRule(service)
@@ -671,6 +675,7 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 		Firewall:                     fw,
 		Type:                         lbType,
 		Network:                      lbNetwork,
+		NetworkStack:                 lbNetworkStack,
 	}, nil
 }
 
@@ -1451,6 +1456,26 @@ func getNetwork(service *v1.Service) (string, error) {
 		return "", fmt.Errorf("only LB networks supported are (%s, %s)", godo.LoadBalancerNetworkTypeExternal, godo.LoadBalancerNetworkTypeInternal)
 	}
 	return network, nil
+}
+
+func getNetworkStack(service *v1.Service, lbType string, network string) (string, error) {
+	networkStack := service.Annotations[annDONetworkStack]
+	if networkStack == "" {
+		if network != godo.LoadBalancerNetworkTypeInternal && lbType != godo.LoadBalancerTypeRegionalNetwork {
+			return godo.LoadBalancerNetworkStackDualstack, nil
+		}
+		return godo.LoadBalancerNetworkStackIPv4, nil
+	}
+	if !(networkStack == godo.LoadBalancerNetworkStackIPv4 || networkStack == godo.LoadBalancerNetworkStackDualstack) {
+		return "", fmt.Errorf("only LB network stacks supported are (%s, %s)", godo.LoadBalancerNetworkStackIPv4, godo.LoadBalancerNetworkStackDualstack)
+	}
+	if lbType == godo.LoadBalancerTypeRegionalNetwork && networkStack == godo.LoadBalancerNetworkStackDualstack {
+		return "", fmt.Errorf("dual stack networking is not supported for regional network LB with kubernetes at this time")
+	}
+	if network == godo.LoadBalancerNetworkTypeInternal && networkStack == godo.LoadBalancerNetworkStackDualstack {
+		return "", fmt.Errorf("dual stack networking is not supported for internal load balancer")
+	}
+	return networkStack, nil
 }
 
 func findDups(lists ...[]int) []string {

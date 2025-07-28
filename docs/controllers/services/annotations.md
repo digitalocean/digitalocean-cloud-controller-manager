@@ -226,3 +226,28 @@ Specifies the comma separated ALLOW firewall rules for the load-balancer
 Rules must be in the format `{type}:{source}` (ex. `ip:1.2.3.4,cidr:2.3.0.0/16`).
 
 These rules will be ignored if `LoadBalancerSourceRanges` is set, which is the preferred way to enter allow rules.
+
+## service.beta.kubernetes.io/do-loadbalancer-type
+
+Specifies the type of the load balancer. Options are "REGIONAL" or "REGIONAL_NETWORK". Defaults to "REGIONAL_NETWORK"
+
+## service.beta.kubernetes.io/do-loadbalancer-network
+
+Specifies the network availability of the load balancer. Options are "EXTERNAL" and "INTERNAL". Defaults to "EXTERNAL"
+External load balancer will be accessible via the public internet. Internal load balancer will only be accessible via a members in the vpc.
+
+## service.beta.kubernetes.io/do-loadbalancer-network-stack
+
+Specifies what network addressing will be supported by the load balancer. Options are "IPV4" and "DUALSTACK". "DUALSTACK" is the option to support both IPv4 and IPv6 networking on the load balancer. If load balancer type is "REGIONAL" then it will default to "DUALSTACK". If load balancer type is "REGIONAL_NETWORK" then it will default to "IPV4".
+
+**Note**
+
+- "INTERNAL" load balancer does not support "DUALSTACK" networking
+- "REGIONAL_NETWORK" load balancer for managed kubernetes does not support "DUALSTACK" networking
+
+For Load balancer IPv6 support with managed kubernetes, please use:
+```
+do-loadbalancer-type: "REGIONAL"
+do-loadbalancer-network: "EXTERNAL"
+do-loadbalancer-network-stack: "DUALSTACK"
+```
