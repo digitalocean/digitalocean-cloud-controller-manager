@@ -1,5 +1,7 @@
 ## unreleased
 
+* Add network-stack annotation to allow configuration of IPV4 or DUALSTACK networking for load balancers (@jvasilevsky)
+
 ## v0.1.62 (beta) - June 18, 2025
 
 * Add optional `DEFAULT_LB_TYPE` environment variable to configure the default load balancer type between `REGIONAL` and `REGIONAL_NETWORK` (@olove)
