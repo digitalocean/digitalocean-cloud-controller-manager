@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.63 (beta) - August  4, 2025
+
 * Add network-stack annotation to allow configuration of IPV4 or DUALSTACK networking for load balancers (@jvasilevsky)
 
 ## v0.1.62 (beta) - June 18, 2025
