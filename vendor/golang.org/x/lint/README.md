@@ -56,14 +56,6 @@ Golint is meant to carry out the stylistic conventions put forth in
 [CodeReviewComments](https://golang.org/wiki/CodeReviewComments).
 Changes that are not aligned with those documents will not be considered.
 
-## Contributions
-
-Contributions to this project are welcome provided they are [in scope](#scope),
-though please send mail before starting work on anything major.
-Contributors retain their copyright, so we need you to fill out
-[a short form](https://developers.google.com/open-source/cla/individual)
-before we can accept your contribution.
-
 ## Vim
 
 Add this to your ~/.vimrc:

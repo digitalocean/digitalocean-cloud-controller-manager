@@ -1,5 +1,22 @@
 ## unreleased
 
+## v0.1.64 (beta) - October 8, 2025
+* Updates dependencies: (@okamidash)
+  - k8s.io/api v0.34.1
+	- k8s.io/apimachinery v0.34.1
+	- k8s.io/client-go v0.34.1
+	- k8s.io/cloud-provider v0.34.1
+	- k8s.io/component-base v0.34.1
+  - sigs.k8s.io/controller-runtime v0.22.2
+  - k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+  - github.com/digitalocean/godo@v1.165.1
+  - github.com/prometheus/client_golang@v1.23.2
+  -	golang.org/x/lint v0.0.0-20241112194109-818c5a804067
+	- golang.org/x/oauth2 v0.32.0
+	- golang.org/x/sync v0.17.0
+* Update actions/checkout to 5.0.0 (@dependabot)
+* Fixes an issue that caused CCM to crash when the certificate ID annotation is removed #845 (@okamidash)  
+
 ## v0.1.63 (beta) - August  4, 2025
 
 * Add network-stack annotation to allow configuration of IPV4 or DUALSTACK networking for load balancers (@jvasilevsky)
