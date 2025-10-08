@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.64 (beta) - October  8, 2025
+
 ## v0.1.64 (beta) - October 8, 2025
 * Updates dependencies: (@okamidash)
   - k8s.io/api v0.34.1
