@@ -143,7 +143,7 @@ func (r *ResourcesController) syncTags() error {
 	defer cancel()
 
 	svcs, err := r.svcLister.List(labels.Everything())
-	if err != err {
+	if err != nil {
 		return fmt.Errorf("failed to list services: %s", err)
 	}
 
