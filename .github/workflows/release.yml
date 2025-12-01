@@ -46,7 +46,7 @@ jobs:
           sha=$(git rev-parse HEAD)
           echo "TARGET_SHA=$sha" >> $GITHUB_ENV
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
