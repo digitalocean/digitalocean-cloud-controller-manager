@@ -36,20 +36,21 @@ import (
 )
 
 type fakeDropletService struct {
-	listFunc           func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
-	listWithGPUsFunc   func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
-	listByTagFunc      func(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
-	listByNameFunc     func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
-	getFunc            func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
-	createFunc         func(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
-	createMultipleFunc func(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
-	deleteFunc         func(ctx context.Context, dropletID int) (*godo.Response, error)
-	deleteByTagFunc    func(ctx context.Context, tag string) (*godo.Response, error)
-	kernelsFunc        func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Kernel, *godo.Response, error)
-	snapshotsFunc      func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error)
-	backupsFunc        func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error)
-	actionsFunc        func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error)
-	neighborsFunc      func(cxt context.Context, dropletID int) ([]godo.Droplet, *godo.Response, error)
+	listFunc                               func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listWithGPUsFunc                       func(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listByTagFunc                          func(ctx context.Context, tag string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	listByNameFunc                         func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error)
+	getFunc                                func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error)
+	createFunc                             func(ctx context.Context, createRequest *godo.DropletCreateRequest) (*godo.Droplet, *godo.Response, error)
+	createMultipleFunc                     func(ctx context.Context, createRequest *godo.DropletMultiCreateRequest) ([]godo.Droplet, *godo.Response, error)
+	deleteFunc                             func(ctx context.Context, dropletID int) (*godo.Response, error)
+	deleteByTagFunc                        func(ctx context.Context, tag string) (*godo.Response, error)
+	kernelsFunc                            func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Kernel, *godo.Response, error)
+	snapshotsFunc                          func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error)
+	backupsFunc                            func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error)
+	actionsFunc                            func(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error)
+	neighborsFunc                          func(ctx context.Context, dropletID int) ([]godo.Droplet, *godo.Response, error)
+	listAssociatedResourcesForDeletionFunc func(ctx context.Context, dropletID int) (*godo.DropletAssociatedResources, *godo.Response, error)
 }
 
 func (f *fakeDropletService) List(ctx context.Context, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
@@ -98,6 +99,9 @@ func (f *fakeDropletService) Snapshots(ctx context.Context, dropletID int, opt *
 
 func (f *fakeDropletService) Backups(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Image, *godo.Response, error) {
 	return f.backupsFunc(ctx, dropletID, opt)
+}
+func (f *fakeDropletService) ListAssociatedResourcesForDeletion(ctx context.Context, dropletID int) (*godo.DropletAssociatedResources, *godo.Response, error) {
+	return f.listAssociatedResourcesForDeletionFunc(ctx, dropletID)
 }
 
 func (f *fakeDropletService) GetBackupPolicy(ctx context.Context, dropletID int) (*godo.DropletBackupPolicy, *godo.Response, error) {
