@@ -1,6 +1,13 @@
 ## unreleased
 
-## v0.1.64 (beta) - October  8, 2025
+## v0.1.65 (beta) - January 14, 2026
+
+* Fix syncTags error handling bug (@gottwald)
+* Updates dependencies: (@dependabot)
+  - sigs.k8s.io/controller-runtime v0.22.4
+  - go.uber.org/zap v1.27.1
+  - golang.org/x/crypto v0.45.0
+* Update actions/checkout to 6.0.0 (@dependabot)
 
 ## v0.1.64 (beta) - October 8, 2025
 * Updates dependencies: (@okamidash)
