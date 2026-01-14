@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	libraryVersion = "1.165.1"
+	libraryVersion = "1.172.0"
 	defaultBaseURL = "https://api.digitalocean.com/"
 	userAgent      = "godo/" + libraryVersion
 	mediaType      = "application/json"
@@ -78,6 +78,8 @@ type Client struct {
 	Kubernetes          KubernetesService
 	LoadBalancers       LoadBalancersService
 	Monitoring          MonitoringService
+	Nfs                 NfsService
+	NfsActions          NfsActionsService
 	OneClick            OneClickService
 	Projects            ProjectsService
 	Regions             RegionsService
@@ -96,7 +98,7 @@ type Client struct {
 	UptimeChecks        UptimeChecksService
 	VPCs                VPCsService
 	PartnerAttachment   PartnerAttachmentService
-	GenAI               GenAIService
+	GradientAI          GradientAIService
 	BYOIPPrefixes       BYOIPPrefixesService
 	// Optional function called after every successful request made to the DO APIs
 	onRequestCompleted RequestCompletionCallback
@@ -304,6 +306,8 @@ func NewClient(httpClient *http.Client) *Client {
 	c.Kubernetes = &KubernetesServiceOp{client: c}
 	c.LoadBalancers = &LoadBalancersServiceOp{client: c}
 	c.Monitoring = &MonitoringServiceOp{client: c}
+	c.Nfs = &NfsServiceOp{client: c}
+	c.NfsActions = &NfsActionsServiceOp{client: c}
 	c.VPCNATGateways = &VPCNATGatewaysServiceOp{client: c}
 	c.OneClick = &OneClickServiceOp{client: c}
 	c.Projects = &ProjectsServiceOp{client: c}
@@ -324,7 +328,7 @@ func NewClient(httpClient *http.Client) *Client {
 	c.UptimeChecks = &UptimeChecksServiceOp{client: c}
 	c.VPCs = &VPCsServiceOp{client: c}
 	c.PartnerAttachment = &PartnerAttachmentServiceOp{client: c}
-	c.GenAI = &GenAIServiceOp{client: c}
+	c.GradientAI = &GradientAIServiceOp{client: c}
 
 	c.headers = make(map[string]string)
 
