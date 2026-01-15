@@ -112,6 +112,10 @@ func (f *fakeDropletService) ListSupportedBackupPolicies(ctx context.Context) ([
 	return nil, nil, fmt.Errorf("not necessary to implement")
 }
 
+func (f *fakeDropletService) ListAssociatedResourcesForDeletion(ctx context.Context, dropletID int) (*godo.DropletAssociatedResources, *godo.Response, error) {
+	return nil, nil, fmt.Errorf("not necessary to implement")
+}
+
 func (f *fakeDropletService) Actions(ctx context.Context, dropletID int, opt *godo.ListOptions) ([]godo.Action, *godo.Response, error) {
 	return f.actionsFunc(ctx, dropletID, opt)
 }
