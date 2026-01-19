@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.65 (beta) - January 19, 2026
+
 ## v0.1.65 (beta) - January 14, 2026
 
 * Fix syncTags error handling bug (@gottwald)
