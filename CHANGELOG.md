@@ -1,7 +1,5 @@
 ## unreleased
 
-## v0.1.65 (beta) - January 19, 2026
-
 ## v0.1.65 (beta) - January 14, 2026
 
 * Fix syncTags error handling bug (@gottwald)
@@ -9,6 +7,15 @@
   - sigs.k8s.io/controller-runtime v0.22.4
   - go.uber.org/zap v1.27.1
   - golang.org/x/crypto v0.45.0
+  - golang.org/x/sync v0.19.0
+  - k8s.io/api v0.35.0
+  - k8s.io/apimachinery v0.35.0
+  - k8s.io/client-go v0.35.0
+  - k8s.io/cloud-provider v0.35.0
+  - k8s.io/component-base v0.35.0
+  - k8s.io/klog/v2 v2.130.1
+  - k8s.io/utils v0.0.0-20260108192941-914a6e750570
+  - sigs.k8s.io/controller-runtime v0.22.4
 * Update actions/checkout to 6.0.0 (@dependabot)
 
 ## v0.1.64 (beta) - October 8, 2025
