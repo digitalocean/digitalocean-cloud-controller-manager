@@ -137,11 +137,20 @@ func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	}
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
 
-	publicIP, err := droplet.PublicIPv4()
-	if err != nil || publicIP == "" {
-		return nil, fmt.Errorf("could not get public ip: %v", err)
+	publicIPv4, err := droplet.PublicIPv4()
+	if err != nil || publicIPv4 == "" {
+		return nil, fmt.Errorf("could not get public ipv4: %v", err)
 	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIP})
+	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv4})
+
+	publicIPv6, err := droplet.PublicIPv6()
+	if err != nil {
+		return nil, fmt.Errorf("could not get public ipv6: %v", err)
+	}
+	if publicIPv6 != "" {
+		// not all instances come with ipv6 addresses
+		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv6})
+	}
 
 	return addresses, nil
 }

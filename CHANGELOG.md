@@ -1,5 +1,7 @@
 ## unreleased
 
+* Add public ipv6 node address handling (@gottwald)
+
 ## v0.1.65 (beta) - January 14, 2026
 
 * Fix syncTags error handling bug (@gottwald)
