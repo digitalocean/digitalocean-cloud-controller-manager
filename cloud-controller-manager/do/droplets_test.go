@@ -177,6 +177,65 @@ func newFakeShutdownDroplet() *godo.Droplet {
 	}
 }
 
+func newFakeDropletWithIPv6() *godo.Droplet {
+	droplet := newFakeDroplet()
+	droplet.Networks.V6 = []godo.NetworkV6{
+		{
+			IPAddress: "2604:a880:800:10::1",
+			Type:      "public",
+			Gateway:   "2604:a880:800:10::1",
+			Netmask:   64,
+		},
+	}
+	return droplet
+}
+
+func newFakeDropletWithoutNetworks() *godo.Droplet {
+	droplet := newFakeDroplet()
+	droplet.Networks = nil
+	return droplet
+}
+
+func newFakeDropletWithoutPrivateIP() *godo.Droplet {
+	return &godo.Droplet{
+		ID:       123,
+		Name:     "test-droplet",
+		SizeSlug: "2gb",
+		Networks: &godo.Networks{
+			V4: []godo.NetworkV4{
+				{
+					IPAddress: "99.99.99.99",
+					Type:      "public",
+				},
+			},
+		},
+		Region: &godo.Region{
+			Name: "test-region",
+			Slug: "test1",
+		},
+	}
+}
+
+func newFakeDropletWithoutPublicIPv4() *godo.Droplet {
+	return &godo.Droplet{
+		ID:       123,
+		Name:     "test-droplet",
+		SizeSlug: "2gb",
+		Networks: &godo.Networks{
+			V4: []godo.NetworkV4{
+				{
+					IPAddress: "10.0.0.0",
+					Type:      "private",
+				},
+			},
+		},
+		Region: &godo.Region{
+			Name: "test-region",
+			Slug: "test1",
+		},
+	}
+}
+
 var _ cloudprovider.InstancesV2 = new(instances)
 
 func TestInstanceExists(t *testing.T) {
@@ -232,7 +291,6 @@ func TestInstanceExists(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -291,106 +349,291 @@ func TestInstanceShutdown(t *testing.T) {
 }
 
 func TestInstanceMetadata(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.getFunc = func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		resp := newFakeOKResponse()
-		return droplet, resp, nil
-	}
-	res := &resources{gclient: newFakeDropletClient(fake)}
-	instances := newInstances(res, "nyc1")
-
-	expectedAddresses := []v1.NodeAddress{
+	tt := []struct {
+		name         string
+		providerID   string
+		fakeDroplet  *fakeDropletService
+		expectedMeta *cloudprovider.InstanceMetadata
+		expectedErr  string
+	}{
+		// ========== GROUP 1: With Provider ID ==========
 		{
-			Type:    v1.NodeHostName,
-			Address: "test-droplet",
-		},
-		{
-			Type:    v1.NodeInternalIP,
-			Address: "10.0.0.0",
-		},
-		{
-			Type:    v1.NodeExternalIP,
-			Address: "99.99.99.99",
-		},
-	}
-
-	metadata, err := instances.InstanceMetadata(context.TODO(), &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-droplet",
-		},
-		Spec: v1.NodeSpec{
-			ProviderID: "digitalocean://123",
-		},
-	})
-	if err != nil {
-		t.Errorf("unexpected err, expected nil. got: %v", err)
-	}
-
-	if !reflect.DeepEqual(metadata.NodeAddresses, expectedAddresses) {
-		t.Errorf("unexpected node addresses. got: %v want: %v", metadata.NodeAddresses, expectedAddresses)
-	}
-
-	if metadata.ProviderID != "digitalocean://123" {
-		t.Errorf("unexpected node providerID. got: %v, want: %v", metadata.ProviderID, "digitalocean://123")
-	}
-
-	if metadata.InstanceType != "2gb" {
-		t.Errorf("unexpected node instance type. got: %v want: %v", metadata.InstanceType, newFakeDroplet().SizeSlug)
-	}
-	if metadata.Region != "test1" {
-		t.Errorf("unexpected node region. got: %v want: %v", metadata.Region, newFakeDroplet().Region)
-	}
-}
-
-func TestInstanceMetadataWithoutProviderID(t *testing.T) {
-	fake := &fakeDropletService{}
-	fake.listByNameFunc = func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
-		droplet := newFakeDroplet()
-		resp := newFakeOKResponse()
-		return []godo.Droplet{*droplet}, resp, nil
-	}
-	res := &resources{gclient: newFakeDropletClient(fake)}
-	instances := newInstances(res, "nyc1")
-
-	expectedAddresses := []v1.NodeAddress{
-		{
-			Type:    v1.NodeHostName,
-			Address: "test-droplet",
+			name:       "with provider ID - IPv4 only",
+			providerID: "digitalocean://123",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return newFakeDroplet(), newFakeOKResponse(), nil
+				},
+			},
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+					{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+				},
+			},
 		},
 		{
-			Type:    v1.NodeInternalIP,
-			Address: "10.0.0.0",
+			name:       "with provider ID - IPv4 and IPv6",
+			providerID: "digitalocean://123",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return newFakeDropletWithIPv6(), newFakeOKResponse(), nil
+				},
+			},
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+					{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+					{Type: v1.NodeExternalIP, Address: "2604:a880:800:10::1"},
+				},
+			},
 		},
 		{
-			Type:    v1.NodeExternalIP,
-			Address: "99.99.99.99",
+			name:       "with provider ID - droplet not found",
+			providerID: "digitalocean://999",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotFoundResponse(), newFakeNotFoundErrorResponse()
+				},
+			},
+			expectedErr: "getting droplet by ID",
+		},
+		{
+			name:       "with provider ID - API error",
+			providerID: "digitalocean://123",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), &godo.ErrorResponse{
+						Response: &http.Response{
+							Request: &http.Request{
+								Method: "GET",
+								URL:    &url.URL{},
+							},
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewBufferString("internal error")),
+						},
+					}
+				},
+			},
+			expectedErr: "getting droplet by ID",
+		},
+		{
+			name:        "with provider ID - invalid provider ID format",
+			providerID:  "digitalocean:/123",
+			fakeDroplet: &fakeDropletService{},
+			expectedErr: "determining droplet ID from providerID",
+		},
+		{
+			name:       "with provider ID - missing networks",
+			providerID: "digitalocean://123",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return newFakeDropletWithoutNetworks(), newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting node addresses",
+		},
+		{
+			name:       "with provider ID - missing private IP",
+			providerID: "digitalocean://123",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return newFakeDropletWithoutPrivateIP(), newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting node addresses",
+		},
+		{
+			name:       "with provider ID - missing public IPv4",
+			providerID: "digitalocean://123",
+			fakeDroplet: &fakeDropletService{
+				getFunc: func(ctx context.Context, dropletID int) (*godo.Droplet, *godo.Response, error) {
+					return newFakeDropletWithoutPublicIPv4(), newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting node addresses",
+		},
+
+		// ========== GROUP 2: Without Provider ID ==========
+		{
+			name:       "without provider ID - IPv4 only",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{*newFakeDroplet()}, newFakeOKResponse(), nil
+				},
+			},
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+					{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+				},
+			},
+		},
+		{
+			name:       "without provider ID - IPv4 and IPv6",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{*newFakeDropletWithIPv6()}, newFakeOKResponse(), nil
+				},
+			},
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+					{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+					{Type: v1.NodeExternalIP, Address: "2604:a880:800:10::1"},
+				},
+			},
+		},
+		{
+			name:       "without provider ID - no droplets found",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{}, newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting droplet by name",
+		},
+		{
+			name:       "without provider ID - API error during list",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("API error")
+				},
+			},
+			expectedErr: "getting droplet by name",
+		},
+		{
+			name:       "without provider ID - multiple droplets same name",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					droplet1 := newFakeDroplet()
+					droplet2 := newFakeDroplet()
+					droplet2.ID = 456
+					return []godo.Droplet{*droplet1, *droplet2}, newFakeOKResponse(), nil
+				},
+			},
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+					{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+				},
+			},
+		},
+		{
+			name:       "without provider ID - missing networks",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{*newFakeDropletWithoutNetworks()}, newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting node addresses",
+		},
+		{
+			name:       "without provider ID - missing private IP",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{*newFakeDropletWithoutPrivateIP()}, newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting node addresses",
+		},
+		{
+			name:       "without provider ID - missing public IPv4",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{*newFakeDropletWithoutPublicIPv4()}, newFakeOKResponse(), nil
+				},
+			},
+			expectedErr: "getting node addresses",
 		},
 	}
 
-	metadata, err := instances.InstanceMetadata(context.TODO(), &v1.Node{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-droplet",
-		},
-		Spec: v1.NodeSpec{},
-	})
-	if err != nil {
-		t.Errorf("unexpected err, expected nil. got: %v", err)
-	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	if !reflect.DeepEqual(metadata.NodeAddresses, expectedAddresses) {
-		t.Errorf("unexpected node addresses. got: %v want: %v", metadata.NodeAddresses, expectedAddresses)
-	}
+			res := &resources{gclient: newFakeDropletClient(tc.fakeDroplet)}
+			instances := newInstances(res, "nyc1")
 
-	if metadata.ProviderID != "digitalocean://123" {
-		t.Errorf("unexpected node providerID. got: %v, want: %v", metadata.ProviderID, "digitalocean://123")
-	}
+			node := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-droplet",
+				},
+				Spec: v1.NodeSpec{
+					ProviderID: tc.providerID,
+				},
+			}
 
-	if metadata.InstanceType != "2gb" {
-		t.Errorf("unexpected node instance type. got: %v want: %v", metadata.InstanceType, newFakeDroplet().SizeSlug)
-	}
-	if metadata.Region != "test1" {
-		t.Errorf("unexpected node region. got: %v want: %v", metadata.Region, newFakeDroplet().Region)
+			metadata, err := instances.InstanceMetadata(context.TODO(), node)
+
+			// Check error cases
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tc.expectedErr)
+				}
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Fatalf("expected error containing %q, got: %v", tc.expectedErr, err)
+				}
+				if metadata != nil {
+					t.Fatalf("expected nil metadata on error, got: %v", metadata)
+				}
+				return
+			}
+
+			// Check success cases
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if metadata == nil {
+				t.Fatal("expected metadata, got nil")
+			}
+
+			// Validate metadata fields
+			if !reflect.DeepEqual(metadata.NodeAddresses, tc.expectedMeta.NodeAddresses) {
+				t.Errorf("node addresses mismatch\ngot:  %v\nwant: %v",
+					metadata.NodeAddresses, tc.expectedMeta.NodeAddresses)
+			}
+			if metadata.ProviderID != tc.expectedMeta.ProviderID {
+				t.Errorf("provider ID mismatch: got %v, want %v",
+					metadata.ProviderID, tc.expectedMeta.ProviderID)
+			}
+			if metadata.InstanceType != tc.expectedMeta.InstanceType {
+				t.Errorf("instance type mismatch: got %v, want %v",
+					metadata.InstanceType, tc.expectedMeta.InstanceType)
+			}
+			if metadata.Region != tc.expectedMeta.Region {
+				t.Errorf("region mismatch: got %v, want %v",
+					metadata.Region, tc.expectedMeta.Region)
+			}
+		})
 	}
 }
 
