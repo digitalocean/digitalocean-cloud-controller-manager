@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.174.0] - 2026-02-09
+
+- #946 - @blesswinsamuel - apps: Update app spec to support InactivitySleep configuration
+- #949 - @lprasanth-nadiminti - Add DOSettings with ServiceCnames support for database clusters
+- #945 - @v-amanjain-afk - switch performance tier of nfs share
+- #947 - @ZachEddy - apps: Add secure header app spec field to godo
+
+## [1.173.0] - 2026-01-22
+
+- #942 - @anup-deka - Fix data type
+- #941 - @v-amanjain-afk - removed deprecated region from nfs api
+
 ## [1.172.0] - 2026-01-13
 
 - #932 - @fumblehool - APPS-12654: Add CancelJobInvocation API
