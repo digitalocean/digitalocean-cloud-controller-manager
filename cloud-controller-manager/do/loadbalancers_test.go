@@ -196,6 +196,67 @@ func healthCheck(protocol string, port int, path string, proxyProtocol *bool) *g
 	}
 }
 
+// Test helpers for node creation
+
+// newNodeWithIPs creates a test node with specified IP addresses and ready state
+func newNodeWithIPs(name string, ipv4, ipv6 string, ready bool) *v1.Node {
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionTrue,
+				},
+			},
+			Addresses: []v1.NodeAddress{},
+		},
+	}
+
+	if !ready {
+		node.Status.Conditions[0].Status = v1.ConditionFalse
+	}
+
+	if ipv4 != "" {
+		node.Status.Addresses = append(node.Status.Addresses,
+			v1.NodeAddress{Type: v1.NodeExternalIP, Address: ipv4})
+	}
+
+	if ipv6 != "" {
+		node.Status.Addresses = append(node.Status.Addresses,
+			v1.NodeAddress{Type: v1.NodeExternalIP, Address: ipv6})
+	}
+
+	return node
+}
+
+// newNodeWithInternalIPOnly creates a test node with only internal IPs (for INTERNAL LB tests)
+func newNodeWithInternalIPOnly(name string, internalIP string, ready bool) *v1.Node {
+	node := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Status: v1.NodeStatus{
+			Conditions: []v1.NodeCondition{
+				{
+					Type:   v1.NodeReady,
+					Status: v1.ConditionTrue,
+				},
+			},
+			Addresses: []v1.NodeAddress{},
+		},
+	}
+
+	if !ready {
+		node.Status.Conditions[0].Status = v1.ConditionFalse
+	}
+
+	if internalIP != "" {
+		node.Status.Addresses = append(node.Status.Addresses,
+			v1.NodeAddress{Type: v1.NodeInternalIP, Address: internalIP})
+	}
+
+	return node
+}
+
 func Test_getAlgorithm(t *testing.T) {
 	testcases := []struct {
 		name      string
@@ -3663,21 +3724,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -3743,21 +3792,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -3829,21 +3866,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -3914,21 +3939,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			nil,
 			fmt.Errorf("no health check port of protocol TCP found"),
@@ -3972,21 +3985,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4052,21 +4053,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4132,21 +4121,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4213,21 +4190,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4294,21 +4259,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			nil,
 			fmt.Errorf("only one of LB size slug and size unit can be provided"),
@@ -4353,21 +4306,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4438,21 +4379,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4529,21 +4458,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4625,21 +4542,9 @@ func Test_buildLoadBalancerRequest(t *testing.T) {
 				},
 			},
 			[]*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			&godo.LoadBalancerRequest{
 				Name:       "afoobar123",
@@ -4755,11 +4660,7 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 				},
 			}
 			nodes := []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
 			}
 			fakeClient := newFakeDropletClient(
 				&fakeDropletService{
@@ -4825,21 +4726,9 @@ func Test_nodeToDropletIDs(t *testing.T) {
 		{
 			name: "node to droplet ids",
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			droplets: []godo.Droplet{
 				{
@@ -4860,21 +4749,9 @@ func Test_nodeToDropletIDs(t *testing.T) {
 		{
 			name: "node to droplet ID with droplets not in cluster",
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			droplets: []godo.Droplet{
 				{
@@ -5010,7 +4887,7 @@ func Test_nodeToDropletIDs(t *testing.T) {
 
 			if len(test.missingNames) > 0 {
 				klog.Flush()
-				wantErrMsg := fmt.Sprintf("Failed to find droplets for nodes %s", strings.Join(test.missingNames, " "))
+				wantErrMsg := fmt.Sprintf("Failed to find droplets for nodes: %s", formatNodeNameList(test.missingNames, 3))
 				gotErrMsg := logBuf.String()
 				if !strings.Contains(gotErrMsg, wantErrMsg) {
 					t.Errorf("got missing nodes error message %q, want %q contained", gotErrMsg, wantErrMsg)
@@ -5356,21 +5233,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -5433,21 +5298,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -5509,21 +5362,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -5589,21 +5430,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			},
 			newLoadBalancerID: stringP("other-load-balancer-id"),
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -5671,21 +5500,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 			},
 			newLoadBalancerType: stringP(godo.LoadBalancerTypeRegionalNetwork),
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: &v1.LoadBalancerStatus{
 				Ingress: []v1.LoadBalancerIngress{
@@ -5733,21 +5550,9 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				},
 			},
 			nodes: []*v1.Node{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-1",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-2",
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "node-3",
-					},
-				},
+				newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: nil,
 			err:      utilerrors.NewAggregate([]error{api.NewRetryError("load-balancer is currently being created", 15*time.Second)}),
@@ -6422,6 +6227,257 @@ func Test_getNetworkStack(t *testing.T) {
 		ipv4      = godo.LoadBalancerNetworkStackIPv4
 		dualstack = godo.LoadBalancerNetworkStackDualstack
 	)
+
+	// Helper to create nodeState
+	nodeStateAllDualStack := &nodeState{
+		readyNodes:       []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+		dualStackNodes:   []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+		hasDualStack:     true,
+		hasSingleStackV4: false,
+		allDualStack:     true,
+	}
+
+	nodeStateAllSingleStackV4 := &nodeState{
+		readyNodes:         []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
+		singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
+		hasSingleStackV4:   true,
+		hasDualStack:       false,
+		allDualStack:       false,
+	}
+
+	nodeStateMixed := &nodeState{
+		readyNodes: []*v1.Node{
+			newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+			newNodeWithIPs("node2", "10.0.0.2", "", true),
+		},
+		dualStackNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+		singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node2", "10.0.0.2", "", true)},
+		hasDualStack:       true,
+		hasSingleStackV4:   true,
+		allDualStack:       false,
+	}
+
+	testcases := []struct {
+		name      string
+		service   *v1.Service
+		lbType    string
+		lbNetwork string
+		nodeState *nodeState
+		wantErr   bool
+		expected  *string
+	}{
+		{
+			name:      "REGIONAL_NETWORK with all dualStack nodes defaults to DUALSTACK",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name:      "REGIONAL_NETWORK with singleStackV4 nodes defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllSingleStackV4,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name:      "REGIONAL_NETWORK with mixed nodes defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateMixed,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name:      "REGIONAL with any nodes defaults to DUALSTACK",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllSingleStackV4,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name: "REGIONAL with explicit IPV4 annotation",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackIPv4,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name: "REGIONAL with explicit DUALSTACK annotation",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllSingleStackV4,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name: "REGIONAL_NETWORK with explicit IPV4 annotation",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackIPv4,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name: "REGIONAL_NETWORK with explicit DUALSTACK and all dualStack nodes",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name: "REGIONAL_NETWORK with explicit DUALSTACK but singleStackV4 nodes - ERROR",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllSingleStackV4,
+			wantErr:   true,
+			expected:  nil,
+		},
+		{
+			name: "REGIONAL_NETWORK with explicit DUALSTACK but mixed nodes - ERROR",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateMixed,
+			wantErr:   true,
+			expected:  nil,
+		},
+		{
+			name:      "INTERNAL LB defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name: "INTERNAL LB with DUALSTACK annotation - ERROR",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   true,
+			expected:  nil,
+		},
+		{
+			name: "illegal network stack value",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: "foo",
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: nodeStateAllDualStack,
+			wantErr:   true,
+		},
+		{
+			name:      "no ready nodes - ERROR",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: &nodeState{readyNodes: []*v1.Node{}},
+			wantErr:   true,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			stack, err := getNetworkStack(test.service, test.lbType, test.lbNetwork, test.nodeState)
+			if test.wantErr != (err != nil) {
+				t.Errorf("got error %q, want error: %t", err, test.wantErr)
+			}
+			if test.expected != nil && stack != *test.expected {
+				t.Fatalf("got network stack %v, want %v", stack, *test.expected)
+			}
+			if test.expected == nil && stack != "" {
+				t.Fatalf("expected nil/empty network stack, got %v", stack)
+			}
+		})
+	}
+}
+
+func TestGetNetworkStackWithNilNodeState(t *testing.T) {
+	var (
+		ipv4      = godo.LoadBalancerNetworkStackIPv4
+		dualstack = godo.LoadBalancerNetworkStackDualstack
+	)
+
 	testcases := []struct {
 		name      string
 		service   *v1.Service
@@ -6431,53 +6487,35 @@ func Test_getNetworkStack(t *testing.T) {
 		expected  *string
 	}{
 		{
-			name:      "lb type regional network with no annotation defaults to IPV4",
-			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}},
+			name:      "INTERNAL LB with nil nodeState defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			wantErr:   false,
+			expected:  &ipv4,
+		},
+		{
+			name:      "REGIONAL LB with nil nodeState defaults to DUALSTACK",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			wantErr:   false,
+			expected:  &dualstack,
+		},
+		{
+			name:      "REGIONAL_NETWORK with nil nodeState defaults to IPV4",
+			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
 			lbType:    godo.LoadBalancerTypeRegionalNetwork,
 			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
 			wantErr:   false,
 			expected:  &ipv4,
 		},
 		{
-			name:      "lb type regional with no annotation defaults to DUALSTACK",
-			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}},
-			lbType:    godo.LoadBalancerTypeRegional,
-			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
-			wantErr:   false,
-			expected:  &dualstack,
-		},
-		{
-			name: "lb type regional with annotation set to IPV4",
+			name: "REGIONAL_NETWORK with explicit IPV4 annotation and nil nodeState",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annDONetworkStack: godo.LoadBalancerNetworkStackIPv4,
-					},
-				},
-			},
-			lbType:    godo.LoadBalancerTypeRegional,
-			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
-			wantErr:   false,
-			expected:  &ipv4,
-		},
-		{
-			name: "lb type regional with annotation set to DUALSTACK",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
-					},
-				},
-			},
-			lbType:    godo.LoadBalancerTypeRegional,
-			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
-			wantErr:   false,
-			expected:  &dualstack,
-		},
-		{
-			name: "lb type regional network with annotation set to IPV4",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
 					Annotations: map[string]string{
 						annDONetworkStack: godo.LoadBalancerNetworkStackIPv4,
 					},
@@ -6489,9 +6527,11 @@ func Test_getNetworkStack(t *testing.T) {
 			expected:  &ipv4,
 		},
 		{
-			name: "lb type regional network with annotation set to DUALSTACK",
+			name: "REGIONAL_NETWORK with explicit DUALSTACK annotation and nil nodeState - allowed (no validation)",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
 					Annotations: map[string]string{
 						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
 					},
@@ -6499,49 +6539,47 @@ func Test_getNetworkStack(t *testing.T) {
 			},
 			lbType:    godo.LoadBalancerTypeRegionalNetwork,
 			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
-			wantErr:   true,
-			expected:  nil,
-		},
-		{
-			name:      "internal regional lb defaults to IPV4",
-			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}}},
-			lbType:    godo.LoadBalancerTypeRegional,
-			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
 			wantErr:   false,
-			expected:  &ipv4,
+			expected:  &dualstack,
 		},
 		{
-			name: "internal regional lb with annotation set to DUALSTACK",
+			name: "INTERNAL with explicit DUALSTACK annotation - error even with nil nodeState",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			wantErr:   true,
+			expected:  nil,
+		},
+		{
+			name: "REGIONAL with explicit DUALSTACK annotation and nil nodeState",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
 					Annotations: map[string]string{
 						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
 					},
 				},
 			},
 			lbType:    godo.LoadBalancerTypeRegional,
-			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
-			wantErr:   true,
-			expected:  nil,
-		},
-		{
-			name: "illegal value",
-			service: &v1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						annDONetworkStack: "foo",
-					},
-				},
-			},
-			lbType:    godo.LoadBalancerTypeRegionalNetwork,
 			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
-			wantErr:   true,
+			wantErr:   false,
+			expected:  &dualstack,
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			stack, err := getNetworkStack(test.service, test.lbType, test.lbNetwork)
+			// Pass nil for nodeState to test admission path behavior
+			stack, err := getNetworkStack(test.service, test.lbType, test.lbNetwork, nil)
 			if test.wantErr != (err != nil) {
 				t.Errorf("got error %q, want error: %t", err, test.wantErr)
 			}
@@ -6550,6 +6588,977 @@ func Test_getNetworkStack(t *testing.T) {
 			}
 			if test.expected == nil && stack != "" {
 				t.Fatalf("expected nil/empty network stack, got %v", stack)
+			}
+		})
+	}
+}
+
+func TestClassifyNode(t *testing.T) {
+	testcases := []struct {
+		name     string
+		node     *v1.Node
+		expected nodeClassification
+	}{
+		{
+			name:     "single stack IPv4 node",
+			node:     newNodeWithIPs("node1", "10.0.0.1", "", true),
+			expected: nodeClassSingleStackV4,
+		},
+		{
+			name:     "single stack IPv6 node",
+			node:     newNodeWithIPs("node1", "", "2001:db8::1", true),
+			expected: nodeClassSingleStackV6,
+		},
+		{
+			name:     "dual stack node",
+			node:     newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+			expected: nodeClassDualStack,
+		},
+		{
+			name:     "node without external IPs",
+			node:     newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+			expected: nodeClassPublicNetUnready,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := classifyNode(test.node)
+			if result != test.expected {
+				t.Errorf("got %v, want %v", result, test.expected)
+			}
+		})
+	}
+}
+
+func TestFormatNodeNames(t *testing.T) {
+	testcases := []struct {
+		name     string
+		nodes    []*v1.Node
+		maxNodes int
+		expected string
+	}{
+		{
+			name:     "empty list",
+			nodes:    []*v1.Node{},
+			maxNodes: 3,
+			expected: "",
+		},
+		{
+			name: "single node",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+			},
+			maxNodes: 3,
+			expected: "node1",
+		},
+		{
+			name: "exactly at limit (3 nodes)",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node3", "10.0.0.3", "", true),
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+			},
+			maxNodes: 3,
+			expected: "node1, node2, node3", // Should be sorted
+		},
+		{
+			name: "one over limit (4 nodes, max 3)",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node4", "10.0.0.4", "", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+				newNodeWithIPs("node3", "10.0.0.3", "", true),
+			},
+			maxNodes: 3,
+			expected: "node1, node2, node3 [+1 more]",
+		},
+		{
+			name: "many over limit (10 nodes, max 3)",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node10", "10.0.0.10", "", true),
+				newNodeWithIPs("node5", "10.0.0.5", "", true),
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+				newNodeWithIPs("node7", "10.0.0.7", "", true),
+				newNodeWithIPs("node3", "10.0.0.3", "", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+				newNodeWithIPs("node9", "10.0.0.9", "", true),
+				newNodeWithIPs("node4", "10.0.0.4", "", true),
+				newNodeWithIPs("node6", "10.0.0.6", "", true),
+				newNodeWithIPs("node8", "10.0.0.8", "", true),
+			},
+			maxNodes: 3,
+			expected: "node1, node10, node2 [+7 more]", // Sorted alphabetically
+		},
+		{
+			name: "maxNodes of 0",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+			},
+			maxNodes: 0,
+			expected: " [+2 more]", // Edge case - should show all are hidden
+		},
+		{
+			name: "maxNodes of 1",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+			},
+			maxNodes: 1,
+			expected: "node1 [+1 more]",
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := formatNodeNames(test.nodes, test.maxNodes)
+			if result != test.expected {
+				t.Errorf("got %q, want %q", result, test.expected)
+			}
+		})
+	}
+}
+
+func TestFormatNodeNameList(t *testing.T) {
+	testcases := []struct {
+		name     string
+		names    []string
+		maxNodes int
+		expected string
+	}{
+		{
+			name:     "empty list",
+			names:    []string{},
+			maxNodes: 3,
+			expected: "",
+		},
+		{
+			name:     "single name",
+			names:    []string{"node1"},
+			maxNodes: 3,
+			expected: "node1",
+		},
+		{
+			name:     "exactly at limit",
+			names:    []string{"node3", "node1", "node2"},
+			maxNodes: 3,
+			expected: "node1, node2, node3", // Should be sorted
+		},
+		{
+			name:     "over limit",
+			names:    []string{"node4", "node2", "node1", "node3"},
+			maxNodes: 3,
+			expected: "node1, node2, node3 [+1 more]",
+		},
+		{
+			name:     "many over limit",
+			names:    []string{"node10", "node5", "node1", "node7", "node3"},
+			maxNodes: 3,
+			expected: "node1, node10, node3 [+2 more]",
+		},
+		{
+			name:     "already sorted input",
+			names:    []string{"node1", "node2", "node3", "node4"},
+			maxNodes: 2,
+			expected: "node1, node2 [+2 more]",
+		},
+		{
+			name:     "with numeric sorting (lexicographic)",
+			names:    []string{"node100", "node2", "node10", "node1", "node20"},
+			maxNodes: 3,
+			expected: "node1, node10, node100 [+2 more]", // Lexicographic sort
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := formatNodeNameList(test.names, test.maxNodes)
+			if result != test.expected {
+				t.Errorf("got %q, want %q", result, test.expected)
+			}
+		})
+	}
+}
+
+func TestIsNodeReady(t *testing.T) {
+	testcases := []struct {
+		name     string
+		node     *v1.Node
+		expected bool
+	}{
+		{
+			name:     "ready node",
+			node:     newNodeWithIPs("node1", "10.0.0.1", "", true),
+			expected: true,
+		},
+		{
+			name:     "not ready node",
+			node:     newNodeWithIPs("node1", "10.0.0.1", "", false),
+			expected: false,
+		},
+		{
+			name: "node without conditions",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status:     v1.NodeStatus{},
+			},
+			expected: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := isNodeReady(test.node)
+			if result != test.expected {
+				t.Errorf("got %v, want %v", result, test.expected)
+			}
+		})
+	}
+}
+
+func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
+	testcases := []struct {
+		name                  string
+		nodes                 []*v1.Node
+		isInternalLB          bool
+		expectedReadyCount    int
+		expectedFilteredCount int
+		expectedAllDualStack  bool
+		expectedSingleStackV4 []string
+		expectedDualStack     []string
+		expectedSingleStackV6 []string
+	}{
+		{
+			name: "all dual stack nodes",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node2", "10.0.0.2", "2001:db8::2", true),
+			},
+			isInternalLB:          false,
+			expectedReadyCount:    2,
+			expectedFilteredCount: 0,
+			expectedAllDualStack:  true,
+			expectedDualStack:     []string{"node1", "node2"},
+		},
+		{
+			name: "all single stack v4 nodes",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+			},
+			isInternalLB:          false,
+			expectedReadyCount:    2,
+			expectedFilteredCount: 0,
+			expectedAllDualStack:  false,
+			expectedSingleStackV4: []string{"node1", "node2"},
+		},
+		{
+			name: "mixed nodes",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+			},
+			isInternalLB:          false,
+			expectedReadyCount:    2,
+			expectedFilteredCount: 0,
+			expectedAllDualStack:  false,
+			expectedSingleStackV4: []string{"node2"},
+			expectedDualStack:     []string{"node1"},
+		},
+		{
+			name: "not ready nodes filtered",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node2", "10.0.0.2", "2001:db8::2", false),
+			},
+			isInternalLB:          false,
+			expectedReadyCount:    1,
+			expectedFilteredCount: 1,
+			expectedAllDualStack:  true,
+			expectedDualStack:     []string{"node1"},
+		},
+		{
+			name: "nodes without external IPs filtered",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithInternalIPOnly("node2", "192.168.1.1", true),
+			},
+			isInternalLB:          false,
+			expectedReadyCount:    1,
+			expectedFilteredCount: 1,
+			expectedAllDualStack:  true,
+			expectedDualStack:     []string{"node1"},
+		},
+		{
+			name: "IPv6-only nodes filtered",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node2", "", "2001:db8::2", true),
+			},
+			isInternalLB:          false,
+			expectedReadyCount:    1,
+			expectedFilteredCount: 1,
+			expectedAllDualStack:  true,
+			expectedDualStack:     []string{"node1"},
+			expectedSingleStackV6: []string{"node2"},
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := filterAndClassifyNodes(test.nodes, test.isInternalLB)
+
+			if len(result.readyNodes) != test.expectedReadyCount {
+				t.Errorf("ready nodes: got %d, want %d", len(result.readyNodes), test.expectedReadyCount)
+			}
+			if result.filteredCount != test.expectedFilteredCount {
+				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
+			}
+			if result.allDualStack != test.expectedAllDualStack {
+				t.Errorf("allDualStack: got %v, want %v", result.allDualStack, test.expectedAllDualStack)
+			}
+			// Compare slices, handling nil vs empty
+			if len(test.expectedSingleStackV4) > 0 && !reflect.DeepEqual(nodeNames(result.singleStackV4Nodes), test.expectedSingleStackV4) {
+				t.Errorf("singleStackV4Nodes: got %v, want %v", nodeNames(result.singleStackV4Nodes), test.expectedSingleStackV4)
+			}
+			if len(test.expectedDualStack) > 0 && !reflect.DeepEqual(nodeNames(result.dualStackNodes), test.expectedDualStack) {
+				t.Errorf("dualStackNodes: got %v, want %v", nodeNames(result.dualStackNodes), test.expectedDualStack)
+			}
+			if len(test.expectedSingleStackV6) > 0 && !reflect.DeepEqual(nodeNames(result.singleStackV6Nodes), test.expectedSingleStackV6) {
+				t.Errorf("singleStackV6Nodes: got %v, want %v", nodeNames(result.singleStackV6Nodes), test.expectedSingleStackV6)
+			}
+		})
+	}
+}
+
+func TestFilterAndClassifyNodes_InternalLB(t *testing.T) {
+	testcases := []struct {
+		name                  string
+		nodes                 []*v1.Node
+		expectedReadyCount    int
+		expectedFilteredCount int
+	}{
+		{
+			name: "ready nodes with public IPs allowed",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+				newNodeWithIPs("node2", "10.0.0.2", "", true),
+			},
+			expectedReadyCount:    2,
+			expectedFilteredCount: 0,
+		},
+		{
+			name: "ready nodes without public IPs allowed",
+			nodes: []*v1.Node{
+				newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+				newNodeWithInternalIPOnly("node2", "192.168.1.2", true),
+			},
+			expectedReadyCount:    2,
+			expectedFilteredCount: 0,
+		},
+		{
+			name: "not ready nodes filtered",
+			nodes: []*v1.Node{
+				newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+				newNodeWithInternalIPOnly("node2", "192.168.1.2", false),
+			},
+			expectedReadyCount:    1,
+			expectedFilteredCount: 1,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := filterAndClassifyNodes(test.nodes, true) // isInternalLB = true
+
+			if len(result.readyNodes) != test.expectedReadyCount {
+				t.Errorf("ready nodes: got %d, want %d", len(result.readyNodes), test.expectedReadyCount)
+			}
+			if result.filteredCount != test.expectedFilteredCount {
+				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
+			}
+		})
+	}
+}
+
+func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
+	testcases := []struct {
+		name                string
+		service             *v1.Service
+		nodes               []*v1.Node
+		expectEvent         bool
+		expectedEventReason string
+		expectedErrorType   error
+	}{
+		{
+			name: "network stack config error emits event - INTERNAL LB with DUALSTACK",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+						annDONetwork:      godo.LoadBalancerNetworkTypeInternal,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+			},
+			expectEvent:         true,
+			expectedEventReason: "LoadBalancerConfigError",
+			expectedErrorType:   ErrNetworkStackConfig,
+		},
+		{
+			name: "network stack config error emits event - REGIONAL_NETWORK with explicit DUALSTACK but IPv4-only nodes",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+						annDOType:         godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "", true),
+			},
+			expectEvent:         true,
+			expectedEventReason: "LoadBalancerConfigError",
+			expectedErrorType:   ErrNetworkStackConfig,
+		},
+		{
+			name: "non-config error does not emit event - no ready nodes",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes:               []*v1.Node{},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil,
+		},
+		{
+			name: "success case does not emit event",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOProtocol: "http",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+			},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			// Create fake Kubernetes client
+			fakeClient := newFakeDropletClient(&fakeDropletService{
+				listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{
+						{ID: 100, Name: "node1"},
+					}, newFakeOKResponse(), nil
+				},
+			})
+			fakeResources := newResources("", "", publicAccessFirewall{}, fakeClient)
+			fakeResources.kclient = fake.NewSimpleClientset()
+
+			// Create the service in the fake clientset
+			if _, err := fakeResources.kclient.CoreV1().Services(test.service.Namespace).Create(
+				context.Background(), test.service, metav1.CreateOptions{}); err != nil {
+				t.Fatalf("failed to create service: %v", err)
+			}
+
+			lb := &loadBalancers{
+				resources:         fakeResources,
+				region:            "nyc3",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
+			}
+
+			// Call buildLoadBalancerRequest
+			_, err := lb.buildLoadBalancerRequest(context.Background(), test.service, test.nodes)
+
+			// Check error type
+			if test.expectedErrorType != nil {
+				if err == nil {
+					t.Fatalf("expected error of type %v, got nil", test.expectedErrorType)
+				}
+				if !errors.Is(err, test.expectedErrorType) {
+					t.Errorf("expected error to wrap %v, got: %v", test.expectedErrorType, err)
+				}
+			}
+
+			// Check event emission
+			events, err := fakeResources.kclient.CoreV1().Events(test.service.Namespace).List(
+				context.Background(), metav1.ListOptions{})
+			if err != nil {
+				t.Fatalf("failed to list events: %v", err)
+			}
+
+			if test.expectEvent {
+				if len(events.Items) == 0 {
+					t.Fatalf("expected event to be created, but none found")
+				}
+
+				foundEvent := false
+				for _, event := range events.Items {
+					if event.Reason == test.expectedEventReason &&
+						event.InvolvedObject.Name == test.service.Name &&
+						event.Type == v1.EventTypeWarning {
+						foundEvent = true
+						// Verify event details
+						if event.InvolvedObject.Kind != "Service" {
+							t.Errorf("event involved object kind: got %s, want Service", event.InvolvedObject.Kind)
+						}
+						if event.InvolvedObject.UID != test.service.UID {
+							t.Errorf("event involved object UID: got %s, want %s", event.InvolvedObject.UID, test.service.UID)
+						}
+						if event.Source.Component != "digitalocean-cloud-controller-manager" {
+							t.Errorf("event source component: got %s, want digitalocean-cloud-controller-manager", event.Source.Component)
+						}
+						// Verify the error message is in the event
+						if !strings.Contains(event.Message, "dual") {
+							t.Errorf("event message should contain error details, got: %s", event.Message)
+						}
+						break
+					}
+				}
+				if !foundEvent {
+					t.Errorf("expected event with reason %s not found. Events: %+v", test.expectedEventReason, events.Items)
+				}
+			} else {
+				if len(events.Items) > 0 {
+					t.Errorf("expected no events, but found %d: %+v", len(events.Items), events.Items)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildLoadBalancerRequest_NodeLess(t *testing.T) {
+	testcases := []struct {
+		name             string
+		service          *v1.Service
+		defaultLBType    string
+		expectError      bool
+		expectedLBType   string
+		expectedNetwork  string
+		expectedNetStack string
+		expectDropletIDs bool
+	}{
+		{
+			name: "REGIONAL_NETWORK service without annotation defaults to IPV4",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-svc",
+					Namespace: "default",
+					UID:       "abc123",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeLoadBalancer,
+					Ports: []v1.ServicePort{
+						{Port: 80, NodePort: 30000, Protocol: v1.ProtocolTCP},
+					},
+				},
+			},
+			defaultLBType:    godo.LoadBalancerTypeRegionalNetwork,
+			expectError:      false,
+			expectedLBType:   godo.LoadBalancerTypeRegionalNetwork,
+			expectedNetwork:  godo.LoadBalancerNetworkTypeExternal,
+			expectedNetStack: godo.LoadBalancerNetworkStackIPv4,
+			expectDropletIDs: false,
+		},
+		{
+			name: "REGIONAL service defaults to DUALSTACK",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-svc",
+					Namespace: "default",
+					UID:       "abc123",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeLoadBalancer,
+					Ports: []v1.ServicePort{
+						{Port: 80, NodePort: 30000, Protocol: v1.ProtocolTCP},
+					},
+				},
+			},
+			defaultLBType:    godo.LoadBalancerTypeRegional,
+			expectError:      false,
+			expectedLBType:   godo.LoadBalancerTypeRegional,
+			expectedNetwork:  godo.LoadBalancerNetworkTypeExternal,
+			expectedNetStack: godo.LoadBalancerNetworkStackDualstack,
+			expectDropletIDs: false,
+		},
+		{
+			name: "REGIONAL_NETWORK with explicit DUALSTACK annotation - allowed without validation",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-svc",
+					Namespace: "default",
+					UID:       "abc123",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeLoadBalancer,
+					Ports: []v1.ServicePort{
+						{Port: 80, NodePort: 30000, Protocol: v1.ProtocolTCP},
+					},
+				},
+			},
+			defaultLBType:    godo.LoadBalancerTypeRegionalNetwork,
+			expectError:      false,
+			expectedLBType:   godo.LoadBalancerTypeRegionalNetwork,
+			expectedNetwork:  godo.LoadBalancerNetworkTypeExternal,
+			expectedNetStack: godo.LoadBalancerNetworkStackDualstack,
+			expectDropletIDs: false,
+		},
+		{
+			name: "INTERNAL LB defaults to IPV4",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-svc",
+					Namespace: "default",
+					UID:       "abc123",
+					Annotations: map[string]string{
+						annDONetwork: godo.LoadBalancerNetworkTypeInternal,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeLoadBalancer,
+					Ports: []v1.ServicePort{
+						{Port: 80, NodePort: 30000, Protocol: v1.ProtocolTCP},
+					},
+				},
+			},
+			defaultLBType:    godo.LoadBalancerTypeRegionalNetwork,
+			expectError:      false,
+			expectedLBType:   godo.LoadBalancerTypeRegionalNetwork,
+			expectedNetwork:  godo.LoadBalancerNetworkTypeInternal,
+			expectedNetStack: godo.LoadBalancerNetworkStackIPv4,
+			expectDropletIDs: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			godoClient := newFakeClient(nil, &fakeLBService{}, nil)
+
+			lbReq, err := buildLoadBalancerRequest(context.Background(), test.service, godoClient, test.defaultLBType)
+
+			if test.expectError {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if lbReq == nil {
+				t.Fatal("expected non-nil LoadBalancerRequest")
+			}
+
+			// Verify LB type
+			if lbReq.Type != test.expectedLBType {
+				t.Errorf("expected LB type %s, got %s", test.expectedLBType, lbReq.Type)
+			}
+
+			// Verify network
+			if lbReq.Network != test.expectedNetwork {
+				t.Errorf("expected network %s, got %s", test.expectedNetwork, lbReq.Network)
+			}
+
+			// Verify network stack
+			if lbReq.NetworkStack != test.expectedNetStack {
+				t.Errorf("expected network stack %s, got %s", test.expectedNetStack, lbReq.NetworkStack)
+			}
+
+			// Verify DropletIDs are not set (should be empty for node-less path)
+			if test.expectDropletIDs {
+				if len(lbReq.DropletIDs) == 0 {
+					t.Error("expected DropletIDs to be set but got empty")
+				}
+			} else {
+				if len(lbReq.DropletIDs) > 0 {
+					t.Errorf("expected DropletIDs to be empty but got: %v", lbReq.DropletIDs)
+				}
+			}
+		})
+	}
+}
+
+func TestIsNodeReady_EdgeCases(t *testing.T) {
+	testcases := []struct {
+		name     string
+		node     *v1.Node
+		expected bool
+	}{
+		{
+			name: "node with multiple conditions - Ready is True",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{Type: v1.NodeMemoryPressure, Status: v1.ConditionFalse},
+						{Type: v1.NodeDiskPressure, Status: v1.ConditionFalse},
+						{Type: v1.NodeReady, Status: v1.ConditionTrue},
+						{Type: v1.NodeNetworkUnavailable, Status: v1.ConditionFalse},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "node with multiple conditions - Ready is False",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{Type: v1.NodeMemoryPressure, Status: v1.ConditionFalse},
+						{Type: v1.NodeReady, Status: v1.ConditionFalse},
+						{Type: v1.NodeDiskPressure, Status: v1.ConditionTrue},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "node with Ready condition at different positions",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{Type: v1.NodeReady, Status: v1.ConditionTrue},
+						{Type: v1.NodeMemoryPressure, Status: v1.ConditionFalse},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "node with Ready=Unknown status",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{Type: v1.NodeReady, Status: v1.ConditionUnknown},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "node with empty conditions slice",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "node with nil conditions (nodeutil should handle gracefully)",
+			node: &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
+				Status: v1.NodeStatus{
+					Conditions: nil,
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			result := isNodeReady(test.node)
+			if result != test.expected {
+				t.Errorf("got %v, want %v", result, test.expected)
+			}
+		})
+	}
+}
+
+func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
+	testcases := []struct {
+		name              string
+		service           *v1.Service
+		lbType            string
+		lbNetwork         string
+		nodeState         *nodeState
+		expectError       bool
+		expectSentinelErr bool
+	}{
+		{
+			name: "INTERNAL LB with DUALSTACK - should wrap sentinel error",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
+			nodeState: &nodeState{
+				readyNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+			},
+			expectError:       true,
+			expectSentinelErr: true,
+		},
+		{
+			name: "REGIONAL_NETWORK with explicit DUALSTACK and IPv4-only nodes - should wrap sentinel error",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annDONetworkStack: godo.LoadBalancerNetworkStackDualstack,
+					},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: &nodeState{
+				readyNodes:         []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
+				singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
+				hasSingleStackV4:   true,
+				allDualStack:       false,
+			},
+			expectError:       true,
+			expectSentinelErr: true,
+		},
+		{
+			name: "no ready nodes - should NOT wrap sentinel error",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+			},
+			lbType:            godo.LoadBalancerTypeRegional,
+			lbNetwork:         godo.LoadBalancerNetworkTypeExternal,
+			nodeState:         &nodeState{readyNodes: []*v1.Node{}},
+			expectError:       true,
+			expectSentinelErr: false,
+		},
+		{
+			name: "valid configuration - no error",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+			},
+			lbType:    godo.LoadBalancerTypeRegional,
+			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
+			nodeState: &nodeState{
+				readyNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+				dualStackNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+				hasDualStack:   true,
+				allDualStack:   true,
+			},
+			expectError:       false,
+			expectSentinelErr: false,
+		},
+	}
+
+	for _, test := range testcases {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := getNetworkStack(test.service, test.lbType, test.lbNetwork, test.nodeState)
+
+			if test.expectError {
+				if err == nil {
+					t.Fatal("expected an error, got nil")
+				}
+
+				// Test errors.Is() functionality
+				isSentinelErr := errors.Is(err, ErrNetworkStackConfig)
+				if test.expectSentinelErr && !isSentinelErr {
+					t.Errorf("expected error to wrap ErrNetworkStackConfig, but errors.Is() returned false. Error: %v", err)
+				}
+				if !test.expectSentinelErr && isSentinelErr {
+					t.Errorf("expected error NOT to wrap ErrNetworkStackConfig, but errors.Is() returned true. Error: %v", err)
+				}
+
+				// Verify error message contains useful information
+				if test.expectSentinelErr && !strings.Contains(err.Error(), "network stack configuration error") {
+					t.Errorf("expected error message to contain sentinel error text, got: %v", err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("expected no error, got: %v", err)
+				}
 			}
 		})
 	}

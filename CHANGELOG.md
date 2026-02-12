@@ -1,6 +1,9 @@
 ## unreleased
 
 * Add public ipv6 node address handling (@gottwald)
+* Add automatic dual-stack support for REGIONAL_NETWORK load balancers when all cluster nodes support dual-stack networking (@gottwald)
+* Add node filtering to load balancers: only Ready nodes with appropriate IP addresses are included in load balancers (@gottwald)
+* Emit Kubernetes events when load balancer configuration errors occur (e.g., explicit dual-stack annotation with IPv4-only nodes) (@gottwald)
 
 ## v0.1.65 (beta) - January 14, 2026
 
