@@ -537,10 +537,37 @@ type nodeState struct {
 	singleStackV4Nodes []*v1.Node
 	singleStackV6Nodes []*v1.Node
 	dualStackNodes     []*v1.Node
-	hasSingleStackV4   bool
-	hasSingleStackV6   bool
-	hasDualStack       bool
-	allDualStack       bool
+}
+
+func (ns *nodeState) hasSingleStackV4() bool {
+	if len(ns.singleStackV4Nodes) > 0 {
+		return true
+	}
+	return false
+}
+
+func (ns *nodeState) hasSingleStackV6() bool {
+	if len(ns.singleStackV6Nodes) > 0 {
+		return true
+	}
+	return false
+}
+
+func (ns *nodeState) hasDualStackNodes() bool {
+	if len(ns.dualStackNodes) > 0 {
+		return true
+	}
+	return false
+}
+
+// isAllDualStack reports whether all ready nodes are dual-stack capable.
+// For external LBs, IPv6-only nodes are filtered out of readyNodes (and into
+// singleStackV6Nodes) by filterAndClassifyNodes, so they are intentionally not
+// considered here. This means if the only non-dual-stack nodes are IPv6-only
+// (which are unsupported for external LBs anyway), the cluster is still treated
+// as all-dual-stack for defaulting purposes.
+func (ns *nodeState) isAllDualStack() bool {
+	return ns.hasDualStackNodes() && !ns.hasSingleStackV4()
 }
 
 // filterAndClassifyNodes filters nodes by readiness and (for EXTERNAL LBs) external IPs,
@@ -584,7 +611,6 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 			klog.V(4).Infof("Node %s filtered: IPv6-only not supported for EXTERNAL load balancer", node.Name)
 			state.filteredCount++
 			state.singleStackV6Nodes = append(state.singleStackV6Nodes, node)
-			state.hasSingleStackV6 = true
 			continue
 		}
 
@@ -595,16 +621,9 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 		switch classification {
 		case nodeClassSingleStackV4:
 			state.singleStackV4Nodes = append(state.singleStackV4Nodes, node)
-			state.hasSingleStackV4 = true
 		case nodeClassDualStack:
 			state.dualStackNodes = append(state.dualStackNodes, node)
-			state.hasDualStack = true
 		}
-	}
-
-	// Determine if all ready nodes are dual-stack (only relevant for EXTERNAL LBs)
-	if !isInternalLB {
-		state.allDualStack = state.hasDualStack && !state.hasSingleStackV4
 	}
 
 	return state
@@ -927,7 +946,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 				len(nodeState.readyNodes), len(nodeState.dualStackNodes), len(nodeState.singleStackV4Nodes))
 
 			// Log if IPv6-only nodes were filtered
-			if nodeState.hasSingleStackV6 {
+			if nodeState.hasSingleStackV6() {
 				klog.V(4).Infof("Service %s/%s: Filtered out %d IPv6-only nodes (not supported): %s",
 					service.Namespace, service.Name, len(nodeState.singleStackV6Nodes), formatNodeNames(nodeState.singleStackV6Nodes, 3))
 			}
@@ -1746,7 +1765,7 @@ func getNetworkStack(service *v1.Service, lbType string, network string, nodeSta
 			networkStack = godo.LoadBalancerNetworkStackIPv4
 		} else if lbType == godo.LoadBalancerTypeRegionalNetwork {
 			// REGIONAL_NETWORK: default to DUALSTACK only if ALL nodes are dual-stack
-			if hasNodeState && nodeState.allDualStack {
+			if hasNodeState && nodeState.isAllDualStack() {
 				klog.V(2).Infof("Service %s: REGIONAL_NETWORK load balancer defaulting to dual-stack (all %d nodes have IPv6)",
 					serviceName, len(nodeState.readyNodes))
 				networkStack = godo.LoadBalancerNetworkStackDualstack
@@ -1784,7 +1803,7 @@ func getNetworkStack(service *v1.Service, lbType string, network string, nodeSta
 		// REGIONAL_NETWORK with explicit dual-stack annotation requires validation
 		// (only when we have node state - admission path skips this)
 		if hasNodeState && lbType == godo.LoadBalancerTypeRegionalNetwork {
-			if nodeState.hasSingleStackV4 {
+			if nodeState.hasSingleStackV4() {
 				if explicitAnnotation {
 					// User explicitly requested dual-stack but has singleStackV4 nodes - PERMANENT ERROR
 					return "", fmt.Errorf("%w: dual-stack networking requested but %d nodes lack IPv6 addresses: %s. REGIONAL_NETWORK load balancers require all nodes to have IPv6 for dual-stack mode",

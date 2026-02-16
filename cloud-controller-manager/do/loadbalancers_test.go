@@ -6230,19 +6230,13 @@ func Test_getNetworkStack(t *testing.T) {
 
 	// Helper to create nodeState
 	nodeStateAllDualStack := &nodeState{
-		readyNodes:       []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
-		dualStackNodes:   []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
-		hasDualStack:     true,
-		hasSingleStackV4: false,
-		allDualStack:     true,
+		readyNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+		dualStackNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 	}
 
 	nodeStateAllSingleStackV4 := &nodeState{
 		readyNodes:         []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
 		singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
-		hasSingleStackV4:   true,
-		hasDualStack:       false,
-		allDualStack:       false,
 	}
 
 	nodeStateMixed := &nodeState{
@@ -6252,9 +6246,6 @@ func Test_getNetworkStack(t *testing.T) {
 		},
 		dualStackNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 		singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node2", "10.0.0.2", "", true)},
-		hasDualStack:       true,
-		hasSingleStackV4:   true,
-		allDualStack:       false,
 	}
 
 	testcases := []struct {
@@ -6915,8 +6906,8 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 			if result.filteredCount != test.expectedFilteredCount {
 				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
 			}
-			if result.allDualStack != test.expectedAllDualStack {
-				t.Errorf("allDualStack: got %v, want %v", result.allDualStack, test.expectedAllDualStack)
+			if result.isAllDualStack() != test.expectedAllDualStack {
+				t.Errorf("isAllDualStack: got %v, want %v", result.isAllDualStack(), test.expectedAllDualStack)
 			}
 			// Compare slices, handling nil vs empty
 			if len(test.expectedSingleStackV4) > 0 && !reflect.DeepEqual(nodeNames(result.singleStackV4Nodes), test.expectedSingleStackV4) {
@@ -6977,6 +6968,109 @@ func TestFilterAndClassifyNodes_InternalLB(t *testing.T) {
 			}
 			if result.filteredCount != test.expectedFilteredCount {
 				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
+			}
+		})
+	}
+}
+
+func TestNodeStateMethods(t *testing.T) {
+	node := &v1.Node{}
+
+	testcases := []struct {
+		name               string
+		state              *nodeState
+		wantSingleStackV4  bool
+		wantSingleStackV6  bool
+		wantDualStackNodes bool
+		wantAllDualStack   bool
+	}{
+		{
+			name:               "zero value nodeState",
+			state:              &nodeState{},
+			wantSingleStackV4:  false,
+			wantSingleStackV6:  false,
+			wantDualStackNodes: false,
+			wantAllDualStack:   false,
+		},
+		{
+			name: "only single-stack v4 nodes",
+			state: &nodeState{
+				singleStackV4Nodes: []*v1.Node{node},
+			},
+			wantSingleStackV4:  true,
+			wantSingleStackV6:  false,
+			wantDualStackNodes: false,
+			wantAllDualStack:   false,
+		},
+		{
+			name: "only single-stack v6 nodes",
+			state: &nodeState{
+				singleStackV6Nodes: []*v1.Node{node},
+			},
+			wantSingleStackV4:  false,
+			wantSingleStackV6:  true,
+			wantDualStackNodes: false,
+			wantAllDualStack:   false,
+		},
+		{
+			name: "only dual-stack nodes",
+			state: &nodeState{
+				dualStackNodes: []*v1.Node{node},
+			},
+			wantSingleStackV4:  false,
+			wantSingleStackV6:  false,
+			wantDualStackNodes: true,
+			wantAllDualStack:   true,
+		},
+		{
+			name: "mixed v4 and dual-stack nodes",
+			state: &nodeState{
+				singleStackV4Nodes: []*v1.Node{node},
+				dualStackNodes:     []*v1.Node{node},
+			},
+			wantSingleStackV4:  true,
+			wantSingleStackV6:  false,
+			wantDualStackNodes: true,
+			wantAllDualStack:   false,
+		},
+		{
+			name: "mixed v6 and dual-stack nodes — isAllDualStack true because v6-only nodes are filtered for external LBs",
+			state: &nodeState{
+				singleStackV6Nodes: []*v1.Node{node},
+				dualStackNodes:     []*v1.Node{node},
+			},
+			wantSingleStackV4:  false,
+			wantSingleStackV6:  true,
+			wantDualStackNodes: true,
+			wantAllDualStack:   true,
+		},
+		{
+			name: "all three node types present",
+			state: &nodeState{
+				singleStackV4Nodes: []*v1.Node{node},
+				singleStackV6Nodes: []*v1.Node{node},
+				dualStackNodes:     []*v1.Node{node},
+			},
+			wantSingleStackV4:  true,
+			wantSingleStackV6:  true,
+			wantDualStackNodes: true,
+			wantAllDualStack:   false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.state.hasSingleStackV4(); got != tc.wantSingleStackV4 {
+				t.Errorf("hasSingleStackV4() = %v, want %v", got, tc.wantSingleStackV4)
+			}
+			if got := tc.state.hasSingleStackV6(); got != tc.wantSingleStackV6 {
+				t.Errorf("hasSingleStackV6() = %v, want %v", got, tc.wantSingleStackV6)
+			}
+			if got := tc.state.hasDualStackNodes(); got != tc.wantDualStackNodes {
+				t.Errorf("hasDualStackNodes() = %v, want %v", got, tc.wantDualStackNodes)
+			}
+			if got := tc.state.isAllDualStack(); got != tc.wantAllDualStack {
+				t.Errorf("isAllDualStack() = %v, want %v", got, tc.wantAllDualStack)
 			}
 		})
 	}
@@ -7490,8 +7584,6 @@ func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
 			nodeState: &nodeState{
 				readyNodes:         []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
 				singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
-				hasSingleStackV4:   true,
-				allDualStack:       false,
 			},
 			expectError:       true,
 			expectSentinelErr: true,
@@ -7525,8 +7617,6 @@ func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
 			nodeState: &nodeState{
 				readyNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 				dualStackNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
-				hasDualStack:   true,
-				allDualStack:   true,
 			},
 			expectError:       false,
 			expectSentinelErr: false,
