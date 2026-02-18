@@ -35,7 +35,6 @@ import (
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/cloud-provider/api"
 	servicehelpers "k8s.io/cloud-provider/service/helpers"
-	nodeutil "k8s.io/component-helpers/node/util"
 	"k8s.io/klog/v2"
 	utilnet "k8s.io/utils/net"
 
@@ -532,6 +531,7 @@ const (
 
 // nodeState contains the classification and filtering results for nodes
 type nodeState struct {
+	// readyNodes are nodes that are ready to serve as LB backends
 	readyNodes         []*v1.Node
 	filteredCount      int
 	singleStackV4Nodes []*v1.Node
@@ -570,11 +570,11 @@ func (ns *nodeState) isAllDualStack() bool {
 	return ns.hasDualStackNodes() && !ns.hasSingleStackV4()
 }
 
-// filterAndClassifyNodes filters nodes by readiness and (for EXTERNAL LBs) external IPs,
-// then classifies remaining nodes as singleStackV4, singleStackV6, or dualStack.
+// filterAndClassifyNodes filters nodes by available IP stacks and differentiates between
+// singleStackV4, singleStackV6, or dualStack.
 //
-// For INTERNAL load balancers, only Ready status is checked (public IPs not required).
-// For EXTERNAL load balancers, nodes must be Ready, have at least one external IP,
+// For INTERNAL load balancers, public IPs not required, private assumed.
+// For EXTERNAL load balancers, have at least one external IP,
 // and singleStackV6 nodes are filtered out (not supported for external connectivity).
 func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 	state := &nodeState{
@@ -585,20 +585,14 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 	}
 
 	for _, node := range nodes {
-		// Filter 1: Check NodeReady condition (applies to ALL LB types)
-		if !isNodeReady(node) {
-			klog.V(4).Infof("Node %s filtered: not in Ready state", node.Name)
-			state.filteredCount++
-			continue
-		}
-
-		// For INTERNAL LBs, Ready is sufficient - no need for public IPs
+		// For INTERNAL LBs, no need for public IPs - assuming ready
+		// this is just here so that we can expand in the future when internalLBs support v6 or other features.
 		if isInternalLB {
 			state.readyNodes = append(state.readyNodes, node)
 			continue
 		}
 
-		// Filter 2: For EXTERNAL LBs, check for external IPs and classify
+		// For EXTERNAL LBs, check for external IPs and classify
 		classification := classifyNode(node)
 
 		if classification == nodeClassPublicNetUnready {
@@ -627,12 +621,6 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 	}
 
 	return state
-}
-
-// isNodeReady checks if node has Ready condition = True
-func isNodeReady(node *v1.Node) bool {
-	_, condition := nodeutil.GetNodeCondition(&node.Status, v1.NodeReady)
-	return condition != nil && condition.Status == v1.ConditionTrue
 }
 
 // classifyNode determines node's IP stack classification
@@ -938,10 +926,10 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 	// Log filtering results
 	if nodeState.filteredCount > 0 {
 		if isInternalLB {
-			klog.V(2).Infof("Service %s/%s: Filtered out %d non-ready nodes, %d ready nodes remaining (INTERNAL LB)",
+			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready nodes, %d lb-ready nodes remaining (INTERNAL LB)",
 				service.Namespace, service.Name, nodeState.filteredCount, len(nodeState.readyNodes))
 		} else {
-			klog.V(2).Infof("Service %s/%s: Filtered out %d non-ready/non-public nodes, %d ready nodes remaining (%d dualStack, %d singleStackV4)",
+			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready/non-public nodes, %d lb-ready nodes remaining (%d dualStack, %d singleStackV4)",
 				service.Namespace, service.Name, nodeState.filteredCount,
 				len(nodeState.readyNodes), len(nodeState.dualStackNodes), len(nodeState.singleStackV4Nodes))
 

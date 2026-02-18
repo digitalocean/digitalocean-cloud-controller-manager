@@ -6772,42 +6772,6 @@ func TestFormatNodeNameList(t *testing.T) {
 	}
 }
 
-func TestIsNodeReady(t *testing.T) {
-	testcases := []struct {
-		name     string
-		node     *v1.Node
-		expected bool
-	}{
-		{
-			name:     "ready node",
-			node:     newNodeWithIPs("node1", "10.0.0.1", "", true),
-			expected: true,
-		},
-		{
-			name:     "not ready node",
-			node:     newNodeWithIPs("node1", "10.0.0.1", "", false),
-			expected: false,
-		},
-		{
-			name: "node without conditions",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status:     v1.NodeStatus{},
-			},
-			expected: false,
-		},
-	}
-
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
-			result := isNodeReady(test.node)
-			if result != test.expected {
-				t.Errorf("got %v, want %v", result, test.expected)
-			}
-		})
-	}
-}
-
 func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 	testcases := []struct {
 		name                  string
@@ -6855,18 +6819,6 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 			expectedFilteredCount: 0,
 			expectedAllDualStack:  false,
 			expectedSingleStackV4: []string{"node2"},
-			expectedDualStack:     []string{"node1"},
-		},
-		{
-			name: "not ready nodes filtered",
-			nodes: []*v1.Node{
-				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
-				newNodeWithIPs("node2", "10.0.0.2", "2001:db8::2", false),
-			},
-			isInternalLB:          false,
-			expectedReadyCount:    1,
-			expectedFilteredCount: 1,
-			expectedAllDualStack:  true,
 			expectedDualStack:     []string{"node1"},
 		},
 		{
@@ -6947,15 +6899,6 @@ func TestFilterAndClassifyNodes_InternalLB(t *testing.T) {
 			},
 			expectedReadyCount:    2,
 			expectedFilteredCount: 0,
-		},
-		{
-			name: "not ready nodes filtered",
-			nodes: []*v1.Node{
-				newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
-				newNodeWithInternalIPOnly("node2", "192.168.1.2", false),
-			},
-			expectedReadyCount:    1,
-			expectedFilteredCount: 1,
 		},
 	}
 
@@ -7442,98 +7385,6 @@ func TestBuildLoadBalancerRequest_NodeLess(t *testing.T) {
 				if len(lbReq.DropletIDs) > 0 {
 					t.Errorf("expected DropletIDs to be empty but got: %v", lbReq.DropletIDs)
 				}
-			}
-		})
-	}
-}
-
-func TestIsNodeReady_EdgeCases(t *testing.T) {
-	testcases := []struct {
-		name     string
-		node     *v1.Node
-		expected bool
-	}{
-		{
-			name: "node with multiple conditions - Ready is True",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
-						{Type: v1.NodeMemoryPressure, Status: v1.ConditionFalse},
-						{Type: v1.NodeDiskPressure, Status: v1.ConditionFalse},
-						{Type: v1.NodeReady, Status: v1.ConditionTrue},
-						{Type: v1.NodeNetworkUnavailable, Status: v1.ConditionFalse},
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "node with multiple conditions - Ready is False",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
-						{Type: v1.NodeMemoryPressure, Status: v1.ConditionFalse},
-						{Type: v1.NodeReady, Status: v1.ConditionFalse},
-						{Type: v1.NodeDiskPressure, Status: v1.ConditionTrue},
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "node with Ready condition at different positions",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
-						{Type: v1.NodeReady, Status: v1.ConditionTrue},
-						{Type: v1.NodeMemoryPressure, Status: v1.ConditionFalse},
-					},
-				},
-			},
-			expected: true,
-		},
-		{
-			name: "node with Ready=Unknown status",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
-						{Type: v1.NodeReady, Status: v1.ConditionUnknown},
-					},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "node with empty conditions slice",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{},
-				},
-			},
-			expected: false,
-		},
-		{
-			name: "node with nil conditions (nodeutil should handle gracefully)",
-			node: &v1.Node{
-				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
-				Status: v1.NodeStatus{
-					Conditions: nil,
-				},
-			},
-			expected: false,
-		},
-	}
-
-	for _, test := range testcases {
-		t.Run(test.name, func(t *testing.T) {
-			result := isNodeReady(test.node)
-			if result != test.expected {
-				t.Errorf("got %v, want %v", result, test.expected)
 			}
 		})
 	}
