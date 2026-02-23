@@ -531,8 +531,8 @@ const (
 
 // nodeState contains the classification and filtering results for nodes
 type nodeState struct {
-	// readyNodes are nodes that are ready to serve as LB backends
-	readyNodes         []*v1.Node
+	// lbReadyNodes are nodes that are ready to serve as LB backends
+	lbReadyNodes       []*v1.Node
 	filteredCount      int
 	singleStackV4Nodes []*v1.Node
 	singleStackV6Nodes []*v1.Node
@@ -578,7 +578,7 @@ func (ns *nodeState) isAllDualStack() bool {
 // and singleStackV6 nodes are filtered out (not supported for external connectivity).
 func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 	state := &nodeState{
-		readyNodes:         make([]*v1.Node, 0, len(nodes)),
+		lbReadyNodes:       make([]*v1.Node, 0, len(nodes)),
 		singleStackV4Nodes: make([]*v1.Node, 0),
 		singleStackV6Nodes: make([]*v1.Node, 0),
 		dualStackNodes:     make([]*v1.Node, 0),
@@ -588,7 +588,7 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 		// For INTERNAL LBs, no need for public IPs - assuming ready
 		// this is just here so that we can expand in the future when internalLBs support v6 or other features.
 		if isInternalLB {
-			state.readyNodes = append(state.readyNodes, node)
+			state.lbReadyNodes = append(state.lbReadyNodes, node)
 			continue
 		}
 
@@ -609,7 +609,7 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 		}
 
 		// Node passed filters
-		state.readyNodes = append(state.readyNodes, node)
+		state.lbReadyNodes = append(state.lbReadyNodes, node)
 
 		// Classify node by IP stack capability
 		switch classification {
@@ -927,11 +927,11 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 	if nodeState.filteredCount > 0 {
 		if isInternalLB {
 			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready nodes, %d lb-ready nodes remaining (INTERNAL LB)",
-				service.Namespace, service.Name, nodeState.filteredCount, len(nodeState.readyNodes))
+				service.Namespace, service.Name, nodeState.filteredCount, len(nodeState.lbReadyNodes))
 		} else {
 			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready/non-public nodes, %d lb-ready nodes remaining (%d dualStack, %d singleStackV4)",
 				service.Namespace, service.Name, nodeState.filteredCount,
-				len(nodeState.readyNodes), len(nodeState.dualStackNodes), len(nodeState.singleStackV4Nodes))
+				len(nodeState.lbReadyNodes), len(nodeState.dualStackNodes), len(nodeState.singleStackV4Nodes))
 
 			// Log if IPv6-only nodes were filtered
 			if nodeState.hasSingleStackV6() {
@@ -951,7 +951,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		return nil, err
 	}
 
-	dropletIDs, err := l.nodesToDropletIDs(ctx, nodeState.readyNodes)
+	dropletIDs, err := l.nodesToDropletIDs(ctx, nodeState.lbReadyNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -1736,7 +1736,7 @@ func getNetworkStack(service *v1.Service, lbType string, network string, nodeSta
 	hasNodeState := (nodeState != nil)
 
 	// Check if we have any ready nodes (only when we have node state)
-	if hasNodeState && len(nodeState.readyNodes) == 0 {
+	if hasNodeState && len(nodeState.lbReadyNodes) == 0 {
 		return "", fmt.Errorf("no ready nodes available for load balancer")
 	}
 
@@ -1755,7 +1755,7 @@ func getNetworkStack(service *v1.Service, lbType string, network string, nodeSta
 			// REGIONAL_NETWORK: default to DUALSTACK only if ALL nodes are dual-stack
 			if hasNodeState && nodeState.isAllDualStack() {
 				klog.V(2).Infof("Service %s: REGIONAL_NETWORK load balancer defaulting to dual-stack (all %d nodes have IPv6)",
-					serviceName, len(nodeState.readyNodes))
+					serviceName, len(nodeState.lbReadyNodes))
 				networkStack = godo.LoadBalancerNetworkStackDualstack
 			} else {
 				// Either no node info OR mixed/IPv4-only nodes - default to IPv4
@@ -1798,9 +1798,7 @@ func getNetworkStack(service *v1.Service, lbType string, network string, nodeSta
 						ErrNetworkStackConfig, len(nodeState.singleStackV4Nodes), formatNodeNames(nodeState.singleStackV4Nodes, 3))
 				}
 				// Should not reach here due to default logic above, but handle defensively
-				klog.Warningf("Service %s: Falling back to IPv4 due to %d singleStackV4 nodes",
-					serviceName, len(nodeState.singleStackV4Nodes))
-				return godo.LoadBalancerNetworkStackIPv4, nil
+				return "", fmt.Errorf("BUG detected: cluster has single stack v4 nodes but was not defaulted to single stack REGIONAL NETWORK lb")
 			}
 		}
 

@@ -6230,17 +6230,17 @@ func Test_getNetworkStack(t *testing.T) {
 
 	// Helper to create nodeState
 	nodeStateAllDualStack := &nodeState{
-		readyNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+		lbReadyNodes:   []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 		dualStackNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 	}
 
 	nodeStateAllSingleStackV4 := &nodeState{
-		readyNodes:         []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
+		lbReadyNodes:       []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
 		singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
 	}
 
 	nodeStateMixed := &nodeState{
-		readyNodes: []*v1.Node{
+		lbReadyNodes: []*v1.Node{
 			newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
 			newNodeWithIPs("node2", "10.0.0.2", "", true),
 		},
@@ -6442,7 +6442,7 @@ func Test_getNetworkStack(t *testing.T) {
 			service:   &v1.Service{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", Annotations: map[string]string{}}},
 			lbType:    godo.LoadBalancerTypeRegional,
 			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
-			nodeState: &nodeState{readyNodes: []*v1.Node{}},
+			nodeState: &nodeState{lbReadyNodes: []*v1.Node{}},
 			wantErr:   true,
 		},
 	}
@@ -6852,8 +6852,8 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result := filterAndClassifyNodes(test.nodes, test.isInternalLB)
 
-			if len(result.readyNodes) != test.expectedReadyCount {
-				t.Errorf("ready nodes: got %d, want %d", len(result.readyNodes), test.expectedReadyCount)
+			if len(result.lbReadyNodes) != test.expectedReadyCount {
+				t.Errorf("ready nodes: got %d, want %d", len(result.lbReadyNodes), test.expectedReadyCount)
 			}
 			if result.filteredCount != test.expectedFilteredCount {
 				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
@@ -6906,8 +6906,8 @@ func TestFilterAndClassifyNodes_InternalLB(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			result := filterAndClassifyNodes(test.nodes, true) // isInternalLB = true
 
-			if len(result.readyNodes) != test.expectedReadyCount {
-				t.Errorf("ready nodes: got %d, want %d", len(result.readyNodes), test.expectedReadyCount)
+			if len(result.lbReadyNodes) != test.expectedReadyCount {
+				t.Errorf("ready nodes: got %d, want %d", len(result.lbReadyNodes), test.expectedReadyCount)
 			}
 			if result.filteredCount != test.expectedFilteredCount {
 				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
@@ -7414,7 +7414,7 @@ func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
 			lbType:    godo.LoadBalancerTypeRegional,
 			lbNetwork: godo.LoadBalancerNetworkTypeInternal,
 			nodeState: &nodeState{
-				readyNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+				lbReadyNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 			},
 			expectError:       true,
 			expectSentinelErr: true,
@@ -7433,7 +7433,7 @@ func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
 			lbType:    godo.LoadBalancerTypeRegionalNetwork,
 			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
 			nodeState: &nodeState{
-				readyNodes:         []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
+				lbReadyNodes:       []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
 				singleStackV4Nodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "", true)},
 			},
 			expectError:       true,
@@ -7450,7 +7450,7 @@ func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
 			},
 			lbType:            godo.LoadBalancerTypeRegional,
 			lbNetwork:         godo.LoadBalancerNetworkTypeExternal,
-			nodeState:         &nodeState{readyNodes: []*v1.Node{}},
+			nodeState:         &nodeState{lbReadyNodes: []*v1.Node{}},
 			expectError:       true,
 			expectSentinelErr: false,
 		},
@@ -7466,7 +7466,7 @@ func Test_ErrorWrapping_ErrNetworkStackConfig(t *testing.T) {
 			lbType:    godo.LoadBalancerTypeRegional,
 			lbNetwork: godo.LoadBalancerNetworkTypeExternal,
 			nodeState: &nodeState{
-				readyNodes:     []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
+				lbReadyNodes:   []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 				dualStackNodes: []*v1.Node{newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true)},
 			},
 			expectError:       false,
