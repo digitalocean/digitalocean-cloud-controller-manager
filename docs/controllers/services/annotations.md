@@ -238,16 +238,36 @@ External load balancer will be accessible via the public internet. Internal load
 
 ## service.beta.kubernetes.io/do-loadbalancer-network-stack
 
-Specifies what network addressing will be supported by the load balancer. Options are "IPV4" and "DUALSTACK". "DUALSTACK" is the option to support both IPv4 and IPv6 networking on the load balancer. If load balancer type is "REGIONAL" then it will default to "DUALSTACK". If load balancer type is "REGIONAL_NETWORK" then it will default to "IPV4".
+Specifies what network addressing will be supported by the load balancer. Options are "IPV4" and "DUALSTACK". "DUALSTACK" is the option to support both IPv4 and IPv6 networking on the load balancer. 
+
+- If load balancer type is "REGIONAL" (connection-terminating), it will default to "DUALSTACK" regardless of node network stack configuration.
+- If load balancer type is "REGIONAL_NETWORK" (pass-through), it will default to "DUALSTACK" when all cluster nodes support dual-stack networking (have both IPv4 and IPv6 external addresses), otherwise it will default to "IPV4".
+
+**Node Requirements**
+
+The cloud controller manager filters nodes before adding them to load balancers:
+- Only nodes with `Ready` status are included in load balancers
+- For EXTERNAL load balancers: nodes must have external IP addresses
+- For INTERNAL load balancers: nodes only need to be Ready (private nodes are allowed)
+- Nodes with only IPv6 addresses (no IPv4) are currently not supported and will be filtered out
 
 **Note**
 
 - "INTERNAL" load balancer does not support "DUALSTACK" networking
-- "REGIONAL_NETWORK" load balancer for managed kubernetes does not support "DUALSTACK" networking
+- For "REGIONAL_NETWORK" load balancers, explicitly setting "DUALSTACK" when some nodes only support IPv4 will result in an error
 
-For Load balancer IPv6 support with managed kubernetes, please use:
+For Load balancer IPv6 support, you have two options:
+
+1. Use connection-terminating load balancer (always supports dual-stack):
 ```
 do-loadbalancer-type: "REGIONAL"
 do-loadbalancer-network: "EXTERNAL"
-do-loadbalancer-network-stack: "DUALSTACK"
+do-loadbalancer-network-stack: "DUALSTACK"  # Optional, this is the default
+```
+
+2. Use pass-through load balancer with dual-stack nodes (automatic dual-stack when all nodes support it):
+```
+do-loadbalancer-type: "REGIONAL_NETWORK"
+do-loadbalancer-network: "EXTERNAL"
+# do-loadbalancer-network-stack will automatically be set to "DUALSTACK" if all nodes have both IPv4 and IPv6 external addresses
 ```

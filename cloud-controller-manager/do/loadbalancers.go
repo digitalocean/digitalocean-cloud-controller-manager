@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"reflect"
 	"sort"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	cloudprovider "k8s.io/cloud-provider"
@@ -56,6 +58,12 @@ const (
 
 	// This is the DO-specific tag component prepended to the cluster ID.
 	tagPrefixClusterID = "k8s"
+)
+
+var (
+	// ErrNetworkStackConfig indicates an error with network stack configuration
+	// that requires user intervention (e.g., mismatched dual-stack settings)
+	ErrNetworkStackConfig = errors.New("network stack configuration error")
 
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
@@ -511,6 +519,184 @@ func updateServiceAnnotation(service *v1.Service, annotName, annotValue string) 
 	service.ObjectMeta.Annotations[annotName] = annotValue
 }
 
+// nodeClassification represents the IP stack capability of a node
+type nodeClassification string
+
+const (
+	nodeClassSingleStackV4    nodeClassification = "singleStackV4"    // Has IPv4, no IPv6
+	nodeClassSingleStackV6    nodeClassification = "singleStackV6"    // Has IPv6, no IPv4
+	nodeClassDualStack        nodeClassification = "dualStack"        // Has both IPv4 and IPv6
+	nodeClassPublicNetUnready nodeClassification = "publicNetUnready" // No external IPs, (yet)
+)
+
+// nodeState contains the classification and filtering results for nodes
+type nodeState struct {
+	// lbReadyNodes are nodes that are ready to serve as LB backends
+	lbReadyNodes       []*v1.Node
+	filteredCount      int
+	singleStackV4Nodes []*v1.Node
+	singleStackV6Nodes []*v1.Node
+	dualStackNodes     []*v1.Node
+}
+
+func (ns *nodeState) hasSingleStackV4() bool {
+	if len(ns.singleStackV4Nodes) > 0 {
+		return true
+	}
+	return false
+}
+
+func (ns *nodeState) hasSingleStackV6() bool {
+	if len(ns.singleStackV6Nodes) > 0 {
+		return true
+	}
+	return false
+}
+
+func (ns *nodeState) hasDualStackNodes() bool {
+	if len(ns.dualStackNodes) > 0 {
+		return true
+	}
+	return false
+}
+
+// isAllDualStack reports whether all ready nodes are dual-stack capable.
+// For external LBs, IPv6-only nodes are filtered out of readyNodes (and into
+// singleStackV6Nodes) by filterAndClassifyNodes, so they are intentionally not
+// considered here. This means if the only non-dual-stack nodes are IPv6-only
+// (which are unsupported for external LBs anyway), the cluster is still treated
+// as all-dual-stack for defaulting purposes.
+func (ns *nodeState) isAllDualStack() bool {
+	return ns.hasDualStackNodes() && !ns.hasSingleStackV4()
+}
+
+// filterAndClassifyNodes filters nodes by available IP stacks and differentiates between
+// singleStackV4, singleStackV6, or dualStack.
+//
+// For INTERNAL load balancers, public IPs not required, private assumed.
+// For EXTERNAL load balancers, have at least one external IP,
+// and singleStackV6 nodes are filtered out (not supported for external connectivity).
+func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
+	state := &nodeState{
+		lbReadyNodes:       make([]*v1.Node, 0, len(nodes)),
+		singleStackV4Nodes: make([]*v1.Node, 0),
+		singleStackV6Nodes: make([]*v1.Node, 0),
+		dualStackNodes:     make([]*v1.Node, 0),
+	}
+
+	for _, node := range nodes {
+		// For INTERNAL LBs, no need for public IPs - assuming ready
+		// this is just here so that we can expand in the future when internalLBs support v6 or other features.
+		if isInternalLB {
+			state.lbReadyNodes = append(state.lbReadyNodes, node)
+			continue
+		}
+
+		// For EXTERNAL LBs, check for external IPs and classify
+		classification := classifyNode(node)
+
+		if classification == nodeClassPublicNetUnready {
+			klog.V(4).Infof("Node %s filtered: no external IP addresses (required for EXTERNAL load balancer)", node.Name)
+			state.filteredCount++
+			continue
+		}
+
+		if classification == nodeClassSingleStackV6 {
+			klog.V(4).Infof("Node %s filtered: IPv6-only not supported for EXTERNAL load balancer", node.Name)
+			state.filteredCount++
+			state.singleStackV6Nodes = append(state.singleStackV6Nodes, node)
+			continue
+		}
+
+		// Node passed filters
+		state.lbReadyNodes = append(state.lbReadyNodes, node)
+
+		// Classify node by IP stack capability
+		switch classification {
+		case nodeClassSingleStackV4:
+			state.singleStackV4Nodes = append(state.singleStackV4Nodes, node)
+		case nodeClassDualStack:
+			state.dualStackNodes = append(state.dualStackNodes, node)
+		}
+	}
+
+	return state
+}
+
+// classifyNode determines node's IP stack classification
+func classifyNode(node *v1.Node) nodeClassification {
+	hasIPv4 := false
+	hasIPv6 := false
+
+	for _, addr := range node.Status.Addresses {
+		if addr.Type != v1.NodeExternalIP {
+			continue
+		}
+
+		if isIPv6(addr.Address) {
+			hasIPv6 = true
+		} else {
+			hasIPv4 = true
+		}
+	}
+
+	// Determine classification based on IP presence
+	switch {
+	case hasIPv4 && hasIPv6:
+		return nodeClassDualStack
+	case hasIPv4 && !hasIPv6:
+		return nodeClassSingleStackV4
+	case !hasIPv4 && hasIPv6:
+		return nodeClassSingleStackV6
+	default:
+		// No external IPs found (!hasIPv4 && !hasIPv6)
+		return nodeClassPublicNetUnready
+	}
+}
+
+// isIPv6 checks if an IP address string is IPv6
+func isIPv6(addr string) bool {
+	ip, err := netip.ParseAddr(addr)
+	return err == nil && ip.Is6()
+}
+
+// nodeNames extracts a slice of node names from a slice of node pointers
+func nodeNames(nodes []*v1.Node) []string {
+	names := make([]string, len(nodes))
+	for i, node := range nodes {
+		names[i] = node.Name
+	}
+	return names
+}
+
+// formatNodeNames formats a list of node names for logging, truncating if necessary.
+// Shows at most maxNodes (sorted), appending "[+N more]" if the list is longer.
+func formatNodeNames(nodes []*v1.Node, maxNodes int) string {
+	names := nodeNames(nodes)
+	return formatNodeNameList(names, maxNodes)
+}
+
+// formatNodeNameList formats a list of node name strings for logging, truncating if necessary.
+// Shows at most maxNodes (sorted), appending "[+N more]" if the list is longer.
+func formatNodeNameList(names []string, maxNodes int) string {
+	if len(names) == 0 {
+		return ""
+	}
+
+	// Sort for deterministic output
+	sorted := make([]string, len(names))
+	copy(sorted, names)
+	sort.Strings(sorted)
+
+	if len(sorted) <= maxNodes {
+		return strings.Join(sorted, ", ")
+	}
+
+	truncated := sorted[:maxNodes]
+	remaining := len(sorted) - maxNodes
+	return fmt.Sprintf("%s [+%d more]", strings.Join(truncated, ", "), remaining)
+}
+
 // nodesToDropletID returns a []int containing ids of all droplets identified by name in nodes.
 //
 // Node names are assumed to match droplet names.
@@ -569,13 +755,28 @@ func (l *loadBalancers) nodesToDropletIDs(ctx context.Context, nodes []*v1.Node)
 		}
 		sort.Strings(missingNames)
 
-		klog.Errorf("Failed to find droplets for nodes %s", strings.Join(missingNames, " "))
+		klog.Errorf("Failed to find droplets for nodes: %s", formatNodeNameList(missingNames, 3))
 	}
 
 	return dropletIDs, nil
 }
 
+// buildLoadBalancerRequest returns a *godo.LoadBalancerRequest without requiring node state.
+// This is used by the admission handler for validation where node information is not available.
+// The request will have all configuration except DropletIDs (which must be set separately if needed).
 func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClient *godo.Client, defaultLBType string) (*godo.LoadBalancerRequest, error) {
+	// Call the node-aware version with nil nodeState
+	// This will skip node-based defaulting and validation
+	return buildLoadBalancerRequestWithNodeState(ctx, service, godoClient, defaultLBType, nil)
+}
+
+// buildLoadBalancerRequestWithNodeState returns a *godo.LoadBalancerRequest with node-aware
+// configuration. The nodeState parameter can be nil for validation scenarios where node
+// information is not available (e.g., admission webhooks). When nodeState is nil:
+// - Node-based network stack defaulting is skipped (REGIONAL_NETWORK defaults to IPV4)
+// - Node capability validation is skipped
+// - DropletIDs are not set (must be set by caller if needed)
+func buildLoadBalancerRequestWithNodeState(ctx context.Context, service *v1.Service, godoClient *godo.Client, defaultLBType string, nodeState *nodeState) (*godo.LoadBalancerRequest, error) {
 	lbName := getLoadBalancerName(service)
 
 	lbType, err := getType(service, defaultLBType)
@@ -586,7 +787,7 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 	if err != nil {
 		return nil, err
 	}
-	lbNetworkStack, err := getNetworkStack(service, lbType, lbNetwork)
+	lbNetworkStack, err := getNetworkStack(service, lbType, lbNetwork, nodeState)
 	if err != nil {
 		return nil, err
 	}
@@ -679,15 +880,78 @@ func buildLoadBalancerRequest(ctx context.Context, service *v1.Service, godoClie
 	}, nil
 }
 
+// emitServiceEvent records an event on the service object
+func (l *loadBalancers) emitServiceEvent(service *v1.Service, eventType, reason, message string) {
+	l.resources.kclient.CoreV1().Events(service.Namespace).Create(
+		context.Background(),
+		&v1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%s.%x", service.Name, time.Now().UnixNano()),
+				Namespace: service.Namespace,
+			},
+			InvolvedObject: v1.ObjectReference{
+				Kind:       "Service",
+				Namespace:  service.Namespace,
+				Name:       service.Name,
+				UID:        service.UID,
+				APIVersion: "v1",
+			},
+			Reason:  reason,
+			Message: message,
+			Type:    eventType,
+			Source: v1.EventSource{
+				Component: "digitalocean-cloud-controller-manager",
+			},
+			FirstTimestamp: metav1.Now(),
+			LastTimestamp:  metav1.Now(),
+			Count:          1,
+		},
+		metav1.CreateOptions{},
+	)
+}
+
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	req, err := buildLoadBalancerRequest(ctx, service, l.resources.gclient, l.defaultLBType)
+	// Determine if this is an INTERNAL LB (affects node filtering)
+	lbNetwork, err := getNetwork(service)
 	if err != nil {
 		return nil, err
 	}
+	isInternalLB := (lbNetwork == godo.LoadBalancerNetworkTypeInternal)
 
-	dropletIDs, err := l.nodesToDropletIDs(ctx, nodes)
+	// Filter and classify nodes FIRST
+	nodeState := filterAndClassifyNodes(nodes, isInternalLB)
+
+	// Log filtering results
+	if nodeState.filteredCount > 0 {
+		if isInternalLB {
+			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready nodes, %d lb-ready nodes remaining (INTERNAL LB)",
+				service.Namespace, service.Name, nodeState.filteredCount, len(nodeState.lbReadyNodes))
+		} else {
+			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready/non-public nodes, %d lb-ready nodes remaining (%d dualStack, %d singleStackV4)",
+				service.Namespace, service.Name, nodeState.filteredCount,
+				len(nodeState.lbReadyNodes), len(nodeState.dualStackNodes), len(nodeState.singleStackV4Nodes))
+
+			// Log if IPv6-only nodes were filtered
+			if nodeState.hasSingleStackV6() {
+				klog.V(4).Infof("Service %s/%s: Filtered out %d IPv6-only nodes (not supported): %s",
+					service.Namespace, service.Name, len(nodeState.singleStackV6Nodes), formatNodeNames(nodeState.singleStackV6Nodes, 3))
+			}
+		}
+	}
+
+	// Build request with filtered nodes
+	req, err := buildLoadBalancerRequestWithNodeState(ctx, service, l.resources.gclient, l.defaultLBType, nodeState)
+	if err != nil {
+		// Emit Kubernetes event for network stack configuration errors
+		if errors.Is(err, ErrNetworkStackConfig) {
+			l.emitServiceEvent(service, v1.EventTypeWarning, "LoadBalancerConfigError", err.Error())
+		}
+		return nil, err
+	}
+
+	dropletIDs, err := l.nodesToDropletIDs(ctx, nodeState.lbReadyNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -886,9 +1150,9 @@ func buildRegionalNetworkForwardingRule(service *v1.Service) ([]godo.ForwardingR
 	for _, port := range service.Spec.Ports {
 		var protocol string
 		switch port.Protocol {
-		case portProtocolTCP:
+		case v1.ProtocolTCP:
 			protocol = protocolTCP
-		case portProtocolUDP:
+		case v1.ProtocolUDP:
 			protocol = protocolUDP
 		default:
 			return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
@@ -907,7 +1171,7 @@ func buildForwardingRule(service *v1.Service, port *v1.ServicePort, protocol, ce
 	var forwardingRule godo.ForwardingRule
 
 	switch port.Protocol {
-	case portProtocolTCP, portProtocolUDP:
+	case v1.ProtocolTCP, v1.ProtocolUDP:
 	default:
 		return nil, fmt.Errorf("only TCP or UDP protocol is supported, got: %q", port.Protocol)
 	}
@@ -1458,23 +1722,90 @@ func getNetwork(service *v1.Service) (string, error) {
 	return network, nil
 }
 
-func getNetworkStack(service *v1.Service, lbType string, network string) (string, error) {
+// getNetworkStack determines the network stack for the load balancer based on
+// service annotations, LB type, network type, and node IPv6 capabilities.
+//
+// For INTERNAL load balancers, this always returns IPV4 (IPv6 not supported).
+// For REGIONAL load balancers, defaults to DUALSTACK (connection termination allows IPv6→IPv4 translation).
+// For REGIONAL_NETWORK load balancers, considers node IPv6 capability.
+func getNetworkStack(service *v1.Service, lbType string, network string, nodeState *nodeState) (string, error) {
+	serviceName := fmt.Sprintf("%s/%s", service.Namespace, service.Name)
+
+	// When nodeState is nil (admission validation path), we can't check node readiness
+	// or node capabilities. We rely on explicit annotations and safe defaults.
+	hasNodeState := (nodeState != nil)
+
+	// Check if we have any ready nodes (only when we have node state)
+	if hasNodeState && len(nodeState.lbReadyNodes) == 0 {
+		return "", fmt.Errorf("no ready nodes available for load balancer")
+	}
+
+	// INTERNAL load balancers don't support IPv6
+	isInternalLB := (network == godo.LoadBalancerNetworkTypeInternal)
+
+	// Get desired network stack from annotation or determine default
 	networkStack := service.Annotations[annDONetworkStack]
+	explicitAnnotation := (networkStack != "")
+
 	if networkStack == "" {
-		if network != godo.LoadBalancerNetworkTypeInternal && lbType != godo.LoadBalancerTypeRegionalNetwork {
-			return godo.LoadBalancerNetworkStackDualstack, nil
+		// Determine default based on LB type and node capabilities
+		if isInternalLB {
+			networkStack = godo.LoadBalancerNetworkStackIPv4
+		} else if lbType == godo.LoadBalancerTypeRegionalNetwork {
+			// REGIONAL_NETWORK: default to DUALSTACK only if ALL nodes are dual-stack
+			if hasNodeState && nodeState.isAllDualStack() {
+				klog.V(2).Infof("Service %s: REGIONAL_NETWORK load balancer defaulting to dual-stack (all %d nodes have IPv6)",
+					serviceName, len(nodeState.lbReadyNodes))
+				networkStack = godo.LoadBalancerNetworkStackDualstack
+			} else {
+				// Either no node info OR mixed/IPv4-only nodes - default to IPv4
+				if hasNodeState {
+					klog.V(2).Infof("Service %s: REGIONAL_NETWORK load balancer defaulting to IPv4 (%d singleStackV4 nodes)",
+						serviceName, len(nodeState.singleStackV4Nodes))
+				} else {
+					klog.V(4).Infof("Service %s: REGIONAL_NETWORK load balancer defaulting to IPv4 (no node state available for admission validation)",
+						serviceName)
+				}
+				networkStack = godo.LoadBalancerNetworkStackIPv4
+			}
+		} else {
+			// REGIONAL: default to DUALSTACK (connection termination allows IPv6→IPv4 translation)
+			// Node IPv6 capability doesn't matter for this LB type
+			networkStack = godo.LoadBalancerNetworkStackDualstack
 		}
-		return godo.LoadBalancerNetworkStackIPv4, nil
 	}
+
+	// Validate network stack value
 	if !(networkStack == godo.LoadBalancerNetworkStackIPv4 || networkStack == godo.LoadBalancerNetworkStackDualstack) {
-		return "", fmt.Errorf("only LB network stacks supported are (%s, %s)", godo.LoadBalancerNetworkStackIPv4, godo.LoadBalancerNetworkStackDualstack)
+		return "", fmt.Errorf("only LB network stacks supported are (%s, %s)",
+			godo.LoadBalancerNetworkStackIPv4, godo.LoadBalancerNetworkStackDualstack)
 	}
-	if lbType == godo.LoadBalancerTypeRegionalNetwork && networkStack == godo.LoadBalancerNetworkStackDualstack {
-		return "", fmt.Errorf("dual stack networking is not supported for regional network LB with kubernetes at this time")
+
+	// Check restrictions on dual-stack
+	if networkStack == godo.LoadBalancerNetworkStackDualstack {
+		// INTERNAL network cannot use dual-stack
+		if isInternalLB {
+			return "", fmt.Errorf("%w: dual stack networking is not supported for internal load balancer", ErrNetworkStackConfig)
+		}
+
+		// REGIONAL_NETWORK with explicit dual-stack annotation requires validation
+		// (only when we have node state - admission path skips this)
+		if hasNodeState && lbType == godo.LoadBalancerTypeRegionalNetwork {
+			if nodeState.hasSingleStackV4() {
+				if explicitAnnotation {
+					// User explicitly requested dual-stack but has singleStackV4 nodes - PERMANENT ERROR
+					return "", fmt.Errorf("%w: dual-stack networking requested but %d nodes lack IPv6 addresses: %s. REGIONAL_NETWORK load balancers require all nodes to have IPv6 for dual-stack mode",
+						ErrNetworkStackConfig, len(nodeState.singleStackV4Nodes), formatNodeNames(nodeState.singleStackV4Nodes, 3))
+				}
+				// Should not reach here due to default logic above, but handle defensively
+				return "", fmt.Errorf("BUG detected: cluster has single stack v4 nodes but was not defaulted to single stack REGIONAL NETWORK lb")
+			}
+		}
+
+		// Note: REGIONAL type doesn't need IPv6 capability check because it terminates
+		// connections and can translate IPv6→IPv4 implicitly at the LB layer
 	}
-	if network == godo.LoadBalancerNetworkTypeInternal && networkStack == godo.LoadBalancerNetworkStackDualstack {
-		return "", fmt.Errorf("dual stack networking is not supported for internal load balancer")
-	}
+
 	return networkStack, nil
 }
 

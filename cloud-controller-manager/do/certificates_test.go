@@ -312,21 +312,9 @@ func Test_LBaaSCertificateScenarios(t *testing.T) {
 	}
 
 	nodes := []*v1.Node{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node-1",
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node-2",
-			},
-		},
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "node-3",
-			},
-		},
+		newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+		newNodeWithIPs("node-2", "10.0.0.2", "2001:db8::2", true),
+		newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 	}
 	droplets := []godo.Droplet{
 		{
