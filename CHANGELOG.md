@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.66 (beta) - March 12, 2026
+
 * Add public ipv6 node address handling (@gottwald)
 * Add automatic dual-stack support for REGIONAL_NETWORK load balancers when all cluster nodes support dual-stack networking (@gottwald)
 * Add node filtering to load balancers: only LB-Ready nodes with appropriate IP addresses are included in load balancers (@gottwald)
