@@ -1190,8 +1190,8 @@ func Test_getStickySessionsCookieTTL(t *testing.T) {
 			ttl, err := getStickySessionsCookieTTL(test.service)
 			if ttl != test.ttl {
 				t.Error("unexpected sticky sessions cookie ttl")
-				t.Logf("expected: %q", test.ttl)
-				t.Logf("actual: %q", ttl)
+				t.Logf("expected: %v", test.ttl)
+				t.Logf("actual: %v", ttl)
 			}
 
 			if !reflect.DeepEqual(err, test.err) {
