@@ -1,5 +1,14 @@
 ## unreleased
 
+* Updates dependencies: (@schekuri)
+  - github.com/digitalocean/godo v1.187.0
+  - k8s.io/api v0.36.0
+  - k8s.io/apimachinery v0.36.0
+  - k8s.io/client-go v0.36.0
+  - k8s.io/cloud-provider v0.36.0
+  - k8s.io/component-base v0.36.0
+  - k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
+
 ## v0.1.66 (beta) - March 12, 2026
 
 * Add public ipv6 node address handling (@gottwald)
