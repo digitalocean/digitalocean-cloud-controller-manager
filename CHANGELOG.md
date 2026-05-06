@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.67 (beta) - May  6, 2026
+
 * Updates dependencies: (@schekuri)
   - github.com/digitalocean/godo v1.188.0
   - go.uber.org/zap v1.28.0
