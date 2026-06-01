@@ -20,10 +20,73 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/digitalocean/godo"
 	v1 "k8s.io/api/core/v1"
 )
+
+// IPFamily represents an IP address family for node address discovery.
+type IPFamily string
+
+const (
+	ipv4Family IPFamily = "ipv4"
+	ipv6Family IPFamily = "ipv6"
+
+	doIPAddrFamiliesEnv string = "DO_IP_ADDR_FAMILIES"
+)
+
+var ipFamilies []IPFamily
+
+// getIPFamilies returns the configured IP address families.
+// When DO_IP_ADDR_FAMILIES is not set or empty, returns the backward-compatible
+// default (IPv4 and IPv6 if available).
+func getIPFamilies() []IPFamily {
+	if ipFamilies != nil {
+		return ipFamilies
+	}
+	return []IPFamily{ipv4Family, ipv6Family}
+}
+
+// setIPFamiliesFromEnv parses DO_IP_ADDR_FAMILIES and configures the families.
+// Returns an error if any value is invalid.
+func setIPFamiliesFromEnv() error {
+	v := os.Getenv(doIPAddrFamiliesEnv)
+	if v == "" {
+		return nil
+	}
+	var families []IPFamily
+	for _, f := range strings.Split(v, ",") {
+		f = strings.TrimSpace(f)
+		lower := strings.ToLower(f)
+		switch lower {
+		case string(ipv4Family):
+			families = append(families, ipv4Family)
+		case string(ipv6Family):
+			families = append(families, ipv6Family)
+		default:
+			return fmt.Errorf("invalid IP family %q in %s (expected ipv4 or ipv6)", f, doIPAddrFamiliesEnv)
+		}
+	}
+	if len(families) == 0 {
+		return fmt.Errorf("must specify at least one IP family in %s", doIPAddrFamiliesEnv)
+	}
+	ipFamilies = families
+	return nil
+}
+
+// describeIPFamily returns a human-readable description of an IP family.
+func describeIPFamily(family IPFamily) string {
+	switch family {
+	case ipv4Family:
+		return "IPv4"
+	case ipv6Family:
+		return "IPv6"
+	default:
+		return string(family)
+	}
+}
 
 // max page size is 200, but choose a smaller value b/c sometimes objects being listed
 // are very large and the response gets too big with 200 objects
@@ -127,30 +190,57 @@ func allLoadBalancerList(ctx context.Context, client *godo.Client) ([]godo.LoadB
 }
 
 // nodeAddresses returns a []v1.NodeAddress from droplet.
+// The address families are controlled by the DO_IP_ADDR_FAMILIES environment
+// variable. When unset, the default is to include all available addresses.
 func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	var addresses []v1.NodeAddress
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeHostName, Address: droplet.Name})
 
-	privateIP, err := droplet.PrivateIPv4()
-	if err != nil || privateIP == "" {
-		return nil, fmt.Errorf("could not get private ip: %v", err)
-	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
-
-	publicIPv4, err := droplet.PublicIPv4()
-	if err != nil || publicIPv4 == "" {
-		return nil, fmt.Errorf("could not get public ipv4: %v", err)
-	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv4})
-
-	publicIPv6, err := droplet.PublicIPv6()
-	if err != nil {
-		return nil, fmt.Errorf("could not get public ipv6: %v", err)
-	}
-	if publicIPv6 != "" {
-		// not all instances come with ipv6 addresses
-		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv6})
+	for _, family := range getIPFamilies() {
+		addr, err := discoverAddress(droplet, family)
+		if err != nil {
+			return nil, fmt.Errorf("could not get %s addresses: %v", describeIPFamily(family), err)
+		}
+		addresses = append(addresses, addr...)
 	}
 
 	return addresses, nil
+}
+
+// discoverAddress discovers node addresses for a given IP family from a droplet.
+func discoverAddress(droplet *godo.Droplet, family IPFamily) ([]v1.NodeAddress, error) {
+	switch family {
+	case ipv4Family:
+		privateIP, err := droplet.PrivateIPv4()
+		if err != nil {
+			return nil, err
+		}
+		if privateIP == "" {
+			return nil, fmt.Errorf("no private IPv4 address found")
+		}
+		publicIPv4, err := droplet.PublicIPv4()
+		if err != nil {
+			return nil, err
+		}
+		if publicIPv4 == "" {
+			return nil, fmt.Errorf("no public IPv4 address found")
+		}
+		return []v1.NodeAddress{
+			{Type: v1.NodeInternalIP, Address: privateIP},
+			{Type: v1.NodeExternalIP, Address: publicIPv4},
+		}, nil
+	case ipv6Family:
+		publicIPv6, err := droplet.PublicIPv6()
+		if err != nil {
+			return nil, err
+		}
+		if publicIPv6 == "" {
+			return nil, nil
+		}
+		return []v1.NodeAddress{
+			{Type: v1.NodeExternalIP, Address: publicIPv6},
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown IP family: %s", family)
+	}
 }
