@@ -4847,6 +4847,20 @@ func Test_nodeToDropletIDs(t *testing.T) {
 			dropletIDs:   []int{100, 101},
 			missingNames: []string{"node-3", "node-4"},
 		},
+		{
+			name: "droplet resolved by private IP node name without provider ID",
+			nodes: []*v1.Node{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "10.0.0.0",
+					},
+				},
+			},
+			droplets: []godo.Droplet{
+				*newFakeDropletWithoutPublicIPv4(),
+			},
+			dropletIDs: []int{123},
+		},
 	}
 
 	for _, test := range testcases {
@@ -6586,35 +6600,46 @@ func TestGetNetworkStackWithNilNodeState(t *testing.T) {
 
 func TestClassifyNode(t *testing.T) {
 	testcases := []struct {
-		name     string
-		node     *v1.Node
-		expected nodeClassification
+		name                  string
+		node                  *v1.Node
+		allowInternalFallback bool
+		expected              nodeClassification
 	}{
 		{
-			name:     "single stack IPv4 node",
-			node:     newNodeWithIPs("node1", "10.0.0.1", "", true),
-			expected: nodeClassSingleStackV4,
+			name:                  "single stack IPv4 node",
+			node:                  newNodeWithIPs("node1", "10.0.0.1", "", true),
+			allowInternalFallback: false,
+			expected:              nodeClassSingleStackV4,
 		},
 		{
-			name:     "single stack IPv6 node",
-			node:     newNodeWithIPs("node1", "", "2001:db8::1", true),
-			expected: nodeClassSingleStackV6,
+			name:                  "single stack IPv6 node",
+			node:                  newNodeWithIPs("node1", "", "2001:db8::1", true),
+			allowInternalFallback: false,
+			expected:              nodeClassSingleStackV6,
 		},
 		{
-			name:     "dual stack node",
-			node:     newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
-			expected: nodeClassDualStack,
+			name:                  "dual stack node",
+			node:                  newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
+			allowInternalFallback: false,
+			expected:              nodeClassDualStack,
 		},
 		{
-			name:     "node without external IPs",
-			node:     newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
-			expected: nodeClassPublicNetUnready,
+			name:                  "node without external IPs",
+			node:                  newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+			allowInternalFallback: false,
+			expected:              nodeClassPublicNetUnready,
+		},
+		{
+			name:                  "private-only node with internal fallback",
+			node:                  newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+			allowInternalFallback: true,
+			expected:              nodeClassSingleStackV4,
 		},
 	}
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result := classifyNode(test.node)
+			result := classifyNode(test.node, test.allowInternalFallback)
 			if result != test.expected {
 				t.Errorf("got %v, want %v", result, test.expected)
 			}
@@ -6774,15 +6799,17 @@ func TestFormatNodeNameList(t *testing.T) {
 
 func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 	testcases := []struct {
-		name                  string
-		nodes                 []*v1.Node
-		isInternalLB          bool
-		expectedReadyCount    int
-		expectedFilteredCount int
-		expectedAllDualStack  bool
-		expectedSingleStackV4 []string
-		expectedDualStack     []string
-		expectedSingleStackV6 []string
+		name                          string
+		nodes                         []*v1.Node
+		lbType                        string
+		lbNetwork                     string
+		expectedReadyCount            int
+		expectedFilteredCount         int
+		expectedPublicNetUnreadyCount int
+		expectedAllDualStack          bool
+		expectedSingleStackV4         []string
+		expectedDualStack             []string
+		expectedSingleStackV6         []string
 	}{
 		{
 			name: "all dual stack nodes",
@@ -6790,7 +6817,8 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
 				newNodeWithIPs("node2", "10.0.0.2", "2001:db8::2", true),
 			},
-			isInternalLB:          false,
+			lbType:                godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:             godo.LoadBalancerNetworkTypeExternal,
 			expectedReadyCount:    2,
 			expectedFilteredCount: 0,
 			expectedAllDualStack:  true,
@@ -6802,7 +6830,8 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 				newNodeWithIPs("node1", "10.0.0.1", "", true),
 				newNodeWithIPs("node2", "10.0.0.2", "", true),
 			},
-			isInternalLB:          false,
+			lbType:                godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:             godo.LoadBalancerNetworkTypeExternal,
 			expectedReadyCount:    2,
 			expectedFilteredCount: 0,
 			expectedAllDualStack:  false,
@@ -6814,7 +6843,8 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
 				newNodeWithIPs("node2", "10.0.0.2", "", true),
 			},
-			isInternalLB:          false,
+			lbType:                godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:             godo.LoadBalancerNetworkTypeExternal,
 			expectedReadyCount:    2,
 			expectedFilteredCount: 0,
 			expectedAllDualStack:  false,
@@ -6822,16 +6852,31 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 			expectedDualStack:     []string{"node1"},
 		},
 		{
-			name: "nodes without external IPs filtered",
+			name: "nodes without external IPs filtered on REGIONAL_NETWORK EXTERNAL",
 			nodes: []*v1.Node{
 				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
 				newNodeWithInternalIPOnly("node2", "192.168.1.1", true),
 			},
-			isInternalLB:          false,
-			expectedReadyCount:    1,
-			expectedFilteredCount: 1,
-			expectedAllDualStack:  true,
-			expectedDualStack:     []string{"node1"},
+			lbType:                        godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:                     godo.LoadBalancerNetworkTypeExternal,
+			expectedReadyCount:            1,
+			expectedFilteredCount:         1,
+			expectedPublicNetUnreadyCount: 1,
+			expectedAllDualStack:          true,
+			expectedDualStack:             []string{"node1"},
+		},
+		{
+			name: "private-only nodes allowed on REGIONAL EXTERNAL",
+			nodes: []*v1.Node{
+				newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+				newNodeWithInternalIPOnly("node2", "192.168.1.2", true),
+			},
+			lbType:                godo.LoadBalancerTypeRegional,
+			lbNetwork:             godo.LoadBalancerNetworkTypeExternal,
+			expectedReadyCount:    2,
+			expectedFilteredCount: 0,
+			expectedAllDualStack:  false,
+			expectedSingleStackV4: []string{"node1", "node2"},
 		},
 		{
 			name: "IPv6-only nodes filtered",
@@ -6839,7 +6884,8 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
 				newNodeWithIPs("node2", "", "2001:db8::2", true),
 			},
-			isInternalLB:          false,
+			lbType:                godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:             godo.LoadBalancerNetworkTypeExternal,
 			expectedReadyCount:    1,
 			expectedFilteredCount: 1,
 			expectedAllDualStack:  true,
@@ -6850,13 +6896,16 @@ func TestFilterAndClassifyNodes_ExternalLB(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result := filterAndClassifyNodes(test.nodes, test.isInternalLB)
+			result := filterAndClassifyNodes(test.nodes, test.lbType, test.lbNetwork)
 
 			if len(result.lbReadyNodes) != test.expectedReadyCount {
 				t.Errorf("ready nodes: got %d, want %d", len(result.lbReadyNodes), test.expectedReadyCount)
 			}
 			if result.filteredCount != test.expectedFilteredCount {
 				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
+			}
+			if result.publicNetUnreadyCount != test.expectedPublicNetUnreadyCount {
+				t.Errorf("publicNetUnready count: got %d, want %d", result.publicNetUnreadyCount, test.expectedPublicNetUnreadyCount)
 			}
 			if result.isAllDualStack() != test.expectedAllDualStack {
 				t.Errorf("isAllDualStack: got %v, want %v", result.isAllDualStack(), test.expectedAllDualStack)
@@ -6904,13 +6953,63 @@ func TestFilterAndClassifyNodes_InternalLB(t *testing.T) {
 
 	for _, test := range testcases {
 		t.Run(test.name, func(t *testing.T) {
-			result := filterAndClassifyNodes(test.nodes, true) // isInternalLB = true
+			result := filterAndClassifyNodes(test.nodes, godo.LoadBalancerTypeRegionalNetwork, godo.LoadBalancerNetworkTypeInternal)
 
 			if len(result.lbReadyNodes) != test.expectedReadyCount {
 				t.Errorf("ready nodes: got %d, want %d", len(result.lbReadyNodes), test.expectedReadyCount)
 			}
 			if result.filteredCount != test.expectedFilteredCount {
 				t.Errorf("filtered count: got %d, want %d", result.filteredCount, test.expectedFilteredCount)
+			}
+		})
+	}
+}
+
+func TestAllowsPrivateOnlyBackends(t *testing.T) {
+	testcases := []struct {
+		name      string
+		lbType    string
+		lbNetwork string
+		expected  bool
+	}{
+		{name: "REGIONAL EXTERNAL", lbType: godo.LoadBalancerTypeRegional, lbNetwork: godo.LoadBalancerNetworkTypeExternal, expected: true},
+		{name: "REGIONAL_NETWORK EXTERNAL", lbType: godo.LoadBalancerTypeRegionalNetwork, lbNetwork: godo.LoadBalancerNetworkTypeExternal, expected: false},
+		{name: "REGIONAL INTERNAL", lbType: godo.LoadBalancerTypeRegional, lbNetwork: godo.LoadBalancerNetworkTypeInternal, expected: true},
+		{name: "REGIONAL_NETWORK INTERNAL", lbType: godo.LoadBalancerTypeRegionalNetwork, lbNetwork: godo.LoadBalancerNetworkTypeInternal, expected: true},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := allowsPrivateOnlyBackends(tc.lbType, tc.lbNetwork); got != tc.expected {
+				t.Errorf("allowsPrivateOnlyBackends() = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestFilterAndClassifyNodes_PrivateOnlyMatrix(t *testing.T) {
+	privateNodes := []*v1.Node{
+		newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+		newNodeWithInternalIPOnly("node2", "192.168.1.2", true),
+	}
+
+	testcases := []struct {
+		name               string
+		lbType             string
+		lbNetwork          string
+		expectedReadyCount int
+	}{
+		{name: "REGIONAL EXTERNAL", lbType: godo.LoadBalancerTypeRegional, lbNetwork: godo.LoadBalancerNetworkTypeExternal, expectedReadyCount: 2},
+		{name: "REGIONAL_NETWORK EXTERNAL", lbType: godo.LoadBalancerTypeRegionalNetwork, lbNetwork: godo.LoadBalancerNetworkTypeExternal, expectedReadyCount: 0},
+		{name: "REGIONAL INTERNAL", lbType: godo.LoadBalancerTypeRegional, lbNetwork: godo.LoadBalancerNetworkTypeInternal, expectedReadyCount: 2},
+		{name: "REGIONAL_NETWORK INTERNAL", lbType: godo.LoadBalancerTypeRegionalNetwork, lbNetwork: godo.LoadBalancerNetworkTypeInternal, expectedReadyCount: 2},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := filterAndClassifyNodes(privateNodes, tc.lbType, tc.lbNetwork)
+			if len(result.lbReadyNodes) != tc.expectedReadyCount {
+				t.Errorf("ready nodes: got %d, want %d", len(result.lbReadyNodes), tc.expectedReadyCount)
 			}
 		})
 	}
@@ -7021,12 +7120,13 @@ func TestNodeStateMethods(t *testing.T) {
 
 func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 	testcases := []struct {
-		name                string
-		service             *v1.Service
-		nodes               []*v1.Node
-		expectEvent         bool
-		expectedEventReason string
-		expectedErrorType   error
+		name                          string
+		service                       *v1.Service
+		nodes                         []*v1.Node
+		expectEvent                   bool
+		expectedEventReason           string
+		expectedEventMessageSubstring string
+		expectedErrorType             error
 	}{
 		{
 			name: "network stack config error emits event - INTERNAL LB with DUALSTACK",
@@ -7054,9 +7154,10 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 			nodes: []*v1.Node{
 				newNodeWithIPs("node1", "10.0.0.1", "2001:db8::1", true),
 			},
-			expectEvent:         true,
-			expectedEventReason: "LoadBalancerConfigError",
-			expectedErrorType:   ErrNetworkStackConfig,
+			expectEvent:                   true,
+			expectedEventReason:           "LoadBalancerConfigError",
+			expectedEventMessageSubstring: "dual",
+			expectedErrorType:             ErrNetworkStackConfig,
 		},
 		{
 			name: "network stack config error emits event - REGIONAL_NETWORK with explicit DUALSTACK but IPv4-only nodes",
@@ -7084,9 +7185,40 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 			nodes: []*v1.Node{
 				newNodeWithIPs("node1", "10.0.0.1", "", true),
 			},
-			expectEvent:         true,
-			expectedEventReason: "LoadBalancerConfigError",
-			expectedErrorType:   ErrNetworkStackConfig,
+			expectEvent:                   true,
+			expectedEventReason:           "LoadBalancerConfigError",
+			expectedEventMessageSubstring: "dual-stack",
+			expectedErrorType:             ErrNetworkStackConfig,
+		},
+		{
+			name: "no eligible backends emits event - REGIONAL_NETWORK EXTERNAL with private-only nodes",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithInternalIPOnly("node1", "192.168.1.1", true),
+			},
+			expectEvent:                   true,
+			expectedEventReason:           "LoadBalancerConfigError",
+			expectedEventMessageSubstring: "REGIONAL_NETWORK EXTERNAL",
+			expectedErrorType:             ErrNoEligibleBackends,
 		},
 		{
 			name: "non-config error does not emit event - no ready nodes",
@@ -7215,8 +7347,8 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 							t.Errorf("event source component: got %s, want digitalocean-cloud-controller-manager", event.Source.Component)
 						}
 						// Verify the error message is in the event
-						if !strings.Contains(event.Message, "dual") {
-							t.Errorf("event message should contain error details, got: %s", event.Message)
+						if test.expectedEventMessageSubstring != "" && !strings.Contains(event.Message, test.expectedEventMessageSubstring) {
+							t.Errorf("event message should contain %q, got: %s", test.expectedEventMessageSubstring, event.Message)
 						}
 						break
 					}

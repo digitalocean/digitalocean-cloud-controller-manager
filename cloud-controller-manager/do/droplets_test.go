@@ -351,6 +351,7 @@ func TestInstanceShutdown(t *testing.T) {
 func TestInstanceMetadata(t *testing.T) {
 	tt := []struct {
 		name         string
+		nodeName     string
 		providerID   string
 		fakeDroplet  *fakeDropletService
 		expectedMeta *cloudprovider.InstanceMetadata
@@ -459,7 +460,15 @@ func TestInstanceMetadata(t *testing.T) {
 					return newFakeDropletWithoutPublicIPv4(), newFakeOKResponse(), nil
 				},
 			},
-			expectedErr: "getting node addresses",
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				},
+			},
 		},
 
 		// ========== GROUP 2: Without Provider ID ==========
@@ -572,7 +581,34 @@ func TestInstanceMetadata(t *testing.T) {
 					return []godo.Droplet{*newFakeDropletWithoutPublicIPv4()}, newFakeOKResponse(), nil
 				},
 			},
-			expectedErr: "getting node addresses",
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				},
+			},
+		},
+		{
+			name:       "without provider ID - node name is private IP",
+			nodeName:   "10.0.0.0",
+			providerID: "",
+			fakeDroplet: &fakeDropletService{
+				listByNameFunc: func(ctx context.Context, name string, opt *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return []godo.Droplet{*newFakeDropletWithoutPublicIPv4()}, newFakeOKResponse(), nil
+				},
+			},
+			expectedMeta: &cloudprovider.InstanceMetadata{
+				ProviderID:   "digitalocean://123",
+				InstanceType: "2gb",
+				Region:       "test1",
+				NodeAddresses: []v1.NodeAddress{
+					{Type: v1.NodeHostName, Address: "test-droplet"},
+					{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				},
+			},
 		},
 	}
 
@@ -585,7 +621,12 @@ func TestInstanceMetadata(t *testing.T) {
 
 			node := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-droplet",
+					Name: func() string {
+						if tc.nodeName != "" {
+							return tc.nodeName
+						}
+						return "test-droplet"
+					}(),
 				},
 				Spec: v1.NodeSpec{
 					ProviderID: tc.providerID,
