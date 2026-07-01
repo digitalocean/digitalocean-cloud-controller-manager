@@ -59,7 +59,32 @@ The purpose of this endpoint is to check the availability of the DigitalOcean AP
 
 By default, the kubelet will name nodes based on the node's hostname. On DigitalOcean, node hostnames are set based on the name of the droplet. If you decide to override the hostname on kubelets with `--hostname-override`, this will also override the node name in Kubernetes.
 
-Overriding the hostname is okay if provider IDs are injected by the kubelet. (See the previous section.) If that is not the case or there are nodes lacking the provider ID, however, then the Kubenretes node name must match either the droplet name, private ipv4 IP, or the public ipv4 IP. Otherwise, `cloud-controller-manager` won't be able to find the corresponding droplets in the DigitalOcean API and consequently fail to bootstrap nodes.
+Overriding the hostname is okay if provider IDs are injected by the kubelet. (See the previous section.) If that is not the case or there are nodes lacking the provider ID, however, then the Kubenretes node name must match either the droplet name, private ipv4 IP, or the public ipv4 IP (when present). Otherwise, `cloud-controller-manager` won't be able to find the corresponding droplets in the DigitalOcean API and consequently fail to bootstrap nodes.
+
+### Private-only droplets (no public IPv4)
+
+Droplets may be created without a public IPv4 address, using only a private IPv4 address on the VPC network. The cloud controller manager supports these nodes alongside traditional public+private droplets in the same cluster.
+
+Private-only nodes receive `InternalIP` and `Hostname` addresses only (no `ExternalIP`). For reliable node bootstrap and API lookups, set `--provider-id=digitalocean://<droplet ID>` on the kubelet (DOKS does this automatically).
+
+Configure the API server with `--kubelet-preferred-address-types=InternalIP,Hostname` so control plane components reach workers over the VPC. `ExternalIP` is optional and may be omitted from this list on all-private clusters.
+
+### Load balancer support for private-only nodes
+
+Which droplets can serve as load balancer backends depends on the load balancer **type** and **network** annotations:
+
+| `do-loadbalancer-type` | `do-loadbalancer-network` | Private-only droplets |
+|------------------------|---------------------------|----------------------|
+| `REGIONAL` | `EXTERNAL` | Supported |
+| `REGIONAL_NETWORK` (CCM default) | `EXTERNAL` | Not supported |
+| `REGIONAL` | `INTERNAL` | Supported |
+| `REGIONAL_NETWORK` | `INTERNAL` | Supported |
+
+Annotations: `service.beta.kubernetes.io/do-loadbalancer-type` and `service.beta.kubernetes.io/do-loadbalancer-network`.
+
+On all-private clusters, external-facing Services must use `do-loadbalancer-type: REGIONAL` or `do-loadbalancer-network: INTERNAL`. The default `REGIONAL_NETWORK` + `EXTERNAL` combination requires at least one node with a public IPv4 address. When no eligible backends exist, the service controller emits a `LoadBalancerConfigError` warning event with guidance.
+
+Mixed clusters: a `REGIONAL_NETWORK` + `EXTERNAL` Service registers only nodes that have a public IPv4 address as backends; private-only nodes remain schedulable but are excluded from those Services.
 
 ### Kubernetes nodes can be reached via IP address only
 

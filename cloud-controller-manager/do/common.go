@@ -138,10 +138,12 @@ func nodeAddresses(droplet *godo.Droplet) ([]v1.NodeAddress, error) {
 	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeInternalIP, Address: privateIP})
 
 	publicIPv4, err := droplet.PublicIPv4()
-	if err != nil || publicIPv4 == "" {
+	if err != nil {
 		return nil, fmt.Errorf("could not get public ipv4: %v", err)
 	}
-	addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv4})
+	if publicIPv4 != "" {
+		addresses = append(addresses, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv4})
+	}
 
 	publicIPv6, err := droplet.PublicIPv6()
 	if err != nil {

@@ -1,5 +1,7 @@
 ## unreleased
 
+* Add handling for private IP only droplets (@gottwald)
+
 ## v0.1.67 (beta) - May  6, 2026
 
 * Updates dependencies: (@schekuri)
