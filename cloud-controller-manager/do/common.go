@@ -212,27 +212,24 @@ func discoverAddress(droplet *godo.Droplet, family IPFamily) ([]v1.NodeAddress, 
 	switch family {
 	case ipv4Family:
 		privateIP, err := droplet.PrivateIPv4()
-		if err != nil {
-			return nil, err
+		if err != nil || privateIP == "" {
+			return nil, fmt.Errorf("could not get private ip: %v", err)
 		}
-		if privateIP == "" {
-			return nil, fmt.Errorf("no private IPv4 address found")
+		addrs := []v1.NodeAddress{
+			{Type: v1.NodeInternalIP, Address: privateIP},
 		}
 		publicIPv4, err := droplet.PublicIPv4()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not get public ipv4: %v", err)
 		}
-		if publicIPv4 == "" {
-			return nil, fmt.Errorf("no public IPv4 address found")
+		if publicIPv4 != "" {
+			addrs = append(addrs, v1.NodeAddress{Type: v1.NodeExternalIP, Address: publicIPv4})
 		}
-		return []v1.NodeAddress{
-			{Type: v1.NodeInternalIP, Address: privateIP},
-			{Type: v1.NodeExternalIP, Address: publicIPv4},
-		}, nil
+		return addrs, nil
 	case ipv6Family:
 		publicIPv6, err := droplet.PublicIPv6()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not get public ipv6: %v", err)
 		}
 		if publicIPv6 == "" {
 			return nil, nil

@@ -65,6 +65,11 @@ var (
 	// that requires user intervention (e.g., mismatched dual-stack settings)
 	ErrNetworkStackConfig = errors.New("network stack configuration error")
 
+	// ErrNoEligibleBackends indicates no nodes are eligible to serve as load balancer backends.
+	ErrNoEligibleBackends = errors.New("no eligible load balancer backends")
+
+	errNoEligibleBackendsMsg = "REGIONAL_NETWORK EXTERNAL load balancers require at least one node with a public IPv4 address; no eligible backends found. For private-only nodes, set service.beta.kubernetes.io/do-loadbalancer-type to \"REGIONAL\" or service.beta.kubernetes.io/do-loadbalancer-network to \"INTERNAL\"."
+
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
 	stickySessionsTypeCookies = "cookies"
@@ -532,11 +537,12 @@ const (
 // nodeState contains the classification and filtering results for nodes
 type nodeState struct {
 	// lbReadyNodes are nodes that are ready to serve as LB backends
-	lbReadyNodes       []*v1.Node
-	filteredCount      int
-	singleStackV4Nodes []*v1.Node
-	singleStackV6Nodes []*v1.Node
-	dualStackNodes     []*v1.Node
+	lbReadyNodes          []*v1.Node
+	filteredCount         int
+	publicNetUnreadyCount int
+	singleStackV4Nodes    []*v1.Node
+	singleStackV6Nodes    []*v1.Node
+	dualStackNodes        []*v1.Node
 }
 
 func (ns *nodeState) hasSingleStackV4() bool {
@@ -570,13 +576,23 @@ func (ns *nodeState) isAllDualStack() bool {
 	return ns.hasDualStackNodes() && !ns.hasSingleStackV4()
 }
 
+// allowsPrivateOnlyBackends reports whether private-only nodes (no ExternalIP) may serve
+// as load balancer backends for the given type and network combination.
+func allowsPrivateOnlyBackends(lbType, lbNetwork string) bool {
+	return lbNetwork == godo.LoadBalancerNetworkTypeInternal ||
+		(lbNetwork == godo.LoadBalancerNetworkTypeExternal && lbType == godo.LoadBalancerTypeRegional)
+}
+
 // filterAndClassifyNodes filters nodes by available IP stacks and differentiates between
 // singleStackV4, singleStackV6, or dualStack.
 //
-// For INTERNAL load balancers, public IPs not required, private assumed.
-// For EXTERNAL load balancers, have at least one external IP,
+// Private-only nodes (no ExternalIP) are allowed when allowsPrivateOnlyBackends returns true.
+// For EXTERNAL REGIONAL_NETWORK load balancers, nodes must have at least one external IP,
 // and singleStackV6 nodes are filtered out (not supported for external connectivity).
-func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
+func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeState {
+	allowPrivateOnly := allowsPrivateOnlyBackends(lbType, lbNetwork)
+	isInternalLB := lbNetwork == godo.LoadBalancerNetworkTypeInternal
+
 	state := &nodeState{
 		lbReadyNodes:       make([]*v1.Node, 0, len(nodes)),
 		singleStackV4Nodes: make([]*v1.Node, 0),
@@ -585,19 +601,17 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 	}
 
 	for _, node := range nodes {
-		// For INTERNAL LBs, no need for public IPs - assuming ready
-		// this is just here so that we can expand in the future when internalLBs support v6 or other features.
 		if isInternalLB {
 			state.lbReadyNodes = append(state.lbReadyNodes, node)
 			continue
 		}
 
-		// For EXTERNAL LBs, check for external IPs and classify
-		classification := classifyNode(node)
+		classification := classifyNode(node, allowPrivateOnly)
 
 		if classification == nodeClassPublicNetUnready {
-			klog.V(4).Infof("Node %s filtered: no external IP addresses (required for EXTERNAL load balancer)", node.Name)
+			klog.V(4).Infof("Node %s filtered: no external IP addresses (required for REGIONAL_NETWORK EXTERNAL load balancer)", node.Name)
 			state.filteredCount++
+			state.publicNetUnreadyCount++
 			continue
 		}
 
@@ -608,10 +622,8 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 			continue
 		}
 
-		// Node passed filters
 		state.lbReadyNodes = append(state.lbReadyNodes, node)
 
-		// Classify node by IP stack capability
 		switch classification {
 		case nodeClassSingleStackV4:
 			state.singleStackV4Nodes = append(state.singleStackV4Nodes, node)
@@ -623,8 +635,9 @@ func filterAndClassifyNodes(nodes []*v1.Node, isInternalLB bool) *nodeState {
 	return state
 }
 
-// classifyNode determines node's IP stack classification
-func classifyNode(node *v1.Node) nodeClassification {
+// classifyNode determines node's IP stack classification.
+// When allowInternalFallback is true, a private IPv4 InternalIP is treated as IPv4-capable.
+func classifyNode(node *v1.Node, allowInternalFallback bool) nodeClassification {
 	hasIPv4 := false
 	hasIPv6 := false
 
@@ -640,7 +653,15 @@ func classifyNode(node *v1.Node) nodeClassification {
 		}
 	}
 
-	// Determine classification based on IP presence
+	if !hasIPv4 && !hasIPv6 && allowInternalFallback {
+		for _, addr := range node.Status.Addresses {
+			if addr.Type == v1.NodeInternalIP && !isIPv6(addr.Address) {
+				hasIPv4 = true
+				break
+			}
+		}
+	}
+
 	switch {
 	case hasIPv4 && hasIPv6:
 		return nodeClassDualStack
@@ -649,7 +670,6 @@ func classifyNode(node *v1.Node) nodeClassification {
 	case !hasIPv4 && hasIPv6:
 		return nodeClassSingleStackV6
 	default:
-		// No external IPs found (!hasIPv4 && !hasIPv6)
 		return nodeClassPublicNetUnready
 	}
 }
@@ -913,17 +933,25 @@ func (l *loadBalancers) emitServiceEvent(service *v1.Service, eventType, reason,
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
-	// Determine if this is an INTERNAL LB (affects node filtering)
 	lbNetwork, err := getNetwork(service)
 	if err != nil {
 		return nil, err
 	}
-	isInternalLB := (lbNetwork == godo.LoadBalancerNetworkTypeInternal)
+	lbType, err := getType(service, l.defaultLBType)
+	if err != nil {
+		return nil, err
+	}
+	isInternalLB := lbNetwork == godo.LoadBalancerNetworkTypeInternal
 
-	// Filter and classify nodes FIRST
-	nodeState := filterAndClassifyNodes(nodes, isInternalLB)
+	nodeState := filterAndClassifyNodes(nodes, lbType, lbNetwork)
 
-	// Log filtering results
+	if len(nodeState.lbReadyNodes) == 0 && nodeState.publicNetUnreadyCount > 0 &&
+		lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
+		err := fmt.Errorf("%w: %s", ErrNoEligibleBackends, errNoEligibleBackendsMsg)
+		l.emitServiceEvent(service, v1.EventTypeWarning, "LoadBalancerConfigError", err.Error())
+		return nil, err
+	}
+
 	if nodeState.filteredCount > 0 {
 		if isInternalLB {
 			klog.V(2).Infof("Service %s/%s: Filtered out %d non-lb-ready nodes, %d lb-ready nodes remaining (INTERNAL LB)",
@@ -933,7 +961,6 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 				service.Namespace, service.Name, nodeState.filteredCount,
 				len(nodeState.lbReadyNodes), len(nodeState.dualStackNodes), len(nodeState.singleStackV4Nodes))
 
-			// Log if IPv6-only nodes were filtered
 			if nodeState.hasSingleStackV6() {
 				klog.V(4).Infof("Service %s/%s: Filtered out %d IPv6-only nodes (not supported): %s",
 					service.Namespace, service.Name, len(nodeState.singleStackV6Nodes), formatNodeNames(nodeState.singleStackV6Nodes, 3))
@@ -941,10 +968,8 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		}
 	}
 
-	// Build request with filtered nodes
 	req, err := buildLoadBalancerRequestWithNodeState(ctx, service, l.resources.gclient, l.defaultLBType, nodeState)
 	if err != nil {
-		// Emit Kubernetes event for network stack configuration errors
 		if errors.Is(err, ErrNetworkStackConfig) {
 			l.emitServiceEvent(service, v1.EventTypeWarning, "LoadBalancerConfigError", err.Error())
 		}

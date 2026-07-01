@@ -24,9 +24,11 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/digitalocean/godo"
+	v1 "k8s.io/api/core/v1"
 )
 
 func stringP(s string) *string {
@@ -165,5 +167,58 @@ func TestAllLoadBalancerList(t *testing.T) {
 	}
 	if want, got := expectedLBs, lbs; !reflect.DeepEqual(want, got) {
 		t.Errorf("incorrect lbs\nwant: %#v\n got: %#v", want, got)
+	}
+}
+
+func TestNodeAddresses(t *testing.T) {
+	testcases := []struct {
+		name        string
+		droplet     *godo.Droplet
+		want        []v1.NodeAddress
+		expectedErr string
+	}{
+		{
+			name:    "public and private IPv4",
+			droplet: newFakeDroplet(),
+			want: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+			},
+		},
+		{
+			name:    "private IPv4 only",
+			droplet: newFakeDropletWithoutPublicIPv4(),
+			want: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+			},
+		},
+		{
+			name:        "missing private IPv4",
+			droplet:     newFakeDropletWithoutPrivateIP(),
+			expectedErr: "could not get private ip",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			addrs, err := nodeAddresses(tc.droplet)
+			if tc.expectedErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q, got nil", tc.expectedErr)
+				}
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Fatalf("expected error containing %q, got: %v", tc.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !reflect.DeepEqual(addrs, tc.want) {
+				t.Errorf("node addresses mismatch\ngot:  %v\nwant: %v", addrs, tc.want)
+			}
+		})
 	}
 }

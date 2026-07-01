@@ -110,11 +110,14 @@ func dropletByName(ctx context.Context, client *godo.Client, nodeName types.Node
 		if droplet.Name == string(nodeName) {
 			return &droplet, nil
 		}
-		addresses, _ := nodeAddresses(&droplet)
-		for _, address := range addresses {
-			if address.Address == string(nodeName) {
-				return &droplet, nil
-			}
+		if privateIP, err := droplet.PrivateIPv4(); err == nil && privateIP == string(nodeName) {
+			return &droplet, nil
+		}
+		if publicIPv4, err := droplet.PublicIPv4(); err == nil && publicIPv4 == string(nodeName) {
+			return &droplet, nil
+		}
+		if publicIPv6, err := droplet.PublicIPv6(); err == nil && publicIPv6 == string(nodeName) {
+			return &droplet, nil
 		}
 	}
 

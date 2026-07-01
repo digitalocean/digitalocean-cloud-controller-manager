@@ -44,7 +44,7 @@ The solution is to change the service port to a different, non-conflicting one.
 
 ### Basics
 
-* Go: min `v1.17.x`
+* Go: min `v1.25.x` (see `go.mod` file)
 
 This project uses [Go modules](https://github.com/golang/go/wiki/Modules) for dependency management and employs vendoring. Please ensure to run `make vendor` after any dependency modifications.
 
