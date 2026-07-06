@@ -2,6 +2,8 @@
 
 ## v0.1.68 (beta) - July  6, 2026
 
+## v0.1.68 (beta) - July  6, 2026
+
 * Add handling for private IP only droplets (@gottwald)
 * Replace alpine:3.15 with distroless static-debian13 nonroot base image (@thearyanahmed)
 * Updated dependencies (@gottwald)
