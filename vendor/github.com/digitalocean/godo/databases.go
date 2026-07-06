@@ -49,6 +49,7 @@ const (
 	databaseKafkaSchemaRegistrySubjectPath       = databaseBasePath + "/%s/schema-registry/%s"
 	databaseKafkaSchemaRegistryConfigPath        = databaseBasePath + "/%s/schema-registry/config"
 	databaseKafkaSchemaRegistrySubjectConfigPath = databaseBasePath + "/%s/schema-registry/config/%s"
+	databaseStorageAutoscalePath                 = databaseBasePath + "/%s/autoscale"
 )
 
 // SQL Mode constants allow for MySQL-specific SQL flavor configuration.
@@ -129,6 +130,8 @@ type DatabasesService interface {
 	Resize(context.Context, string, *DatabaseResizeRequest) (*Response, error)
 	Migrate(context.Context, string, *DatabaseMigrateRequest) (*Response, error)
 	UpdateMaintenance(context.Context, string, *DatabaseUpdateMaintenanceRequest) (*Response, error)
+	GetStorageAutoscale(context.Context, string) (*DatabaseStorageAutoscale, *Response, error)
+	UpdateStorageAutoscale(context.Context, string, *DatabaseStorageAutoscale) (*Response, error)
 	InstallUpdate(context.Context, string) (*Response, error)
 	ListBackups(context.Context, string, *ListOptions) ([]DatabaseBackup, *Response, error)
 	GetUser(context.Context, string, string) (*DatabaseUser, *Response, error)
@@ -164,6 +167,7 @@ type DatabasesService interface {
 	GetMongoDBConfig(context.Context, string) (*MongoDBConfig, *Response, error)
 	GetOpensearchConfig(context.Context, string) (*OpensearchConfig, *Response, error)
 	GetKafkaConfig(context.Context, string) (*KafkaConfig, *Response, error)
+	GetAdvancedPostgresSQLConfig(context.Context, string) (*AdvancedPostgresConfig, *Response, error)
 	UpdatePostgreSQLConfig(context.Context, string, *PostgreSQLConfig) (*Response, error)
 	UpdateRedisConfig(context.Context, string, *RedisConfig) (*Response, error)
 	UpdateValkeyConfig(context.Context, string, *ValkeyConfig) (*Response, error)
@@ -171,6 +175,7 @@ type DatabasesService interface {
 	UpdateMongoDBConfig(context.Context, string, *MongoDBConfig) (*Response, error)
 	UpdateOpensearchConfig(context.Context, string, *OpensearchConfig) (*Response, error)
 	UpdateKafkaConfig(context.Context, string, *KafkaConfig) (*Response, error)
+	UpdateAdvancedPostgresSQLConfig(context.Context, string, *AdvancedPostgresConfigUpdate) (*Response, error)
 	ListOptions(todo context.Context) (*DatabaseOptions, *Response, error)
 	UpgradeMajorVersion(context.Context, string, *UpgradeVersionRequest) (*Response, error)
 	ListTopics(context.Context, string, *ListOptions) ([]DatabaseTopic, *Response, error)
@@ -236,6 +241,7 @@ type Database struct {
 	Tags                     []string                   `json:"tags,omitempty"`
 	ProjectID                string                     `json:"project_id,omitempty"`
 	StorageSizeMib           uint64                     `json:"storage_size_mib,omitempty"`
+	StorageAutoscale         *DatabaseStorageAutoscale  `json:"storage_autoscale,omitempty"`
 	MetricsEndpoints         []*ServiceAddress          `json:"metrics_endpoints,omitempty"`
 	DOSettings               *DOSettings                `json:"do_settings,omitempty"`
 }
@@ -326,6 +332,13 @@ type DatabaseBackup struct {
 	SizeGigabytes float64   `json:"size_gigabytes,omitempty"`
 }
 
+// DatabaseStorageAutoscale represents the storage autoscaling configuration for a database cluster
+type DatabaseStorageAutoscale struct {
+	Enabled          bool    `json:"enabled"`
+	ThresholdPercent *int    `json:"threshold_percent,omitempty"`
+	IncrementGib     *uint64 `json:"increment_gib,omitempty"`
+}
+
 // DatabaseBackupRestore contains information needed to restore a backup.
 type DatabaseBackupRestore struct {
 	DatabaseName    string `json:"database_name,omitempty"`
@@ -352,6 +365,7 @@ type DatabaseCreateRequest struct {
 	BackupRestore      *DatabaseBackupRestore        `json:"backup_restore,omitempty"`
 	ProjectID          string                        `json:"project_id"`
 	StorageSizeMib     uint64                        `json:"storage_size_mib,omitempty"`
+	StorageAutoscale   *DatabaseStorageAutoscale     `json:"storage_autoscale,omitempty"`
 	Rules              []*DatabaseCreateFirewallRule `json:"rules"`
 	DOSettings         *DOSettings                   `json:"do_settings,omitempty"`
 }
@@ -714,6 +728,25 @@ type PostgreSQLConfig struct {
 	MaxFailoverReplicationTimeLag   *int64                       `json:"max_failover_replication_time_lag,omitempty"`
 }
 
+// AdvancedPostgresPGParameter is one GUC parameter returned by GET /config for advanced_pg clusters.
+type AdvancedPostgresPGParameter struct {
+	Name            string `json:"name,omitempty"`
+	Value           string `json:"value,omitempty"`
+	Description     string `json:"description,omitempty"`
+	RequiresRestart bool   `json:"requires_restart,omitempty"`
+	DefaultValue    string `json:"default_value,omitempty"`
+}
+
+// AdvancedPostgresConfig holds advanced configurations for advanced_pg database clusters.
+type AdvancedPostgresConfig struct {
+	PGParameters []AdvancedPostgresPGParameter `json:"pg_parameters,omitempty"`
+}
+
+// AdvancedPostgresConfigUpdate is the PATCH payload for advanced_pg database clusters.
+type AdvancedPostgresConfigUpdate struct {
+	PGParameters map[string]string `json:"pg_parameters,omitempty"`
+}
+
 // PostgreSQLBouncerConfig configuration
 type PostgreSQLBouncerConfig struct {
 	ServerResetQueryAlways  *bool     `json:"server_reset_query_always,omitempty"`
@@ -930,6 +963,14 @@ type databaseKafkaConfigRoot struct {
 	Config *KafkaConfig `json:"config"`
 }
 
+type databaseAdvancedPostgresConfigRoot struct {
+	Config *AdvancedPostgresConfig `json:"config"`
+}
+
+type databaseAdvancedPostgresConfigUpdateRoot struct {
+	Config *AdvancedPostgresConfigUpdate `json:"config"`
+}
+
 type databaseBackupsRoot struct {
 	Backups []DatabaseBackup `json:"backups"`
 }
@@ -948,6 +989,10 @@ type databaseReplicaRoot struct {
 
 type databaseReplicasRoot struct {
 	Replicas []DatabaseReplica `json:"replicas"`
+}
+
+type databaseStorageAutoscaleRoot struct {
+	StorageAutoscale *DatabaseStorageAutoscale `json:"storage"`
 }
 
 type evictionPolicyRoot struct {
@@ -1002,13 +1047,15 @@ type DatabaseUpdateMetricsCredentialsRequest struct {
 
 // DatabaseOptions represents the available database engines
 type DatabaseOptions struct {
-	MongoDBOptions     DatabaseEngineOptions `json:"mongodb"`
-	MySQLOptions       DatabaseEngineOptions `json:"mysql"`
-	PostgresSQLOptions DatabaseEngineOptions `json:"pg"`
-	RedisOptions       DatabaseEngineOptions `json:"redis"`
-	ValkeyOptions      DatabaseEngineOptions `json:"valkey"`
-	KafkaOptions       DatabaseEngineOptions `json:"kafka"`
-	OpensearchOptions  DatabaseEngineOptions `json:"opensearch"`
+	MongoDBOptions             DatabaseEngineOptions `json:"mongodb"`
+	MySQLOptions               DatabaseEngineOptions `json:"mysql"`
+	PostgresSQLOptions         DatabaseEngineOptions `json:"pg"`
+	RedisOptions               DatabaseEngineOptions `json:"redis"`
+	ValkeyOptions              DatabaseEngineOptions `json:"valkey"`
+	KafkaOptions               DatabaseEngineOptions `json:"kafka"`
+	OpensearchOptions          DatabaseEngineOptions `json:"opensearch"`
+	AdvancedMySQLOptions       DatabaseEngineOptions `json:"advanced_mysql"`
+	AdvancedPostgresSQLOptions DatabaseEngineOptions `json:"advanced_pg"`
 }
 
 // DatabaseEngineOptions represents the configuration options that are available for a given database engine
@@ -1205,6 +1252,38 @@ func (svc *DatabasesServiceOp) Migrate(ctx context.Context, databaseID string, m
 func (svc *DatabasesServiceOp) UpdateMaintenance(ctx context.Context, databaseID string, maintenance *DatabaseUpdateMaintenanceRequest) (*Response, error) {
 	path := fmt.Sprintf(databaseMaintenancePath, databaseID)
 	req, err := svc.client.NewRequest(ctx, http.MethodPut, path, maintenance)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := svc.client.Do(ctx, req, nil)
+	if err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+// GetStorageAutoscale retrieves the storage autoscaling configuration for a database cluster.
+func (svc *DatabasesServiceOp) GetStorageAutoscale(ctx context.Context, databaseID string) (*DatabaseStorageAutoscale, *Response, error) {
+	path := fmt.Sprintf(databaseStorageAutoscalePath, databaseID)
+	req, err := svc.client.NewRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	root := new(databaseStorageAutoscaleRoot)
+	resp, err := svc.client.Do(ctx, req, root)
+	if err != nil {
+		return nil, resp, err
+	}
+	return root.StorageAutoscale, resp, nil
+}
+
+// UpdateStorageAutoscale updates the storage autoscaling configuration on a cluster
+func (svc *DatabasesServiceOp) UpdateStorageAutoscale(ctx context.Context, databaseID string, autoscale *DatabaseStorageAutoscale) (*Response, error) {
+	path := fmt.Sprintf(databaseStorageAutoscalePath, databaseID)
+	root := &databaseStorageAutoscaleRoot{
+		StorageAutoscale: autoscale,
+	}
+	req, err := svc.client.NewRequest(ctx, http.MethodPut, path, root)
 	if err != nil {
 		return nil, err
 	}
@@ -1855,6 +1934,38 @@ func (svc *DatabasesServiceOp) GetKafkaConfig(ctx context.Context, databaseID st
 func (svc *DatabasesServiceOp) UpdateKafkaConfig(ctx context.Context, databaseID string, config *KafkaConfig) (*Response, error) {
 	path := fmt.Sprintf(databaseConfigPath, databaseID)
 	root := &databaseKafkaConfigRoot{
+		Config: config,
+	}
+	req, err := svc.client.NewRequest(ctx, http.MethodPatch, path, root)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := svc.client.Do(ctx, req, nil)
+	if err != nil {
+		return resp, err
+	}
+	return resp, nil
+}
+
+// GetAdvancedPostgresSQLConfig retrieves the config for an advanced_pg database cluster.
+func (svc *DatabasesServiceOp) GetAdvancedPostgresSQLConfig(ctx context.Context, databaseID string) (*AdvancedPostgresConfig, *Response, error) {
+	path := fmt.Sprintf(databaseConfigPath, databaseID)
+	req, err := svc.client.NewRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	root := new(databaseAdvancedPostgresConfigRoot)
+	resp, err := svc.client.Do(ctx, req, root)
+	if err != nil {
+		return nil, resp, err
+	}
+	return root.Config, resp, nil
+}
+
+// UpdateAdvancedPostgresSQLConfig updates the config for an advanced_pg database cluster.
+func (svc *DatabasesServiceOp) UpdateAdvancedPostgresSQLConfig(ctx context.Context, databaseID string, config *AdvancedPostgresConfigUpdate) (*Response, error) {
+	path := fmt.Sprintf(databaseConfigPath, databaseID)
+	root := &databaseAdvancedPostgresConfigUpdateRoot{
 		Config: config,
 	}
 	req, err := svc.client.NewRequest(ctx, http.MethodPatch, path, root)

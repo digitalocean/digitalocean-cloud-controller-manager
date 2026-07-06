@@ -68,16 +68,18 @@ type KubernetesServiceOp struct {
 
 // KubernetesClusterCreateRequest represents a request to create a Kubernetes cluster.
 type KubernetesClusterCreateRequest struct {
-	Name          string   `json:"name,omitempty"`
-	RegionSlug    string   `json:"region,omitempty"`
-	VersionSlug   string   `json:"version,omitempty"`
-	Tags          []string `json:"tags,omitempty"`
-	VPCUUID       string   `json:"vpc_uuid,omitempty"`
-	ClusterSubnet string   `json:"cluster_subnet,omitempty"`
-	ServiceSubnet string   `json:"service_subnet,omitempty"`
+	Name             string   `json:"name,omitempty"`
+	RegionSlug       string   `json:"region,omitempty"`
+	VersionSlug      string   `json:"version,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	VPCUUID          string   `json:"vpc_uuid,omitempty"`
+	WorkerSubnetUUID string   `json:"worker_subnet_uuid,omitempty"`
+	ClusterSubnet    string   `json:"cluster_subnet,omitempty"`
+	ServiceSubnet    string   `json:"service_subnet,omitempty"`
 
-	// Create cluster with highly available control plane
-	HA bool `json:"ha"`
+	// HA enables a highly available control plane. When omitted, the API applies
+	// version-based defaults: false for versions < 1.36, true for versions >= 1.36.
+	HA *bool `json:"ha,omitempty"`
 
 	NodePools []*KubernetesNodePoolCreateRequest `json:"node_pools,omitempty"`
 
@@ -91,6 +93,7 @@ type KubernetesClusterCreateRequest struct {
 	AmdGpuDeviceMetricsExporterPlugin *KubernetesAmdGpuDeviceMetricsExporterPlugin `json:"amd_gpu_device_metrics_exporter_plugin,omitempty"`
 	NvidiaGpuDevicePlugin             *KubernetesNvidiaGpuDevicePlugin             `json:"nvidia_gpu_device_plugin,omitempty"`
 	RdmaSharedDevicePlugin            *KubernetesRdmaSharedDevicePlugin            `json:"rdma_shared_dev_plugin,omitempty"`
+	CorednsAutoscaler                 *KubernetesCorednsAutoscaler                 `json:"coredns_autoscaler,omitempty"`
 	SSO                               *KubernetesClusterSSO                        `json:"sso,omitempty"`
 }
 
@@ -108,6 +111,7 @@ type KubernetesClusterUpdateRequest struct {
 	AmdGpuDeviceMetricsExporterPlugin *KubernetesAmdGpuDeviceMetricsExporterPlugin `json:"amd_gpu_device_metrics_exporter_plugin,omitempty"`
 	NvidiaGpuDevicePlugin             *KubernetesNvidiaGpuDevicePlugin             `json:"nvidia_gpu_device_plugin,omitempty"`
 	RdmaSharedDevicePlugin            *KubernetesRdmaSharedDevicePlugin            `json:"rdma_shared_dev_plugin,omitempty"`
+	CorednsAutoscaler                 *KubernetesCorednsAutoscaler                 `json:"coredns_autoscaler,omitempty"`
 	SSO                               *KubernetesClusterSSO                        `json:"sso,omitempty"`
 
 	// Convert cluster to run highly available control plane
@@ -224,16 +228,17 @@ type KubernetesGetClusterStatusMessagesRequest struct {
 
 // KubernetesCluster represents a Kubernetes cluster.
 type KubernetesCluster struct {
-	ID            string   `json:"id,omitempty"`
-	Name          string   `json:"name,omitempty"`
-	RegionSlug    string   `json:"region,omitempty"`
-	VersionSlug   string   `json:"version,omitempty"`
-	ClusterSubnet string   `json:"cluster_subnet,omitempty"`
-	ServiceSubnet string   `json:"service_subnet,omitempty"`
-	IPv4          string   `json:"ipv4,omitempty"`
-	Endpoint      string   `json:"endpoint,omitempty"`
-	Tags          []string `json:"tags,omitempty"`
-	VPCUUID       string   `json:"vpc_uuid,omitempty"`
+	ID               string   `json:"id,omitempty"`
+	Name             string   `json:"name,omitempty"`
+	RegionSlug       string   `json:"region,omitempty"`
+	VersionSlug      string   `json:"version,omitempty"`
+	ClusterSubnet    string   `json:"cluster_subnet,omitempty"`
+	ServiceSubnet    string   `json:"service_subnet,omitempty"`
+	IPv4             string   `json:"ipv4,omitempty"`
+	Endpoint         string   `json:"endpoint,omitempty"`
+	Tags             []string `json:"tags,omitempty"`
+	VPCUUID          string   `json:"vpc_uuid,omitempty"`
+	WorkerSubnetUUID string   `json:"worker_subnet_uuid,omitempty"`
 
 	// Cluster runs a highly available control plane
 	HA bool `json:"ha,omitempty"`
@@ -251,6 +256,7 @@ type KubernetesCluster struct {
 	AmdGpuDeviceMetricsExporterPlugin *KubernetesAmdGpuDeviceMetricsExporterPlugin `json:"amd_gpu_device_metrics_exporter_plugin,omitempty"`
 	NvidiaGpuDevicePlugin             *KubernetesNvidiaGpuDevicePlugin             `json:"nvidia_gpu_device_plugin,omitempty"`
 	RdmaSharedDevicePlugin            *KubernetesRdmaSharedDevicePlugin            `json:"rdma_shared_dev_plugin,omitempty"`
+	CorednsAutoscaler                 *KubernetesCorednsAutoscaler                 `json:"coredns_autoscaler,omitempty"`
 	SSO                               *KubernetesClusterSSO                        `json:"sso,omitempty"`
 
 	Status    *KubernetesClusterStatus `json:"status,omitempty"`
@@ -326,6 +332,11 @@ type KubernetesNvidiaGpuDevicePlugin struct {
 // KubernetesRdmaSharedDevicePlugin represents information about the rdma-shared-dev cluster plugin.
 // If a cluster has a multi-node GPU ready slug it will be enabled by default.
 type KubernetesRdmaSharedDevicePlugin struct {
+	Enabled *bool `json:"enabled"`
+}
+
+// KubernetesCorednsAutoscaler represents information about the CoreDNS Cluster Proportional Autoscaler cluster plugin.
+type KubernetesCorednsAutoscaler struct {
 	Enabled *bool `json:"enabled"`
 }
 
@@ -807,7 +818,7 @@ func (svc *KubernetesServiceOp) GetKubeConfig(ctx context.Context, clusterID str
 		return nil, nil, err
 	}
 	q := req.URL.Query()
-	if get.Type != "" {
+	if get != nil && get.Type != "" {
 		q.Add("type", get.Type)
 	}
 	req.URL.RawQuery = q.Encode()
@@ -832,6 +843,7 @@ func (svc *KubernetesServiceOp) GetKubeConfigWithExpiry(ctx context.Context, clu
 	}
 	q := req.URL.Query()
 	q.Add("expiry_seconds", fmt.Sprintf("%d", expirySeconds))
+	q.Add("type", "token")
 	req.URL.RawQuery = q.Encode()
 	configBytes := bytes.NewBuffer(nil)
 	resp, err := svc.client.Do(ctx, req, configBytes)
@@ -852,7 +864,7 @@ func (svc *KubernetesServiceOp) GetCredentials(ctx context.Context, clusterID st
 		return nil, nil, err
 	}
 	q := req.URL.Query()
-	if get.ExpirySeconds != nil {
+	if get != nil && get.ExpirySeconds != nil {
 		q.Add("expiry_seconds", strconv.Itoa(*get.ExpirySeconds))
 	}
 	req.URL.RawQuery = q.Encode()

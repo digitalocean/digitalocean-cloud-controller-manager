@@ -1,5 +1,62 @@
 # Change Log
 
+## [1.197.0] - 2026-06-25
+
+- #1038 - @v-amanjain-afk - nfs access point apis
+- #1039 - @venkatranabothu - Add ErrorMessage to GradientAI CustomModel
+- #1037 - @ritheek-pitti-do - Add run progress model and update tests
+- #1032 - @MaxLivesInTheMatrix - Adding in secrets API support
+
+## [1.196.0] - 2026-06-16
+
+- #1035 - @bpatra-drop - Add support for evaluation dataset delete api
+- #1022 - @nbhoot157 - Add ProjectID to VectorDBCreateRequest
+
+## [1.195.0] - 2026-06-09
+
+- #1033 - @chandrudo - Add UpdateModelEvaluationRun to GradientAI service
+- #1030 - @ritheek-pitti-do - Add ListEvaluationDatasets API and example
+- #1028 - @gangasingh01 - added support for ADVANCED PG configuration
+- #1026 - @gangasingh01 - Added support for ADVANCED_MYSQL and ADVANCED_PG engines in listoptions endpoint
+- #1027 - @SSharma-10 - rename beta release
+
+## [1.194.1] - 2026-06-03
+
+- #1023 - @SSharma-10 - godo beta release
+- #1024 - @venkatranabothu - Add Spaces editable fields to Custom Model metadata
+- #1019 - @ritheek-pitti-do - Added evals endpoints
+- #1017 - @d-isaacson - Add inference router APIs
+
+## [1.193.0] - 2026-05-26
+
+- #1015 - @nbhoot157 - Add VectorDBs service for vector database API support
+- #1018 - @gangasingh01 - mod: added support for get and update StorageAutoscale endpoints
+- #1016 - @ritheek-pitti-do - Added Cancel Eval and DeletePreset Endpoints
+- #1014 - @venkatranabothu - Add Delete Model Evaluation Run API support
+- #1013 - @d-honeybadger - add worker_subnet_uuid field to doks methods
+- #1012 - @sshirolkar - add pricing for non-token based models in godo 
+
+## [1.192.0] - 2026-05-19
+
+- #1010 - @SSharma-10 - Update readme
+- #1007 - @venkatranabothu - Add GetCustomModel API
+
+## [1.191.0] - 2026-05-14
+
+- #1005 - Add Serverless Inference APIs
+
+## [1.190.0] - 2026-05-14
+
+- #1001 - ensure that kubernetes GetKubeConfigWithExpiry fetches a token-based kubeconfig
+- #1004 - Add custom models API and tests
+- #970 - Make HA flag optional in Kubernetes cluster create request for version-based API defaults
+
+## [1.189.0] - 2026-05-04
+
+**BREAKING CHANGE:** `AppIngressSpecRuleStringMatch.Prefix` and `.Exact` changed from `string` to `*string` to fix empty-string matching. Consumers that directly read or assign these fields will need to update their code. Use `godo.PtrTo("value")` for assignment and the `GetPrefix()`/`GetExact()` accessors for reading.
+
+- #994 - @aupadhyay-shark - App Ingress authority routing only supports exact matching #937
+
 ## [1.188.0] - 2026-04-27
 
 - #1000 - @m3co-code - add new fields to k8s node pool template for auto-scaler
