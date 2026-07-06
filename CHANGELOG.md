@@ -1,6 +1,7 @@
 ## unreleased
 
 * Add handling for private IP only droplets (@gottwald)
+* Replace alpine:3.15 with distroless static-debian13 nonroot base image (@thearyanahmed)
 
 ## v0.1.67 (beta) - May  6, 2026
 
