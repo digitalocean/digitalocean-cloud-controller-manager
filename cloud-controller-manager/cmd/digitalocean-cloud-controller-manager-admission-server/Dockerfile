@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM alpine:3.15
+FROM gcr.io/distroless/static-debian13:nonroot
 
-RUN apk add --no-cache ca-certificates
+COPY digitalocean-cloud-controller-manager-admission-server /bin/
 
-ADD digitalocean-cloud-controller-manager-admission-server /bin/
-
-CMD ["/bin/digitalocean-cloud-controller-manager-admission-server"]
+ENTRYPOINT ["/bin/digitalocean-cloud-controller-manager-admission-server"]
