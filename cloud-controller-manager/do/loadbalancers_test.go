@@ -4715,6 +4715,186 @@ func Test_buildLoadBalancerRequestWithClusterID(t *testing.T) {
 	}
 }
 
+func Test_buildLoadBalancerRequest_SubnetUUID(t *testing.T) {
+	const subnetUUID = "3d6f6fdc-8b7e-49fd-a3c2-0d73ec4e40b4"
+
+	service := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+			Annotations: map[string]string{
+				annDOSubnetUUID: subnetUUID,
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name:     "test",
+					Protocol: "TCP",
+					Port:     int32(80),
+					NodePort: int32(30000),
+				},
+			},
+		},
+	}
+	nodes := []*v1.Node{
+		newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+	}
+	fakeClient := newFakeDropletClient(
+		&fakeDropletService{
+			listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{{ID: 100, Name: "node-1"}}, newFakeOKResponse(), nil
+			},
+		},
+	)
+	fakeResources := newResources(clusterID, "vpc_uuid", publicAccessFirewall{}, fakeClient)
+	fakeResources.clusterVPCID = "vpc_uuid"
+
+	lb := &loadBalancers{
+		resources:     fakeResources,
+		region:        "nyc3",
+		clusterID:     clusterID,
+		defaultLBType: godo.LoadBalancerTypeRegionalNetwork,
+	}
+
+	lbr, err := lb.buildLoadBalancerRequest(context.Background(), service, nodes)
+	if err != nil {
+		t.Fatalf("got error: %s", err)
+	}
+	if want, got := subnetUUID, lbr.VPCSubnetUUID; want != got {
+		t.Errorf("incorrect subnet uuid\nwant: %#v\n got: %#v", want, got)
+	}
+	if lbr.IP != "" {
+		t.Errorf("expected IP to be empty on build (create-only), got %q", lbr.IP)
+	}
+}
+
+func Test_EnsureLoadBalancer_BYOIPCreateOnly(t *testing.T) {
+	const byoip = "10.41.29.5"
+	const subnetUUID = "3d6f6fdc-8b7e-49fd-a3c2-0d73ec4e40b4"
+
+	nodes := []*v1.Node{
+		newNodeWithIPs("node-1", "10.0.0.1", "2001:db8::1", true),
+	}
+	servicePorts := []v1.ServicePort{
+		{
+			Name:     "test",
+			Protocol: "TCP",
+			Port:     int32(80),
+			NodePort: int32(30000),
+		},
+	}
+
+	newLB := func(t *testing.T, fakeLB *fakeLBService, svc *v1.Service) *loadBalancers {
+		t.Helper()
+		fakeDroplet := &fakeDropletService{
+			listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+				return []godo.Droplet{{ID: 100, Name: "node-1"}}, newFakeOKResponse(), nil
+			},
+		}
+		certStore := make(map[string]*godo.Certificate)
+		fakeCert := newKVCertService(certStore, true)
+		client := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
+		resources := newResources("", "", publicAccessFirewall{}, client)
+		resources.kclient = fake.NewSimpleClientset()
+		if _, err := resources.kclient.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{}); err != nil {
+			t.Fatalf("failed to add service to fake client: %s", err)
+		}
+		return &loadBalancers{
+			resources:     resources,
+			region:        "nyc3",
+			defaultLBType: godo.LoadBalancerTypeRegionalNetwork,
+		}
+	}
+
+	t.Run("create sends IP and subnet UUID", func(t *testing.T) {
+		var gotReq *godo.LoadBalancerRequest
+		fakeLB := &fakeLBService{
+			listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+				return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+			},
+			createFn: func(_ context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				gotReq = lbr
+				lb := createLB()
+				lb.IP = byoip
+				return lb, newFakeOKResponse(), nil
+			},
+			updateFn: func(context.Context, string, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				t.Fatal("update should not have been invoked")
+				return nil, nil, nil
+			},
+		}
+		svc := &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "foobar123",
+				Annotations: map[string]string{
+					annDOLoadBalancerIP: byoip,
+					annDOSubnetUUID:     subnetUUID,
+				},
+			},
+			Spec: v1.ServiceSpec{Ports: servicePorts},
+		}
+		lb := newLB(t, fakeLB, svc)
+
+		if _, err := lb.EnsureLoadBalancer(context.Background(), "cluster", svc, nodes); err != nil {
+			t.Fatalf("EnsureLoadBalancer: %v", err)
+		}
+		if gotReq == nil {
+			t.Fatal("expected create to be called")
+		}
+		if want, got := byoip, gotReq.IP; want != got {
+			t.Errorf("create IP: want %q, got %q", want, got)
+		}
+		if want, got := subnetUUID, gotReq.VPCSubnetUUID; want != got {
+			t.Errorf("create subnet UUID: want %q, got %q", want, got)
+		}
+	})
+
+	t.Run("update does not send IP but does send subnet UUID", func(t *testing.T) {
+		var gotReq *godo.LoadBalancerRequest
+		existing := createLB()
+		fakeLB := &fakeLBService{
+			getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+				return existing, newFakeOKResponse(), nil
+			},
+			createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				t.Fatal("create should not have been invoked")
+				return nil, nil, nil
+			},
+			updateFn: func(_ context.Context, _ string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+				gotReq = lbr
+				return existing, newFakeOKResponse(), nil
+			},
+		}
+		svc := &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+				UID:  "foobar123",
+				Annotations: map[string]string{
+					annDOLoadBalancerID: existing.ID,
+					annDOLoadBalancerIP: byoip,
+					annDOSubnetUUID:     subnetUUID,
+				},
+			},
+			Spec: v1.ServiceSpec{Ports: servicePorts},
+		}
+		lb := newLB(t, fakeLB, svc)
+
+		if _, err := lb.EnsureLoadBalancer(context.Background(), "cluster", svc, nodes); err != nil {
+			t.Fatalf("EnsureLoadBalancer: %v", err)
+		}
+		if gotReq == nil {
+			t.Fatal("expected update to be called")
+		}
+		if gotReq.IP != "" {
+			t.Errorf("update must not send IP, got %q", gotReq.IP)
+		}
+		if want, got := subnetUUID, gotReq.VPCSubnetUUID; want != got {
+			t.Errorf("update subnet UUID: want %q, got %q", want, got)
+		}
+	})
+}
+
 func Test_nodeToDropletIDs(t *testing.T) {
 	testcases := []struct {
 		name         string
