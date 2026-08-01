@@ -462,7 +462,7 @@ func (l *loadBalancers) retrieveLoadBalancer(ctx context.Context, service *v1.Se
 		return nil, err
 	}
 
-	lb := findLoadBalancerByName(service, allLBs)
+	lb := findLoadBalancerByName(service, allLBs, l.resources.clusterID)
 	if lb == nil {
 		return nil, errLBNotFound
 	}
@@ -482,7 +482,7 @@ func (l *loadBalancers) findLoadBalancerByID(ctx context.Context, id string) (*g
 	return lb, nil
 }
 
-func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) *godo.LoadBalancer {
+func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer, clusterID string) *godo.LoadBalancer {
 	customName := getLoadBalancerName(service)
 	legacyName := getLoadBalancerLegacyName(service)
 	candidates := []string{customName}
@@ -492,9 +492,18 @@ func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) *go
 
 	klog.V(2).Infof("Looking up load-balancer for service %s/%s by name (candidates: %s)", service.Namespace, service.Name, strings.Join(candidates, ", "))
 
+	var clusterTag string
+	if clusterID != "" {
+		clusterTag = buildK8sTag(clusterID)
+	}
+
 	for _, lb := range allLBs {
 		for _, cand := range candidates {
 			if lb.Name == cand {
+				if clusterTag != "" && !lbHasTag(lb, clusterTag) {
+					klog.Warningf("Skipping load-balancer %q (%s): owned by a different cluster (missing tag %s)", lb.Name, lb.ID, clusterTag)
+					continue
+				}
 				return &lb
 			}
 		}
@@ -503,13 +512,23 @@ func findLoadBalancerByName(service *v1.Service, allLBs []godo.LoadBalancer) *go
 	return nil
 }
 
-func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer) string {
+// lbHasTag reports whether lb carries the given tag.
+func lbHasTag(lb godo.LoadBalancer, tag string) bool {
+	for _, t := range lb.Tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
+func findLoadBalancerID(service *v1.Service, allLBs []godo.LoadBalancer, clusterID string) string {
 	id := getLoadBalancerID(service)
 	if len(id) > 0 {
 		return id
 	}
 
-	lb := findLoadBalancerByName(service, allLBs)
+	lb := findLoadBalancerByName(service, allLBs, clusterID)
 	if lb == nil {
 		return ""
 	}
