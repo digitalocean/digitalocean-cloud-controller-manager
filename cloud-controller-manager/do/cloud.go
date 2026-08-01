@@ -164,6 +164,10 @@ func newCloud() (cloudprovider.Interface, error) {
 		defaultLBType = lbType
 	}
 
+	if err := setIPFamiliesFromEnv(); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %v", doIPAddrFamiliesEnv, err)
+	}
+
 	return &cloud{
 		client:        doClient,
 		instances:     newInstances(resources, region),
