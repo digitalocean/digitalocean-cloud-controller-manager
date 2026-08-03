@@ -70,6 +70,12 @@ var (
 
 	errNoEligibleBackendsMsg = "REGIONAL_NETWORK EXTERNAL load balancers require at least one node with a public IPv4 address; no eligible backends found. For private-only nodes, set service.beta.kubernetes.io/do-loadbalancer-type to \"REGIONAL\" or service.beta.kubernetes.io/do-loadbalancer-network to \"INTERNAL\"."
 
+	// nodesNotYetLBReadyRetryAfter is how long the service controller should wait
+	// before retrying when nodes are still cloud-provider-initializing and lack
+	// the addresses required for LB backends. Kept short so scale-up races heal
+	// quickly once node init finishes.
+	nodesNotYetLBReadyRetryAfter = 5 * time.Second
+
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
 	stickySessionsTypeCookies = "cookies"
@@ -218,7 +224,9 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	var lbRequest *godo.LoadBalancerRequest
 	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+		// Use %w so api.RetryError from buildLoadBalancerRequest can be handled
+		// by the upstream service controller (fixed-delay retry).
+		return nil, fmt.Errorf("failed to build load-balancer request: %w", err)
 	}
 
 	var lb *godo.LoadBalancer
@@ -342,7 +350,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 	// checkAndUpdateLBAndServiceCerts modifies the service
 	_, err := l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build load-balancer request: %s", err)
+		return nil, fmt.Errorf("failed to build load-balancer request: %w", err)
 	}
 
 	lbCertID := getCertificateIDFromLB(lb)
@@ -358,7 +366,7 @@ func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBal
 
 	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build load-balancer request (post-certificate update): %s", err)
+		return nil, fmt.Errorf("failed to build load-balancer request (post-certificate update): %w", err)
 	}
 
 	lbID := lb.ID
@@ -540,6 +548,10 @@ type nodeState struct {
 	lbReadyNodes          []*v1.Node
 	filteredCount         int
 	publicNetUnreadyCount int
+	// publicNetUnreadyNodes are nodes classified as publicNetUnready (no usable
+	// external/fallback IP for this LB type/network). Used to detect transient
+	// cloud-provider init races vs permanently ineligible nodes.
+	publicNetUnreadyNodes []*v1.Node
 	singleStackV4Nodes    []*v1.Node
 	singleStackV6Nodes    []*v1.Node
 	dualStackNodes        []*v1.Node
@@ -594,10 +606,11 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 	isInternalLB := lbNetwork == godo.LoadBalancerNetworkTypeInternal
 
 	state := &nodeState{
-		lbReadyNodes:       make([]*v1.Node, 0, len(nodes)),
-		singleStackV4Nodes: make([]*v1.Node, 0),
-		singleStackV6Nodes: make([]*v1.Node, 0),
-		dualStackNodes:     make([]*v1.Node, 0),
+		lbReadyNodes:          make([]*v1.Node, 0, len(nodes)),
+		publicNetUnreadyNodes: make([]*v1.Node, 0),
+		singleStackV4Nodes:    make([]*v1.Node, 0),
+		singleStackV6Nodes:    make([]*v1.Node, 0),
+		dualStackNodes:        make([]*v1.Node, 0),
 	}
 
 	for _, node := range nodes {
@@ -612,6 +625,7 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 			klog.V(4).Infof("Node %s filtered: no external IP addresses (required for REGIONAL_NETWORK EXTERNAL load balancer)", node.Name)
 			state.filteredCount++
 			state.publicNetUnreadyCount++
+			state.publicNetUnreadyNodes = append(state.publicNetUnreadyNodes, node)
 			continue
 		}
 
@@ -633,6 +647,33 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 	}
 
 	return state
+}
+
+// isCloudProviderUninitialized reports whether the node still has the external
+// cloud-provider uninitialized taint. While this taint is present, missing
+// ExternalIP is treated as transient (node init in progress) rather than a
+// permanent "private-only" configuration.
+func isCloudProviderUninitialized(node *v1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == api.TaintExternalCloudProvider {
+			return true
+		}
+	}
+	return false
+}
+
+// initializingPublicNetUnreadyNodes returns publicNetUnready nodes that are
+// still cloud-provider-initializing. These must not be permanently omitted
+// from LB backends: upstream will not re-sync when addresses appear
+// (shouldSyncUpdatedNode / nodesSufficientlyEqual ignore Status.Addresses).
+func initializingPublicNetUnreadyNodes(state *nodeState) []*v1.Node {
+	var initializing []*v1.Node
+	for _, node := range state.publicNetUnreadyNodes {
+		if isCloudProviderUninitialized(node) {
+			initializing = append(initializing, node)
+		}
+	}
+	return initializing
 }
 
 // classifyNode determines node's IP stack classification.
@@ -944,6 +985,19 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 	isInternalLB := lbNetwork == godo.LoadBalancerNetworkTypeInternal
 
 	nodeState := filterAndClassifyNodes(nodes, lbType, lbNetwork)
+
+	// If any filtered publicNetUnready node is still cloud-provider-initializing,
+	// refuse a partial/empty backend update and ask upstream to retry. Returning
+	// success here permanently strands the node: address population does not
+	// re-trigger the service controller (see CON-14209 / ESC-23605).
+	if initializing := initializingPublicNetUnreadyNodes(nodeState); len(initializing) > 0 {
+		msg := fmt.Sprintf(
+			"service %s/%s: %d node(s) still initializing and not yet lb-ready (e.g. missing ExternalIP); retrying instead of updating backends with a partial node set: %s",
+			service.Namespace, service.Name, len(initializing), formatNodeNames(initializing, 5),
+		)
+		klog.Info(msg)
+		return nil, api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
+	}
 
 	if len(nodeState.lbReadyNodes) == 0 && nodeState.publicNetUnreadyCount > 0 &&
 		lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {

@@ -257,6 +257,16 @@ func newNodeWithInternalIPOnly(name string, internalIP string, ready bool) *v1.N
 	return node
 }
 
+// withCloudProviderUninitializedTaint marks a node as still undergoing cloud-provider init.
+func withCloudProviderUninitializedTaint(node *v1.Node) *v1.Node {
+	node.Spec.Taints = append(node.Spec.Taints, v1.Taint{
+		Key:    api.TaintExternalCloudProvider,
+		Value:  "true",
+		Effect: v1.TaintEffectNoSchedule,
+	})
+	return node
+}
+
 func Test_getAlgorithm(t *testing.T) {
 	testcases := []struct {
 		name      string
@@ -7127,6 +7137,7 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 		expectedEventReason           string
 		expectedEventMessageSubstring string
 		expectedErrorType             error
+		expectedRetry                 bool
 	}{
 		{
 			name: "network stack config error emits event - INTERNAL LB with DUALSTACK",
@@ -7221,6 +7232,99 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 			expectedErrorType:             ErrNoEligibleBackends,
 		},
 		{
+			name: "initializing publicNetUnready node among ready nodes returns RetryError (CON-14209 race)",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "develop",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node-ready-a", "10.0.0.1", "", true),
+				newNodeWithIPs("node-ready-b", "10.0.0.2", "", true),
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+			},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil, // RetryError is not a sentinel; asserted separately below via expectedRetry
+			expectedRetry:       true,
+		},
+		{
+			name: "initialized private-only node among ready nodes does not retry (permanent filter)",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node-ready", "10.0.0.1", "", true),
+				newNodeWithInternalIPOnly("node-private", "192.168.1.1", true),
+			},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil,
+			expectedRetry:       false,
+		},
+		{
+			name: "all nodes still initializing returns RetryError instead of ErrNoEligibleBackends",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node1", "192.168.1.1", true)),
+			},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil,
+			expectedRetry:       true,
+		},
+		{
 			name: "non-config error does not emit event - no ready nodes",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -7307,6 +7411,20 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 
 			// Call buildLoadBalancerRequest
 			_, err := lb.buildLoadBalancerRequest(context.Background(), test.service, test.nodes)
+
+			var retryErr *api.RetryError
+			gotRetry := errors.As(err, &retryErr)
+			if gotRetry != test.expectedRetry {
+				t.Errorf("RetryError: got %v (err=%v), want expectedRetry=%v", gotRetry, err, test.expectedRetry)
+			}
+			if test.expectedRetry {
+				if retryErr.RetryAfter() != nodesNotYetLBReadyRetryAfter {
+					t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), nodesNotYetLBReadyRetryAfter)
+				}
+				if errors.Is(err, ErrNoEligibleBackends) {
+					t.Errorf("initializing nodes should not surface ErrNoEligibleBackends, got: %v", err)
+				}
+			}
 
 			// Check error type
 			if test.expectedErrorType != nil {
