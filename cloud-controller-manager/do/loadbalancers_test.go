@@ -7260,7 +7260,7 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 			},
 			expectEvent:         false,
 			expectedEventReason: "",
-			expectedErrorType:   nil, // RetryError is not a sentinel; asserted separately below via expectedRetry
+			expectedErrorType:   nil, // not applicable for RetryError; see expectedRetry below
 			expectedRetry:       true,
 		},
 		{
