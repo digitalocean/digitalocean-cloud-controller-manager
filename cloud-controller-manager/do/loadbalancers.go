@@ -70,11 +70,17 @@ var (
 
 	errNoEligibleBackendsMsg = "REGIONAL_NETWORK EXTERNAL load balancers require at least one node with a public IPv4 address; no eligible backends found. For private-only nodes, set service.beta.kubernetes.io/do-loadbalancer-type to \"REGIONAL\" or service.beta.kubernetes.io/do-loadbalancer-network to \"INTERNAL\"."
 
-	// nodesNotYetLBReadyRetryAfter is how long the service controller should wait
-	// before retrying when nodes are still cloud-provider-initializing and lack
-	// the addresses required for LB backends. Kept short so scale-up races heal
-	// quickly once node init finishes.
+	// nodesNotYetLBReadyRetryAfter is the base retry delay while nodes are still
+	// cloud-provider-initializing. Kept short so scale-up races heal quickly.
 	nodesNotYetLBReadyRetryAfter = 5 * time.Second
+
+	// nodeInitTaintedGrace bounds how long a node carrying the cloud-provider
+	// uninitialized taint is treated as still initializing rather than stuck.
+	nodeInitTaintedGrace = 10 * time.Minute
+
+	// nodeInitAddressGrace covers the gap after the taint is removed but before
+	// Status.Addresses is patched; those are two separate writes.
+	nodeInitAddressGrace = 60 * time.Second
 
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
@@ -112,6 +118,8 @@ type loadBalancers struct {
 	lbActiveTimeout   int
 	lbActiveCheckTick int
 	defaultLBType     string
+	// now overrides the clock in tests; nil means time.Now.
+	now func() time.Time
 }
 
 type servicePatcher struct {
@@ -131,12 +139,25 @@ func newServicePatcher(kclient kubernetes.Interface, base *v1.Service) servicePa
 // Patch will submit a patch request for the Service unless the updated service
 // reference contains the same set of annotations as the base copied during
 // servicePatcher initialization.
+//
+// A successful patch returns err untouched: utilerrors.Aggregate does not
+// implement errors.As, so wrapping would hide api.RetryError from upstream.
 func (sp *servicePatcher) Patch(ctx context.Context, err error) error {
 	if reflect.DeepEqual(sp.base.Annotations, sp.updated.Annotations) {
 		return err
 	}
 	perr := patchService(ctx, sp.kclient, sp.base, sp.updated)
+	if perr == nil {
+		return err
+	}
 	return utilerrors.NewAggregate([]error{err, perr})
+}
+
+func (l *loadBalancers) clock() time.Time {
+	if l.now != nil {
+		return l.now()
+	}
+	return time.Now()
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
@@ -221,11 +242,15 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	patcher := newServicePatcher(l.resources.kclient, service)
 	defer func() { err = patcher.Patch(ctx, err) }()
 
+	pending, err := l.prepareNodesForLBSync(service, nodes)
+	if err != nil {
+		return nil, err
+	}
+
 	var lbRequest *godo.LoadBalancerRequest
 	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
 	if err != nil {
-		// Use %w so api.RetryError from buildLoadBalancerRequest can be handled
-		// by the upstream service controller (fixed-delay retry).
+		// %w keeps ErrNoEligibleBackends inspectable with errors.Is.
 		return nil, fmt.Errorf("failed to build load-balancer request: %w", err)
 	}
 
@@ -262,6 +287,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 	if lb.Status != lbStatusActive {
 		return nil, fmt.Errorf("load-balancer has unexpected status %q", lb.Status)
+	}
+
+	if err := l.retryIfNodesPendingInit(service, pending); err != nil {
+		return nil, err
 	}
 
 	// If a LB hostname annotation is specified, return with it instead of the IP.
@@ -403,8 +432,18 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
+	// Classify after annotating so the real LB type is used, not the default.
+	pending, err := l.prepareNodesForLBSync(service, nodes)
+	if err != nil {
+		return err
+	}
+
 	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return l.retryIfNodesPendingInit(service, pending)
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
@@ -649,10 +688,9 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 	return state
 }
 
-// isCloudProviderUninitialized reports whether the node still has the external
-// cloud-provider uninitialized taint. While this taint is present, missing
-// ExternalIP is treated as transient (node init in progress) rather than a
-// permanent "private-only" configuration.
+// isCloudProviderUninitialized reports whether the node still carries the
+// external cloud-provider uninitialized taint, meaning a missing ExternalIP is
+// transient rather than a permanent private-only configuration.
 func isCloudProviderUninitialized(node *v1.Node) bool {
 	for _, taint := range node.Spec.Taints {
 		if taint.Key == api.TaintExternalCloudProvider {
@@ -662,18 +700,108 @@ func isCloudProviderUninitialized(node *v1.Node) bool {
 	return false
 }
 
-// initializingPublicNetUnreadyNodes returns publicNetUnready nodes that are
-// still cloud-provider-initializing. These must not be permanently omitted
-// from LB backends: upstream will not re-sync when addresses appear
-// (shouldSyncUpdatedNode / nodesSufficientlyEqual ignore Status.Addresses).
-func initializingPublicNetUnreadyNodes(state *nodeState) []*v1.Node {
-	var initializing []*v1.Node
+// pendingInitNodes splits publicNetUnready nodes into those that may still be
+// completing cloud-provider initialization and those past their grace period.
+//
+// Expired nodes are permanently ineligible: a stuck or genuinely private-only
+// node must not keep the retry loop alive forever.
+func pendingInitNodes(state *nodeState, now time.Time) (pending, expired []*v1.Node) {
 	for _, node := range state.publicNetUnreadyNodes {
+		age := now.Sub(node.CreationTimestamp.Time)
+		grace := nodeInitAddressGrace
 		if isCloudProviderUninitialized(node) {
-			initializing = append(initializing, node)
+			grace = nodeInitTaintedGrace
+		}
+		if age < grace {
+			pending = append(pending, node)
+		} else {
+			expired = append(expired, node)
 		}
 	}
-	return initializing
+	return pending, expired
+}
+
+// retryAfterFor slows the retry cadence as nodes stay unready, bounding the
+// load balancer writes a stuck node can cause. The youngest pending node sets
+// the pace so one stuck node cannot throttle a node that is merely racing.
+func retryAfterFor(pending []*v1.Node, now time.Time) time.Duration {
+	if len(pending) == 0 {
+		return nodesNotYetLBReadyRetryAfter
+	}
+
+	youngest := now.Sub(pending[0].CreationTimestamp.Time)
+	for _, node := range pending[1:] {
+		if age := now.Sub(node.CreationTimestamp.Time); age < youngest {
+			youngest = age
+		}
+	}
+
+	switch {
+	case youngest < 30*time.Second:
+		return nodesNotYetLBReadyRetryAfter
+	case youngest < 2*time.Minute:
+		return 15 * time.Second
+	default:
+		return 60 * time.Second
+	}
+}
+
+// classifyServiceNodes resolves LB type/network and classifies the given nodes.
+func (l *loadBalancers) classifyServiceNodes(service *v1.Service, nodes []*v1.Node) (*nodeState, error) {
+	lbNetwork, err := getNetwork(service)
+	if err != nil {
+		return nil, err
+	}
+	lbType, err := getType(service, l.defaultLBType)
+	if err != nil {
+		return nil, err
+	}
+	return filterAndClassifyNodes(nodes, lbType, lbNetwork), nil
+}
+
+// prepareNodesForLBSync classifies nodes and returns those that may still be
+// initializing, so the caller can apply the lb-ready ones and retry for the
+// rest. It fails with a RetryError when no node is lb-ready yet.
+func (l *loadBalancers) prepareNodesForLBSync(service *v1.Service, nodes []*v1.Node) (pending []*v1.Node, err error) {
+	nodeState, err := l.classifyServiceNodes(service, nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	pending, expired := pendingInitNodes(nodeState, l.clock())
+	if len(expired) > 0 {
+		klog.Infof(
+			"service %s/%s: permanently omitting %d node(s) with no usable address after init grace period: %s",
+			service.Namespace, service.Name, len(expired), formatNodeNames(expired, 5),
+		)
+	}
+
+	// Never write an empty backend set while nodes are still coming up.
+	if len(nodeState.lbReadyNodes) == 0 && len(pending) > 0 {
+		msg := fmt.Sprintf(
+			"service %s/%s: %d node(s) still initializing and not yet lb-ready (e.g. missing ExternalIP); retrying instead of updating backends with an empty node set: %s",
+			service.Namespace, service.Name, len(pending), formatNodeNames(pending, 5),
+		)
+		klog.Info(msg)
+		return nil, api.NewRetryError(msg, retryAfterFor(pending, l.clock()))
+	}
+
+	return pending, nil
+}
+
+// retryIfNodesPendingInit asks upstream to sync again after backends were
+// updated with a partial node set. This retry is the only convergence path:
+// address population does not re-trigger the service controller.
+func (l *loadBalancers) retryIfNodesPendingInit(service *v1.Service, pending []*v1.Node) error {
+	if len(pending) == 0 {
+		return nil
+	}
+	msg := fmt.Sprintf(
+		"service %s/%s: updated backends with currently lb-ready nodes; retrying for %d still initializing: %s",
+		service.Namespace, service.Name, len(pending), formatNodeNames(pending, 5),
+	)
+	klog.Info(msg)
+	return api.NewRetryError(msg, retryAfterFor(pending, l.clock()))
 }
 
 // classifyNode determines node's IP stack classification.
@@ -985,19 +1113,6 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 	isInternalLB := lbNetwork == godo.LoadBalancerNetworkTypeInternal
 
 	nodeState := filterAndClassifyNodes(nodes, lbType, lbNetwork)
-
-	// If any filtered publicNetUnready node is still cloud-provider-initializing,
-	// refuse a partial/empty backend update and ask upstream to retry. Returning
-	// success here permanently strands the node: address population does not
-	// re-trigger the service controller (see CON-14209 / ESC-23605).
-	if initializing := initializingPublicNetUnreadyNodes(nodeState); len(initializing) > 0 {
-		msg := fmt.Sprintf(
-			"service %s/%s: %d node(s) still initializing and not yet lb-ready (e.g. missing ExternalIP); retrying instead of updating backends with a partial node set: %s",
-			service.Namespace, service.Name, len(initializing), formatNodeNames(initializing, 5),
-		)
-		klog.Info(msg)
-		return nil, api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
-	}
 
 	if len(nodeState.lbReadyNodes) == 0 && nodeState.publicNetUnreadyCount > 0 &&
 		lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
