@@ -900,6 +900,7 @@ func buildLoadBalancerRequestWithNodeState(ctx context.Context, service *v1.Serv
 		Type:                         lbType,
 		Network:                      lbNetwork,
 		NetworkStack:                 lbNetworkStack,
+		VPCSubnetUUID:                getSubnetUUID(service),
 	}, nil
 }
 
@@ -993,7 +994,6 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	req.Region = l.region
 	req.VPCUUID = l.resources.clusterVPCID
-	req.VPCSubnetUUID = getSubnetUUID(service)
 	return req, nil
 }
 
