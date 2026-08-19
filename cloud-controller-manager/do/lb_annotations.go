@@ -190,4 +190,12 @@ const (
 	// are permitted. If load balancer type is REGIONAL then it will default to DUALSTACK. If load balancer type
 	// is REGIONAL_NETWORK then it will default to IPV4.
 	annDONetworkStack = annDOLoadBalancerBase + "network-stack"
+
+	// annDOLoadBalancerIP is the annotation used to assign a BYOIP address when creating the load balancer.
+	// The IP must be an unassigned BYOIP address on the account in the same region. Create-only; ignored on update.
+	annDOLoadBalancerIP = annDOLoadBalancerBase + "ip"
+
+	// annDOSubnetUUID is the annotation used to place the load balancer in a specific VPC subnet.
+	// Must be a valid subnet UUID in the cluster VPC. Specifying a subnet UUID is in private preview.
+	annDOSubnetUUID = annDOLoadBalancerBase + "subnet-uuid"
 )

@@ -236,6 +236,22 @@ Specifies the type of the load balancer. Options are "REGIONAL" or "REGIONAL_NET
 Specifies the network availability of the load balancer. Options are "EXTERNAL" and "INTERNAL". Defaults to "EXTERNAL"
 External load balancer will be accessible via the public internet. Internal load balancer will only be accessible via a members in the vpc.
 
+## service.beta.kubernetes.io/do-loadbalancer-ip
+
+Specifies a BYOIP address to assign when creating the Load Balancer. The address must be an unassigned BYOIP address on the account in the same region as the cluster. When omitted, DigitalOcean provisions a system-allocated floating IP.
+
+**Note**
+
+This annotation is create-only. Changing or removing it after the Load Balancer exists has no effect; the assigned IP cannot be changed via update.
+
+## service.beta.kubernetes.io/do-loadbalancer-subnet-uuid
+
+Specifies the UUID of the VPC subnet to place the Load Balancer in. Must be a valid subnet in the cluster VPC (`DO_CLUSTER_VPC_ID`). When omitted, DigitalOcean chooses a subnet automatically.
+
+**Note**
+
+Specifying a subnet UUID is in private preview. Contact DigitalOcean support to review its public availability.
+
 ## service.beta.kubernetes.io/do-loadbalancer-network-stack
 
 Specifies what network addressing will be supported by the load balancer. Options are "IPV4" and "DUALSTACK". "DUALSTACK" is the option to support both IPv4 and IPv6 networking on the load balancer. 

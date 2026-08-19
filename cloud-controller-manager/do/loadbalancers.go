@@ -232,7 +232,10 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		}
 
 	case errLBNotFound:
-		// LB missing
+		// LB missing. IP is create-only (BYOIP); never send it on update.
+		if ip := getLoadBalancerIP(service); ip != "" {
+			lbRequest.IP = ip
+		}
 		lb, _, err = l.resources.gclient.LoadBalancers.Create(ctx, lbRequest)
 		if err != nil {
 			logLBInfo("CREATE", lbRequest, 2)
@@ -897,6 +900,7 @@ func buildLoadBalancerRequestWithNodeState(ctx context.Context, service *v1.Serv
 		Type:                         lbType,
 		Network:                      lbNetwork,
 		NetworkStack:                 lbNetworkStack,
+		VPCSubnetUUID:                getSubnetUUID(service),
 	}, nil
 }
 
@@ -1322,6 +1326,14 @@ func getProtocol(service *v1.Service) (string, error) {
 // getHostname returns the desired hostname for the LB service.
 func getHostname(service *v1.Service) string {
 	return strings.ToLower(service.Annotations[annDOHostname])
+}
+
+func getLoadBalancerIP(service *v1.Service) string {
+	return strings.TrimSpace(service.Annotations[annDOLoadBalancerIP])
+}
+
+func getSubnetUUID(service *v1.Service) string {
+	return strings.TrimSpace(service.Annotations[annDOSubnetUUID])
 }
 
 // healthCheckPort returns the health check port specified, defaulting
