@@ -661,7 +661,7 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 		classification := classifyNode(node, allowPrivateOnly)
 
 		if classification == nodeClassPublicNetUnready {
-			klog.V(4).Infof("Node %s filtered: no external IP addresses (required for REGIONAL_NETWORK EXTERNAL load balancer)", node.Name)
+			klog.V(4).Infof("Node %s filtered: no usable IP address for %s %s load balancer backends", node.Name, lbNetwork, lbType)
 			state.filteredCount++
 			state.publicNetUnreadyCount++
 			state.publicNetUnreadyNodes = append(state.publicNetUnreadyNodes, node)
