@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.69 (beta) - August 25, 2026
+
 * Retry LB sync while nodes are still cloud-provider initializing (@pyadagiri-do)
 * Add subnet UUID and BYOIP support for load balancers (@rbhatia-code)
 * Updates dependencies: (@dependabot)
