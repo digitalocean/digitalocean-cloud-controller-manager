@@ -31,7 +31,6 @@ import (
 	"github.com/digitalocean/godo"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes/fake"
 	cloudprovider "k8s.io/cloud-provider"
 	"k8s.io/cloud-provider/api"
@@ -254,6 +253,22 @@ func newNodeWithInternalIPOnly(name string, internalIP string, ready bool) *v1.N
 			v1.NodeAddress{Type: v1.NodeInternalIP, Address: internalIP})
 	}
 
+	return node
+}
+
+// withCloudProviderUninitializedTaint marks a node as still undergoing cloud-provider init.
+func withCloudProviderUninitializedTaint(node *v1.Node) *v1.Node {
+	node.Spec.Taints = append(node.Spec.Taints, v1.Taint{
+		Key:    api.TaintExternalCloudProvider,
+		Value:  "true",
+		Effect: v1.TaintEffectNoSchedule,
+	})
+	return node
+}
+
+// withNodeCreationTime sets CreationTimestamp for node-init grace / retry tests.
+func withNodeCreationTime(node *v1.Node, t time.Time) *v1.Node {
+	node.CreationTimestamp = metav1.NewTime(t)
 	return node
 }
 
@@ -5749,7 +5764,7 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				newNodeWithIPs("node-3", "10.0.0.3", "2001:db8::3", true),
 			},
 			lbStatus: nil,
-			err:      utilerrors.NewAggregate([]error{api.NewRetryError("load-balancer is currently being created", 15*time.Second)}),
+			err:      api.NewRetryError("load-balancer is currently being created", 15*time.Second),
 		},
 		{
 			name:     "LB is disowned",
@@ -5842,10 +5857,26 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				t.Logf("actual: %v", lbStatus)
 			}
 
-			if !reflect.DeepEqual(err, test.err) {
-				t.Error("unexpected error")
-				t.Logf("expected: %v", test.err)
-				t.Logf("actual: %v", err)
+			if test.err != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", test.err)
+				}
+				var wantRetry, gotRetry *api.RetryError
+				if errors.As(test.err, &wantRetry) {
+					if !errors.As(err, &gotRetry) {
+						t.Fatalf("expected RetryError, got %v", err)
+					}
+					if gotRetry.Error() != wantRetry.Error() || gotRetry.RetryAfter() != wantRetry.RetryAfter() {
+						t.Errorf("RetryError: got %q after %v, want %q after %v",
+							gotRetry.Error(), gotRetry.RetryAfter(), wantRetry.Error(), wantRetry.RetryAfter())
+					}
+				} else if !reflect.DeepEqual(err, test.err) {
+					t.Error("unexpected error")
+					t.Logf("expected: %v", test.err)
+					t.Logf("actual: %v", err)
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
 			}
 
 			if test.err == nil {
@@ -5871,6 +5902,482 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
+	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+
+	regionalNetworkSvc := func() *v1.Service {
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "develop",
+				Namespace: "default",
+				UID:       "foobar123",
+				Annotations: map[string]string{
+					annDOProtocol:       "http",
+					annDOType:           godo.LoadBalancerTypeRegionalNetwork,
+					annDOLoadBalancerID: "load-balancer-id",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name:     "test",
+						Protocol: "TCP",
+						Port:     int32(80),
+						NodePort: int32(30000),
+					},
+				},
+			},
+		}
+	}
+
+	droplets := []godo.Droplet{
+		{ID: 100, Name: "node-ready-a"},
+		{ID: 101, Name: "node-ready-b"},
+		{ID: 102, Name: "node-new"},
+	}
+
+	activeRegionalNetworkLB := func() *godo.LoadBalancer {
+		lb := createLB()
+		lb.Type = godo.LoadBalancerTypeRegionalNetwork
+		lb.Name = "afoobar123"
+		return lb
+	}
+
+	tests := []struct {
+		name           string
+		nodes          []*v1.Node
+		wantRetry      bool
+		wantRetryAfter time.Duration
+		wantUpdate     bool
+		wantDropletIDs []int
+	}{
+		{
+			name: "updates ready backends then retries for initializing node",
+			nodes: []*v1.Node{
+				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
+				withNodeCreationTime(newNodeWithIPs("node-ready-b", "10.0.0.2", "", true), now.Add(-time.Hour)),
+				withNodeCreationTime(
+					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+					now.Add(-5*time.Second),
+				),
+			},
+			wantRetry:      true,
+			wantRetryAfter: nodesNotYetLBReadyRetryAfter,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100, 101},
+		},
+		{
+			name: "retries before update when no ready backends yet",
+			nodes: []*v1.Node{
+				withNodeCreationTime(
+					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+					now.Add(-5*time.Second),
+				),
+			},
+			wantRetry:      true,
+			wantRetryAfter: nodesNotYetLBReadyRetryAfter,
+			wantUpdate:     false,
+		},
+		{
+			name: "expired initializing node is permanently omitted",
+			nodes: []*v1.Node{
+				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
+				withNodeCreationTime(
+					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+					now.Add(-(nodeInitTaintedGrace + time.Minute)),
+				),
+			},
+			wantRetry:      false,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100},
+		},
+		{
+			name: "untainted young publicNetUnready node is pending via address grace",
+			nodes: []*v1.Node{
+				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
+				withNodeCreationTime(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true), now.Add(-10*time.Second)),
+			},
+			wantRetry:      true,
+			wantRetryAfter: nodesNotYetLBReadyRetryAfter,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100},
+		},
+		{
+			name: "permanent private-only node does not retry",
+			nodes: []*v1.Node{
+				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
+				withNodeCreationTime(newNodeWithInternalIPOnly("node-private", "192.168.1.1", true), now.Add(-(nodeInitAddressGrace + time.Minute))),
+			},
+			wantRetry:      false,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run("Ensure/"+test.name, func(t *testing.T) {
+			var gotUpdateReq *godo.LoadBalancerRequest
+			updateCalls := 0
+
+			fakeDroplet := &fakeDropletService{
+				listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return droplets, newFakeOKResponse(), nil
+				},
+			}
+			fakeLB := &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return activeRegionalNetworkLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					updateCalls++
+					gotUpdateReq = lbr
+					lb := activeRegionalNetworkLB()
+					lb.DropletIDs = append([]int(nil), lbr.DropletIDs...)
+					return lb, newFakeOKResponse(), nil
+				},
+			}
+			certStore := make(map[string]*godo.Certificate)
+			fakeCert := newKVCertService(certStore, true)
+			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
+			fakeResources := newResources("", "", publicAccessFirewall{}, fakeClient)
+			fakeResources.kclient = fake.NewSimpleClientset()
+			svc := regionalNetworkSvc()
+			if _, err := fakeResources.kclient.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{}); err != nil {
+				t.Fatalf("failed to add service: %s", err)
+			}
+
+			lb := &loadBalancers{
+				resources:         fakeResources,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
+				now:               func() time.Time { return now },
+			}
+
+			_, err := lb.EnsureLoadBalancer(context.TODO(), "test", svc, test.nodes)
+
+			var retryErr *api.RetryError
+			gotRetry := errors.As(err, &retryErr)
+			if gotRetry != test.wantRetry {
+				t.Fatalf("RetryError: got %v (err=%v), want %v", gotRetry, err, test.wantRetry)
+			}
+			if test.wantRetry && retryErr.RetryAfter() != test.wantRetryAfter {
+				t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), test.wantRetryAfter)
+			}
+			if (updateCalls > 0) != test.wantUpdate {
+				t.Errorf("update called: got %d calls, wantUpdate=%v", updateCalls, test.wantUpdate)
+			}
+			if test.wantUpdate {
+				if gotUpdateReq == nil {
+					t.Fatal("expected update request")
+				}
+				if !reflect.DeepEqual(gotUpdateReq.DropletIDs, test.wantDropletIDs) {
+					t.Errorf("DropletIDs: got %v, want %v", gotUpdateReq.DropletIDs, test.wantDropletIDs)
+				}
+			}
+
+		})
+
+		t.Run("Update/"+test.name, func(t *testing.T) {
+			var gotUpdateReq *godo.LoadBalancerRequest
+			updateCalls := 0
+
+			fakeDroplet := &fakeDropletService{
+				listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return droplets, newFakeOKResponse(), nil
+				},
+			}
+			fakeLB := &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return activeRegionalNetworkLB(), newFakeOKResponse(), nil
+				},
+				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
+				},
+				createFn: func(context.Context, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					return nil, newFakeNotOKResponse(), errors.New("create should not have been invoked")
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					updateCalls++
+					gotUpdateReq = lbr
+					lb := activeRegionalNetworkLB()
+					lb.DropletIDs = append([]int(nil), lbr.DropletIDs...)
+					return lb, newFakeOKResponse(), nil
+				},
+			}
+			certStore := make(map[string]*godo.Certificate)
+			fakeCert := newKVCertService(certStore, true)
+			fakeClient := newFakeClient(fakeDroplet, fakeLB, &fakeCert)
+			fakeResources := newResources("", "", publicAccessFirewall{}, fakeClient)
+			fakeResources.kclient = fake.NewSimpleClientset()
+			svc := regionalNetworkSvc()
+			if _, err := fakeResources.kclient.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{}); err != nil {
+				t.Fatalf("failed to add service: %s", err)
+			}
+
+			lb := &loadBalancers{
+				resources:         fakeResources,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
+				now:               func() time.Time { return now },
+			}
+
+			err := lb.UpdateLoadBalancer(context.TODO(), "test", svc, test.nodes)
+
+			var retryErr *api.RetryError
+			gotRetry := errors.As(err, &retryErr)
+			if gotRetry != test.wantRetry {
+				t.Fatalf("RetryError: got %v (err=%v), want %v", gotRetry, err, test.wantRetry)
+			}
+			if test.wantRetry && retryErr.RetryAfter() != test.wantRetryAfter {
+				t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), test.wantRetryAfter)
+			}
+			if (updateCalls > 0) != test.wantUpdate {
+				t.Errorf("update called: got %d calls, wantUpdate=%v", updateCalls, test.wantUpdate)
+			}
+			if test.wantUpdate {
+				if gotUpdateReq == nil {
+					t.Fatal("expected update request")
+				}
+				if !reflect.DeepEqual(gotUpdateReq.DropletIDs, test.wantDropletIDs) {
+					t.Errorf("DropletIDs: got %v, want %v", gotUpdateReq.DropletIDs, test.wantDropletIDs)
+				}
+			}
+		})
+	}
+}
+
+// Node-init retry and expiry exist only because EXTERNAL REGIONAL_NETWORK load
+// balancers need a public address per backend. INTERNAL and classic REGIONAL
+// load balancers accept private-only backends, so an initializing node must go
+// straight into the backend set and never hold their sync back.
+func TestUpdateLoadBalancer_NodeInitScopedToPublicBackends(t *testing.T) {
+	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+
+	droplets := []godo.Droplet{
+		{ID: 100, Name: "node-ready"},
+		{ID: 102, Name: "node-new"},
+	}
+
+	nodes := func() []*v1.Node {
+		return []*v1.Node{
+			withNodeCreationTime(newNodeWithIPs("node-ready", "10.0.0.1", "", true), now.Add(-time.Hour)),
+			withNodeCreationTime(
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+				now.Add(-5*time.Second),
+			),
+		}
+	}
+
+	tests := []struct {
+		name           string
+		lbType         string
+		lbNetwork      string
+		wantDropletIDs []int
+		wantRetry      bool
+	}{
+		{
+			name:           "REGIONAL_NETWORK EXTERNAL omits the initializing node and retries",
+			lbType:         godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:      godo.LoadBalancerNetworkTypeExternal,
+			wantDropletIDs: []int{100},
+			wantRetry:      true,
+		},
+		{
+			name:           "REGIONAL EXTERNAL takes the initializing node as a private-only backend",
+			lbType:         godo.LoadBalancerTypeRegional,
+			lbNetwork:      godo.LoadBalancerNetworkTypeExternal,
+			wantDropletIDs: []int{100, 102},
+			wantRetry:      false,
+		},
+		{
+			name:           "REGIONAL_NETWORK INTERNAL takes the initializing node as a private-only backend",
+			lbType:         godo.LoadBalancerTypeRegionalNetwork,
+			lbNetwork:      godo.LoadBalancerNetworkTypeInternal,
+			wantDropletIDs: []int{100, 102},
+			wantRetry:      false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var gotUpdateReq *godo.LoadBalancerRequest
+
+			existingLB := func() *godo.LoadBalancer {
+				lb := createLB()
+				lb.Type = test.lbType
+				lb.Network = test.lbNetwork
+				lb.Name = "afoobar123"
+				return lb
+			}
+
+			fakeDroplet := &fakeDropletService{
+				listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+					return droplets, newFakeOKResponse(), nil
+				},
+			}
+			fakeLB := &fakeLBService{
+				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
+					return existingLB(), newFakeOKResponse(), nil
+				},
+				updateFn: func(ctx context.Context, lbID string, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+					gotUpdateReq = lbr
+					lb := existingLB()
+					lb.DropletIDs = append([]int(nil), lbr.DropletIDs...)
+					return lb, newFakeOKResponse(), nil
+				},
+			}
+			certStore := make(map[string]*godo.Certificate)
+			fakeCert := newKVCertService(certStore, true)
+			fakeResources := newResources("", "", publicAccessFirewall{}, newFakeClient(fakeDroplet, fakeLB, &fakeCert))
+			fakeResources.kclient = fake.NewSimpleClientset()
+
+			svc := &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "develop",
+					Namespace: "default",
+					UID:       "foobar123",
+					Annotations: map[string]string{
+						annDOProtocol:       "http",
+						annDOType:           test.lbType,
+						annDONetwork:        test.lbNetwork,
+						annDOLoadBalancerID: "load-balancer-id",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{Name: "test", Protocol: "TCP", Port: int32(80), NodePort: int32(30000)},
+					},
+				},
+			}
+			if _, err := fakeResources.kclient.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{}); err != nil {
+				t.Fatalf("failed to add service: %s", err)
+			}
+
+			lb := &loadBalancers{
+				resources:         fakeResources,
+				region:            "nyc1",
+				lbActiveTimeout:   2,
+				lbActiveCheckTick: 1,
+				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
+				now:               func() time.Time { return now },
+			}
+
+			err := lb.UpdateLoadBalancer(context.TODO(), "test", svc, nodes())
+
+			var retryErr *api.RetryError
+			if gotRetry := errors.As(err, &retryErr); gotRetry != test.wantRetry {
+				t.Fatalf("RetryError: got %v (err=%v), want %v", gotRetry, err, test.wantRetry)
+			}
+			if gotUpdateReq == nil {
+				t.Fatal("expected update request")
+			}
+			if !reflect.DeepEqual(gotUpdateReq.DropletIDs, test.wantDropletIDs) {
+				t.Errorf("DropletIDs: got %v, want %v", gotUpdateReq.DropletIDs, test.wantDropletIDs)
+			}
+		})
+	}
+}
+
+func TestPendingInitNodes(t *testing.T) {
+	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+	state := &nodeState{
+		publicNetUnreadyNodes: []*v1.Node{
+			withNodeCreationTime(
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("tainted-young", "10.0.0.1", true)),
+				now.Add(-time.Minute),
+			),
+			withNodeCreationTime(
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("tainted-old", "10.0.0.2", true)),
+				now.Add(-(nodeInitTaintedGrace + time.Minute)),
+			),
+			withNodeCreationTime(newNodeWithInternalIPOnly("untainted-young", "10.0.0.3", true), now.Add(-10*time.Second)),
+			withNodeCreationTime(newNodeWithInternalIPOnly("untainted-old", "10.0.0.4", true), now.Add(-(nodeInitAddressGrace + time.Second))),
+		},
+	}
+
+	pending, expired := pendingInitNodes(state, now)
+	if got, want := nodeNames(pending), []string{"tainted-young", "untainted-young"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("pending: got %v, want %v", got, want)
+	}
+	if got, want := nodeNames(expired), []string{"tainted-old", "untainted-old"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("expired: got %v, want %v", got, want)
+	}
+}
+
+func TestRetryAfterFor(t *testing.T) {
+	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name string
+		ages []time.Duration
+		want time.Duration
+	}{
+		{name: "no pending nodes", want: nodesNotYetLBReadyRetryAfter},
+		{name: "fresh", ages: []time.Duration{5 * time.Second}, want: nodesNotYetLBReadyRetryAfter},
+		{name: "warming", ages: []time.Duration{time.Minute}, want: 15 * time.Second},
+		{name: "slow", ages: []time.Duration{5 * time.Minute}, want: 60 * time.Second},
+		{
+			name: "youngest node drives cadence so a stuck node cannot throttle a racing one",
+			ages: []time.Duration{5 * time.Minute, 3 * time.Second},
+			want: nodesNotYetLBReadyRetryAfter,
+		},
+		{
+			name: "backs off once every pending node is old",
+			ages: []time.Duration{5 * time.Minute, 3 * time.Minute},
+			want: 60 * time.Second,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var pending []*v1.Node
+			for i, age := range test.ages {
+				name := fmt.Sprintf("node-%d", i)
+				pending = append(pending, withNodeCreationTime(
+					newNodeWithInternalIPOnly(name, "10.0.0.1", true), now.Add(-age),
+				))
+			}
+			if got := retryAfterFor(pending, now); got != test.want {
+				t.Errorf("got %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+func TestServicePatcherPreservesRetryError(t *testing.T) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"before": "1",
+			},
+		},
+	}
+	fakeClient := fake.NewSimpleClientset(svc)
+	patcher := newServicePatcher(fakeClient, svc)
+	updateServiceAnnotation(svc, annDOLoadBalancerID, "lb-id")
+
+	retryErr := api.NewRetryError("pending init", 5*time.Second)
+	err := patcher.Patch(context.Background(), retryErr)
+
+	var got *api.RetryError
+	if !errors.As(err, &got) {
+		t.Fatalf("expected RetryError to be preserved, got %v", err)
+	}
+	if got.RetryAfter() != 5*time.Second {
+		t.Errorf("RetryAfter: got %v, want 5s", got.RetryAfter())
 	}
 }
 
@@ -7307,6 +7814,7 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 		expectedEventReason           string
 		expectedEventMessageSubstring string
 		expectedErrorType             error
+		expectedRetry                 bool
 	}{
 		{
 			name: "network stack config error emits event - INTERNAL LB with DUALSTACK",
@@ -7401,6 +7909,100 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 			expectedErrorType:             ErrNoEligibleBackends,
 		},
 		{
+			name: "initializing publicNetUnready node among ready nodes builds request for ready nodes only",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "develop",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node-ready-a", "10.0.0.1", "", true),
+				newNodeWithIPs("node-ready-b", "10.0.0.2", "", true),
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+			},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil,
+			expectedRetry:       false,
+		},
+		{
+			name: "initialized private-only node among ready nodes does not retry (permanent filter)",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				newNodeWithIPs("node-ready", "10.0.0.1", "", true),
+				newNodeWithInternalIPOnly("node-private", "192.168.1.1", true),
+			},
+			expectEvent:         false,
+			expectedEventReason: "",
+			expectedErrorType:   nil,
+			expectedRetry:       false,
+		},
+		{
+			name: "all nodes still initializing returns ErrNoEligibleBackends from build (retry is handled by Ensure/Update)",
+			service: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+					UID:       "test-uid",
+					Annotations: map[string]string{
+						annDOType: godo.LoadBalancerTypeRegionalNetwork,
+					},
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:     "http",
+							Protocol: v1.ProtocolTCP,
+							Port:     80,
+							NodePort: 30000,
+						},
+					},
+				},
+			},
+			nodes: []*v1.Node{
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node1", "192.168.1.1", true)),
+			},
+			expectEvent:                   true,
+			expectedEventReason:           "LoadBalancerConfigError",
+			expectedEventMessageSubstring: "REGIONAL_NETWORK EXTERNAL",
+			expectedErrorType:             ErrNoEligibleBackends,
+			expectedRetry:                 false,
+		},
+		{
 			name: "non-config error does not emit event - no ready nodes",
 			service: &v1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -7487,6 +8089,20 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 
 			// Call buildLoadBalancerRequest
 			_, err := lb.buildLoadBalancerRequest(context.Background(), test.service, test.nodes)
+
+			var retryErr *api.RetryError
+			gotRetry := errors.As(err, &retryErr)
+			if gotRetry != test.expectedRetry {
+				t.Errorf("RetryError: got %v (err=%v), want expectedRetry=%v", gotRetry, err, test.expectedRetry)
+			}
+			if test.expectedRetry {
+				if retryErr.RetryAfter() != nodesNotYetLBReadyRetryAfter {
+					t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), nodesNotYetLBReadyRetryAfter)
+				}
+				if errors.Is(err, ErrNoEligibleBackends) {
+					t.Errorf("initializing nodes should not surface ErrNoEligibleBackends, got: %v", err)
+				}
+			}
 
 			// Check error type
 			if test.expectedErrorType != nil {
