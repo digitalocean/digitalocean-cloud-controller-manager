@@ -1,6 +1,10 @@
 ## unreleased
 
-## v0.1.68 (beta) - July  6, 2026
+* Retry LB sync while nodes are still cloud-provider initializing (@pyadagiri-do)
+* Add subnet UUID and BYOIP support for load balancers (@rbhatia-code)
+* Updates dependencies: (@dependabot)
+  - github.com/digitalocean/godo v1.204.0
+  - golang.org/x/sync v0.22.0
 
 ## v0.1.68 (beta) - July  6, 2026
 
