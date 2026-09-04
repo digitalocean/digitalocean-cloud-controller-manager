@@ -86,6 +86,8 @@ On all-private clusters, external-facing Services must use `do-loadbalancer-type
 
 Mixed clusters: a `REGIONAL_NETWORK` + `EXTERNAL` Service registers only nodes that have a public IPv4 address as backends; private-only nodes remain schedulable but are excluded from those Services.
 
+Label private-only workers with `doks.digitalocean.com/node-network-type=private` (DOKS sets this automatically for IsolatedWorkers). Values are `public` or `private`. If the label is missing, CCM assumes `public` and will retry LB sync while a node has no ExternalIP yet. Setting `private` is required for private-only workers so CCM does not keep retrying them forever.
+
 ### Kubernetes nodes can be reached via IP address only
 
 When setting the droplet host name as the node name (which is the default), Kubernetes will try to reach the node using its host name. However, this won't work since host names aren't resovable on DO. For example, when you run `kubectl logs` you will get an error like so:
