@@ -266,9 +266,12 @@ func withCloudProviderUninitializedTaint(node *v1.Node) *v1.Node {
 	return node
 }
 
-// withNodeCreationTime sets CreationTimestamp for node-init grace / retry tests.
-func withNodeCreationTime(node *v1.Node, t time.Time) *v1.Node {
-	node.CreationTimestamp = metav1.NewTime(t)
+// withNodeNetworkType sets doks.digitalocean.com/node-network-type.
+func withNodeNetworkType(node *v1.Node, networkType string) *v1.Node {
+	if node.Labels == nil {
+		node.Labels = map[string]string{}
+	}
+	node.Labels[nodeNetworkTypeLabel] = networkType
 	return node
 }
 
@@ -5906,8 +5909,6 @@ func Test_EnsureLoadBalancer(t *testing.T) {
 }
 
 func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
-	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
-
 	regionalNetworkSvc := func() *v1.Service {
 		return &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
@@ -5955,13 +5956,13 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 		wantDropletIDs []int
 	}{
 		{
-			name: "updates ready backends then retries for initializing node",
+			name: "updates ready backends then retries for public-intent initializing node",
 			nodes: []*v1.Node{
-				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
-				withNodeCreationTime(newNodeWithIPs("node-ready-b", "10.0.0.2", "", true), now.Add(-time.Hour)),
-				withNodeCreationTime(
+				withNodeNetworkType(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), nodeNetworkTypePublic),
+				withNodeNetworkType(newNodeWithIPs("node-ready-b", "10.0.0.2", "", true), nodeNetworkTypePublic),
+				withNodeNetworkType(
 					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
-					now.Add(-5*time.Second),
+					nodeNetworkTypePublic,
 				),
 			},
 			wantRetry:      true,
@@ -5970,11 +5971,22 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 			wantDropletIDs: []int{100, 101},
 		},
 		{
+			name: "missing network-type label falls back to public and retries",
+			nodes: []*v1.Node{
+				newNodeWithIPs("node-ready-a", "10.0.0.1", "", true),
+				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
+			},
+			wantRetry:      true,
+			wantRetryAfter: nodesNotYetLBReadyRetryAfter,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100},
+		},
+		{
 			name: "retries before update when no ready backends yet",
 			nodes: []*v1.Node{
-				withNodeCreationTime(
+				withNodeNetworkType(
 					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
-					now.Add(-5*time.Second),
+					nodeNetworkTypePublic,
 				),
 			},
 			wantRetry:      true,
@@ -5982,34 +5994,23 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 			wantUpdate:     false,
 		},
 		{
-			name: "expired initializing node is permanently omitted",
+			name: "private-labeled node is permanently omitted without retry",
 			nodes: []*v1.Node{
-				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
-				withNodeCreationTime(
-					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
-					now.Add(-(nodeInitTaintedGrace + time.Minute)),
-				),
+				withNodeNetworkType(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), nodeNetworkTypePublic),
+				withNodeNetworkType(newNodeWithInternalIPOnly("node-private", "192.168.1.1", true), nodeNetworkTypePrivate),
 			},
 			wantRetry:      false,
 			wantUpdate:     true,
 			wantDropletIDs: []int{100},
 		},
 		{
-			name: "untainted young publicNetUnready node is pending via address grace",
+			name: "private label wins over uninitialized taint",
 			nodes: []*v1.Node{
-				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
-				withNodeCreationTime(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true), now.Add(-10*time.Second)),
-			},
-			wantRetry:      true,
-			wantRetryAfter: nodesNotYetLBReadyRetryAfter,
-			wantUpdate:     true,
-			wantDropletIDs: []int{100},
-		},
-		{
-			name: "permanent private-only node does not retry",
-			nodes: []*v1.Node{
-				withNodeCreationTime(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), now.Add(-time.Hour)),
-				withNodeCreationTime(newNodeWithInternalIPOnly("node-private", "192.168.1.1", true), now.Add(-(nodeInitAddressGrace + time.Minute))),
+				withNodeNetworkType(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), nodeNetworkTypePublic),
+				withNodeNetworkType(
+					withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-private", "192.168.1.99", true)),
+					nodeNetworkTypePrivate,
+				),
 			},
 			wantRetry:      false,
 			wantUpdate:     true,
@@ -6061,7 +6062,6 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
 				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
-				now:               func() time.Time { return now },
 			}
 
 			_, err := lb.EnsureLoadBalancer(context.TODO(), "test", svc, test.nodes)
@@ -6131,7 +6131,6 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
 				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
-				now:               func() time.Time { return now },
 			}
 
 			err := lb.UpdateLoadBalancer(context.TODO(), "test", svc, test.nodes)
@@ -6159,13 +6158,11 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 	}
 }
 
-// Node-init retry and expiry exist only because EXTERNAL REGIONAL_NETWORK load
-// balancers need a public address per backend. INTERNAL and classic REGIONAL
-// load balancers accept private-only backends, so an initializing node must go
+// Node-init retry exists only because EXTERNAL REGIONAL_NETWORK load balancers
+// need a public address per backend. INTERNAL and classic REGIONAL load
+// balancers accept private-only backends, so an initializing node must go
 // straight into the backend set and never hold their sync back.
 func TestUpdateLoadBalancer_NodeInitScopedToPublicBackends(t *testing.T) {
-	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
-
 	droplets := []godo.Droplet{
 		{ID: 100, Name: "node-ready"},
 		{ID: 102, Name: "node-new"},
@@ -6173,10 +6170,10 @@ func TestUpdateLoadBalancer_NodeInitScopedToPublicBackends(t *testing.T) {
 
 	nodes := func() []*v1.Node {
 		return []*v1.Node{
-			withNodeCreationTime(newNodeWithIPs("node-ready", "10.0.0.1", "", true), now.Add(-time.Hour)),
-			withNodeCreationTime(
+			withNodeNetworkType(newNodeWithIPs("node-ready", "10.0.0.1", "", true), nodeNetworkTypePublic),
+			withNodeNetworkType(
 				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("node-new", "192.168.1.99", true)),
-				now.Add(-5*time.Second),
+				nodeNetworkTypePublic,
 			),
 		}
 	}
@@ -6272,7 +6269,6 @@ func TestUpdateLoadBalancer_NodeInitScopedToPublicBackends(t *testing.T) {
 				lbActiveTimeout:   2,
 				lbActiveCheckTick: 1,
 				defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
-				now:               func() time.Time { return now },
 			}
 
 			err := lb.UpdateLoadBalancer(context.TODO(), "test", svc, nodes())
@@ -6292,63 +6288,47 @@ func TestUpdateLoadBalancer_NodeInitScopedToPublicBackends(t *testing.T) {
 }
 
 func TestPendingInitNodes(t *testing.T) {
-	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
-	state := &nodeState{
-		publicNetUnreadyNodes: []*v1.Node{
-			withNodeCreationTime(
-				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("tainted-young", "10.0.0.1", true)),
-				now.Add(-time.Minute),
-			),
-			withNodeCreationTime(
-				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("tainted-old", "10.0.0.2", true)),
-				now.Add(-(nodeInitTaintedGrace + time.Minute)),
-			),
-			withNodeCreationTime(newNodeWithInternalIPOnly("untainted-young", "10.0.0.3", true), now.Add(-10*time.Second)),
-			withNodeCreationTime(newNodeWithInternalIPOnly("untainted-old", "10.0.0.4", true), now.Add(-(nodeInitAddressGrace + time.Second))),
-		},
+	unready := []*v1.Node{
+		withNodeNetworkType(newNodeWithInternalIPOnly("public-labeled", "10.0.0.1", true), nodeNetworkTypePublic),
+		withNodeNetworkType(newNodeWithInternalIPOnly("private-labeled", "10.0.0.2", true), nodeNetworkTypePrivate),
+		newNodeWithInternalIPOnly("unlabeled", "10.0.0.3", true),
+		withNodeNetworkType(
+			withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("private-with-taint", "10.0.0.4", true)),
+			nodeNetworkTypePrivate,
+		),
+		withNodeNetworkType(newNodeWithInternalIPOnly("private-mixed-case", "10.0.0.5", true), "Private"),
+		withNodeNetworkType(newNodeWithInternalIPOnly("unrecognized-value", "10.0.0.6", true), "bogus"),
 	}
 
-	pending, expired := pendingInitNodes(state, now)
-	if got, want := nodeNames(pending), []string{"tainted-young", "untainted-young"}; !reflect.DeepEqual(got, want) {
+	pending, privateOnly := pendingInitNodes(unready)
+	if got, want := nodeNames(pending), []string{"public-labeled", "unlabeled", "unrecognized-value"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("pending: got %v, want %v", got, want)
 	}
-	if got, want := nodeNames(expired), []string{"tainted-old", "untainted-old"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("expired: got %v, want %v", got, want)
+	want := []string{"private-labeled", "private-with-taint", "private-mixed-case"}
+	if got := nodeNames(privateOnly); !reflect.DeepEqual(got, want) {
+		t.Errorf("privateOnly: got %v, want %v", got, want)
 	}
 }
 
-func TestRetryAfterFor(t *testing.T) {
-	now := time.Date(2026, 8, 13, 12, 0, 0, 0, time.UTC)
+func TestNodeIntendsPublicNetwork(t *testing.T) {
 	tests := []struct {
 		name string
-		ages []time.Duration
-		want time.Duration
+		node *v1.Node
+		want bool
 	}{
-		{name: "no pending nodes", want: nodesNotYetLBReadyRetryAfter},
-		{name: "fresh", ages: []time.Duration{5 * time.Second}, want: nodesNotYetLBReadyRetryAfter},
-		{name: "warming", ages: []time.Duration{time.Minute}, want: 15 * time.Second},
-		{name: "slow", ages: []time.Duration{5 * time.Minute}, want: 60 * time.Second},
-		{
-			name: "youngest node drives cadence so a stuck node cannot throttle a racing one",
-			ages: []time.Duration{5 * time.Minute, 3 * time.Second},
-			want: nodesNotYetLBReadyRetryAfter,
-		},
-		{
-			name: "backs off once every pending node is old",
-			ages: []time.Duration{5 * time.Minute, 3 * time.Minute},
-			want: 60 * time.Second,
-		},
+		{name: "nil labels", node: &v1.Node{}, want: true},
+		{name: "missing key", node: &v1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{}}}, want: true},
+		{name: "empty value", node: withNodeNetworkType(&v1.Node{}, ""), want: true},
+		{name: "public", node: withNodeNetworkType(&v1.Node{}, nodeNetworkTypePublic), want: true},
+		{name: "private", node: withNodeNetworkType(&v1.Node{}, nodeNetworkTypePrivate), want: false},
+		{name: "private mixed case", node: withNodeNetworkType(&v1.Node{}, "PrIvAtE"), want: false},
+		// Unrecognized values fail open to public so a typo keeps the retry
+		// path alive rather than silently dropping a node from the LB.
+		{name: "unrecognized value", node: withNodeNetworkType(&v1.Node{}, "bogus"), want: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			var pending []*v1.Node
-			for i, age := range test.ages {
-				name := fmt.Sprintf("node-%d", i)
-				pending = append(pending, withNodeCreationTime(
-					newNodeWithInternalIPOnly(name, "10.0.0.1", true), now.Add(-age),
-				))
-			}
-			if got := retryAfterFor(pending, now); got != test.want {
+			if got := nodeIntendsPublicNetwork(test.node); got != test.want {
 				t.Errorf("got %v, want %v", got, test.want)
 			}
 		})
@@ -7964,7 +7944,7 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 			},
 			nodes: []*v1.Node{
 				newNodeWithIPs("node-ready", "10.0.0.1", "", true),
-				newNodeWithInternalIPOnly("node-private", "192.168.1.1", true),
+				withNodeNetworkType(newNodeWithInternalIPOnly("node-private", "192.168.1.1", true), nodeNetworkTypePrivate),
 			},
 			expectEvent:         false,
 			expectedEventReason: "",
