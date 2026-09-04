@@ -60,6 +60,15 @@ const (
 	tagPrefixClusterID = "k8s"
 )
 
+const (
+	// nodeNetworkTypeLabel declares droplet networking intent. DOKS sets this
+	// from IsolatedWorkers; self-managed clusters should set it for private-only
+	// workers. Missing label falls back to public.
+	nodeNetworkTypeLabel   = "doks.digitalocean.com/node-network-type"
+	nodeNetworkTypePublic  = "public"
+	nodeNetworkTypePrivate = "private"
+)
+
 var (
 	// ErrNetworkStackConfig indicates an error with network stack configuration
 	// that requires user intervention (e.g., mismatched dual-stack settings)
@@ -74,13 +83,6 @@ var (
 	// public network are still missing a usable ExternalIP.
 	// Retries continue until the address appears
 	nodesNotYetLBReadyRetryAfter = 5 * time.Second
-
-	// nodeNetworkTypeLabel declares droplet networking intent. DOKS sets this
-	// from IsolatedWorkers; self-managed clusters should set it for private-only
-	// workers. Missing label falls back to public.
-	nodeNetworkTypeLabel   = "doks.digitalocean.com/node-network-type"
-	nodeNetworkTypePublic  = "public"
-	nodeNetworkTypePrivate = "private"
 
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
@@ -683,30 +685,26 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 }
 
 // nodeIntendsPublicNetwork reports whether the node is expected to get a public
-// IPv4. Private is only trusted when explicitly labeled; missing label falls
-// back to public so older / unlabeled clusters keep retrying on scale-up races.
+// IPv4. Private is only trusted when explicitly labeled; a missing, empty, or
+// unrecognized value falls back to public so older / unlabeled clusters keep
+// retrying on scale-up races.
 func nodeIntendsPublicNetwork(node *v1.Node) bool {
-	if node.Labels == nil {
-		return true
-	}
-	v, ok := node.Labels[nodeNetworkTypeLabel]
-	if !ok || v == "" {
-		return true
-	}
-	return v != nodeNetworkTypePrivate
+	return !strings.EqualFold(node.Labels[nodeNetworkTypeLabel], nodeNetworkTypePrivate)
 }
 
-// pendingInitNodes splits publicNetUnready nodes into those still expected to
-// gain a public address (retry) and permanently private-only nodes (omit).
-func pendingInitNodes(state *nodeState) (pending, permanent []*v1.Node) {
-	for _, node := range state.publicNetUnreadyNodes {
+// pendingInitNodes splits nodes with no usable public address by declared
+// network intent: those still expected to gain one (retry) and private-only
+// nodes that never will (no retry). Both groups are already excluded from the
+// backend set by filterAndClassifyNodes.
+func pendingInitNodes(unready []*v1.Node) (pending, privateOnly []*v1.Node) {
+	for _, node := range unready {
 		if nodeIntendsPublicNetwork(node) {
 			pending = append(pending, node)
 		} else {
-			permanent = append(permanent, node)
+			privateOnly = append(privateOnly, node)
 		}
 	}
-	return pending, permanent
+	return pending, privateOnly
 }
 
 // classifyServiceNodes resolves LB type/network and classifies the given nodes.
@@ -731,11 +729,11 @@ func (l *loadBalancers) prepareNodesForLBSync(service *v1.Service, nodes []*v1.N
 		return nil, err
 	}
 
-	pending, permanent := pendingInitNodes(nodeState)
-	if len(permanent) > 0 {
-		klog.Infof(
+	pending, privateOnly := pendingInitNodes(nodeState.publicNetUnreadyNodes)
+	if len(privateOnly) > 0 {
+		klog.V(2).Infof(
 			"service %s/%s: permanently omitting %d private-network node(s) with no usable public address: %s",
-			service.Namespace, service.Name, len(permanent), formatNodeNames(permanent, 5),
+			service.Namespace, service.Name, len(privateOnly), formatNodeNames(privateOnly, 5),
 		)
 	}
 

@@ -6288,24 +6288,25 @@ func TestUpdateLoadBalancer_NodeInitScopedToPublicBackends(t *testing.T) {
 }
 
 func TestPendingInitNodes(t *testing.T) {
-	state := &nodeState{
-		publicNetUnreadyNodes: []*v1.Node{
-			withNodeNetworkType(newNodeWithInternalIPOnly("public-labeled", "10.0.0.1", true), nodeNetworkTypePublic),
-			withNodeNetworkType(newNodeWithInternalIPOnly("private-labeled", "10.0.0.2", true), nodeNetworkTypePrivate),
-			newNodeWithInternalIPOnly("unlabeled", "10.0.0.3", true),
-			withNodeNetworkType(
-				withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("private-with-taint", "10.0.0.4", true)),
-				nodeNetworkTypePrivate,
-			),
-		},
+	unready := []*v1.Node{
+		withNodeNetworkType(newNodeWithInternalIPOnly("public-labeled", "10.0.0.1", true), nodeNetworkTypePublic),
+		withNodeNetworkType(newNodeWithInternalIPOnly("private-labeled", "10.0.0.2", true), nodeNetworkTypePrivate),
+		newNodeWithInternalIPOnly("unlabeled", "10.0.0.3", true),
+		withNodeNetworkType(
+			withCloudProviderUninitializedTaint(newNodeWithInternalIPOnly("private-with-taint", "10.0.0.4", true)),
+			nodeNetworkTypePrivate,
+		),
+		withNodeNetworkType(newNodeWithInternalIPOnly("private-mixed-case", "10.0.0.5", true), "Private"),
+		withNodeNetworkType(newNodeWithInternalIPOnly("unrecognized-value", "10.0.0.6", true), "bogus"),
 	}
 
-	pending, permanent := pendingInitNodes(state)
-	if got, want := nodeNames(pending), []string{"public-labeled", "unlabeled"}; !reflect.DeepEqual(got, want) {
+	pending, privateOnly := pendingInitNodes(unready)
+	if got, want := nodeNames(pending), []string{"public-labeled", "unlabeled", "unrecognized-value"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("pending: got %v, want %v", got, want)
 	}
-	if got, want := nodeNames(permanent), []string{"private-labeled", "private-with-taint"}; !reflect.DeepEqual(got, want) {
-		t.Errorf("permanent: got %v, want %v", got, want)
+	want := []string{"private-labeled", "private-with-taint", "private-mixed-case"}
+	if got := nodeNames(privateOnly); !reflect.DeepEqual(got, want) {
+		t.Errorf("privateOnly: got %v, want %v", got, want)
 	}
 }
 
@@ -6320,6 +6321,10 @@ func TestNodeIntendsPublicNetwork(t *testing.T) {
 		{name: "empty value", node: withNodeNetworkType(&v1.Node{}, ""), want: true},
 		{name: "public", node: withNodeNetworkType(&v1.Node{}, nodeNetworkTypePublic), want: true},
 		{name: "private", node: withNodeNetworkType(&v1.Node{}, nodeNetworkTypePrivate), want: false},
+		{name: "private mixed case", node: withNodeNetworkType(&v1.Node{}, "PrIvAtE"), want: false},
+		// Unrecognized values fail open to public so a typo keeps the retry
+		// path alive rather than silently dropping a node from the LB.
+		{name: "unrecognized value", node: withNodeNetworkType(&v1.Node{}, "bogus"), want: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
