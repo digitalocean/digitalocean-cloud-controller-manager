@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.70 (beta) - September 11, 2026
+
 * Use `doks.digitalocean.com/node-network-type` to distinguish public vs private-only nodes when retrying LB sync (CON-14209) (@pyadagiri-do)
 
 ## v0.1.69 (beta) - August 25, 2026
