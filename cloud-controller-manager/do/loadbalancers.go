@@ -60,6 +60,15 @@ const (
 	tagPrefixClusterID = "k8s"
 )
 
+const (
+	// nodeNetworkTypeLabel declares droplet networking intent. DOKS sets this
+	// from IsolatedWorkers; self-managed clusters should set it for private-only
+	// workers. Missing label falls back to public.
+	nodeNetworkTypeLabel   = "doks.digitalocean.com/node-network-type"
+	nodeNetworkTypePublic  = "public"
+	nodeNetworkTypePrivate = "private"
+)
+
 var (
 	// ErrNetworkStackConfig indicates an error with network stack configuration
 	// that requires user intervention (e.g., mismatched dual-stack settings)
@@ -70,17 +79,10 @@ var (
 
 	errNoEligibleBackendsMsg = "REGIONAL_NETWORK EXTERNAL load balancers require at least one node with a public IPv4 address; no eligible backends found. For private-only nodes, set service.beta.kubernetes.io/do-loadbalancer-type to \"REGIONAL\" or service.beta.kubernetes.io/do-loadbalancer-network to \"INTERNAL\"."
 
-	// nodesNotYetLBReadyRetryAfter is the base retry delay while nodes are still
-	// cloud-provider-initializing. Kept short so scale-up races heal quickly.
+	// nodesNotYetLBReadyRetryAfter is the retry delay while nodes that intend a
+	// public network are still missing a usable ExternalIP.
+	// Retries continue until the address appears
 	nodesNotYetLBReadyRetryAfter = 5 * time.Second
-
-	// nodeInitTaintedGrace bounds how long a node carrying the cloud-provider
-	// uninitialized taint is treated as still initializing rather than stuck.
-	nodeInitTaintedGrace = 10 * time.Minute
-
-	// nodeInitAddressGrace covers the gap after the taint is removed but before
-	// Status.Addresses is patched; those are two separate writes.
-	nodeInitAddressGrace = 60 * time.Second
 
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
@@ -118,8 +120,6 @@ type loadBalancers struct {
 	lbActiveTimeout   int
 	lbActiveCheckTick int
 	defaultLBType     string
-	// now overrides the clock in tests; nil means time.Now.
-	now func() time.Time
 }
 
 type servicePatcher struct {
@@ -151,13 +151,6 @@ func (sp *servicePatcher) Patch(ctx context.Context, err error) error {
 		return err
 	}
 	return utilerrors.NewAggregate([]error{err, perr})
-}
-
-func (l *loadBalancers) clock() time.Time {
-	if l.now != nil {
-		return l.now()
-	}
-	return time.Now()
 }
 
 // newLoadbalancers returns a cloudprovider.LoadBalancer whose concrete type is a *loadbalancer.
@@ -691,62 +684,27 @@ func filterAndClassifyNodes(nodes []*v1.Node, lbType, lbNetwork string) *nodeSta
 	return state
 }
 
-// isCloudProviderUninitialized reports whether the node still carries the
-// external cloud-provider uninitialized taint, meaning a missing ExternalIP is
-// transient rather than a permanent private-only configuration.
-func isCloudProviderUninitialized(node *v1.Node) bool {
-	for _, taint := range node.Spec.Taints {
-		if taint.Key == api.TaintExternalCloudProvider {
-			return true
-		}
-	}
-	return false
+// nodeIntendsPublicNetwork reports whether the node is expected to get a public
+// IPv4. Private is only trusted when explicitly labeled; a missing, empty, or
+// unrecognized value falls back to public so older / unlabeled clusters keep
+// retrying on scale-up races.
+func nodeIntendsPublicNetwork(node *v1.Node) bool {
+	return !strings.EqualFold(node.Labels[nodeNetworkTypeLabel], nodeNetworkTypePrivate)
 }
 
-// pendingInitNodes splits publicNetUnready nodes into those that may still be
-// completing cloud-provider initialization and those past their grace period.
-//
-// Expired nodes are permanently ineligible: a stuck or genuinely private-only
-// node must not keep the retry loop alive forever.
-func pendingInitNodes(state *nodeState, now time.Time) (pending, expired []*v1.Node) {
-	for _, node := range state.publicNetUnreadyNodes {
-		age := now.Sub(node.CreationTimestamp.Time)
-		grace := nodeInitAddressGrace
-		if isCloudProviderUninitialized(node) {
-			grace = nodeInitTaintedGrace
-		}
-		if age < grace {
+// pendingInitNodes splits nodes with no usable public address by declared
+// network intent: those still expected to gain one (retry) and private-only
+// nodes that never will (no retry). Both groups are already excluded from the
+// backend set by filterAndClassifyNodes.
+func pendingInitNodes(unready []*v1.Node) (pending, privateOnly []*v1.Node) {
+	for _, node := range unready {
+		if nodeIntendsPublicNetwork(node) {
 			pending = append(pending, node)
 		} else {
-			expired = append(expired, node)
+			privateOnly = append(privateOnly, node)
 		}
 	}
-	return pending, expired
-}
-
-// retryAfterFor slows the retry cadence as nodes stay unready, bounding the
-// load balancer writes a stuck node can cause. The youngest pending node sets
-// the pace so one stuck node cannot throttle a node that is merely racing.
-func retryAfterFor(pending []*v1.Node, now time.Time) time.Duration {
-	if len(pending) == 0 {
-		return nodesNotYetLBReadyRetryAfter
-	}
-
-	youngest := now.Sub(pending[0].CreationTimestamp.Time)
-	for _, node := range pending[1:] {
-		if age := now.Sub(node.CreationTimestamp.Time); age < youngest {
-			youngest = age
-		}
-	}
-
-	switch {
-	case youngest < 30*time.Second:
-		return nodesNotYetLBReadyRetryAfter
-	case youngest < 2*time.Minute:
-		return 15 * time.Second
-	default:
-		return 60 * time.Second
-	}
+	return pending, privateOnly
 }
 
 // classifyServiceNodes resolves LB type/network and classifies the given nodes.
@@ -771,22 +729,22 @@ func (l *loadBalancers) prepareNodesForLBSync(service *v1.Service, nodes []*v1.N
 		return nil, err
 	}
 
-	pending, expired := pendingInitNodes(nodeState, l.clock())
-	if len(expired) > 0 {
-		klog.Infof(
-			"service %s/%s: permanently omitting %d node(s) with no usable address after init grace period: %s",
-			service.Namespace, service.Name, len(expired), formatNodeNames(expired, 5),
+	pending, privateOnly := pendingInitNodes(nodeState.publicNetUnreadyNodes)
+	if len(privateOnly) > 0 {
+		klog.V(2).Infof(
+			"service %s/%s: permanently omitting %d private-network node(s) with no usable public address: %s",
+			service.Namespace, service.Name, len(privateOnly), formatNodeNames(privateOnly, 5),
 		)
 	}
 
-	// Never write an empty backend set while nodes are still coming up.
+	// Never write an empty backend set while public-intent nodes are still coming up.
 	if len(nodeState.lbReadyNodes) == 0 && len(pending) > 0 {
 		msg := fmt.Sprintf(
 			"service %s/%s: %d node(s) still initializing and not yet lb-ready (e.g. missing ExternalIP); retrying instead of updating backends with an empty node set: %s",
 			service.Namespace, service.Name, len(pending), formatNodeNames(pending, 5),
 		)
 		klog.Info(msg)
-		return nil, api.NewRetryError(msg, retryAfterFor(pending, l.clock()))
+		return nil, api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
 	}
 
 	return pending, nil
@@ -804,7 +762,7 @@ func (l *loadBalancers) retryIfNodesPendingInit(service *v1.Service, pending []*
 		service.Namespace, service.Name, len(pending), formatNodeNames(pending, 5),
 	)
 	klog.Info(msg)
-	return api.NewRetryError(msg, retryAfterFor(pending, l.clock()))
+	return api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
 }
 
 // classifyNode determines node's IP stack classification.
