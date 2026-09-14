@@ -157,6 +157,22 @@ curl <host>:<port>/metrics
 The admission server is an optional component aiming at reducing bad config changes for DO managed objects (LBs, etc).
 If you want to know more about it, read the [docs](./docs/admission-server.md).
 
+#### Configure Node IP Address Families
+
+By default, the CCM discovers both IPv4 and IPv6 addresses for nodes that have
+public IPv6 networking enabled. Use the `DO_IP_ADDR_FAMILIES` environment variable
+to control which IP address families are included in the node status:
+
+- `ipv4` — Only IPv4 addresses (private + public)
+- `ipv6` — Only public IPv6 address
+- `ipv4,ipv6` — Both IPv4 and IPv6 addresses (same as default)
+
+When unset, all available addresses are included. Example:
+
+```bash
+DO_IP_ADDR_FAMILIES=ipv4 digitalocean-cloud-controller-manager ...
+```
+
 ### DO API rate limiting
 
 DO API usage is subject to [certain rate limits](https://docs.digitalocean.com/reference/api/api-reference/#section/Introduction/Rate-Limit). In order to protect against running out of quota for extremely heavy regular usage or pathological cases (e.g., bugs or API thrashing due to an interfering third-party controller), a custom rate limit can be configured via the `DO_API_RATE_LIMIT_QPS` environment variable. It accepts a float value, e.g., `DO_API_RATE_LIMIT_QPS=3.5` to restrict API usage to 3.5 queries per second.    

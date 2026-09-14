@@ -678,6 +678,131 @@ func TestInstanceMetadata(t *testing.T) {
 	}
 }
 
+func TestNodeAddressesIPFamilies(t *testing.T) {
+	tt := []struct {
+		name              string
+		envVar            string
+		droplet           *godo.Droplet
+		expectedAddresses []v1.NodeAddress
+		expectedErr       string
+	}{
+		{
+			name:    "default (no env var) - IPv4 only droplet",
+			envVar:  "",
+			droplet: newFakeDroplet(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+			},
+		},
+		{
+			name:    "private IPv4 only",
+			envVar:  "",
+			droplet: newFakeDropletWithoutPublicIPv4(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+			},
+		},
+		{
+			envVar:  "",
+			droplet: newFakeDropletWithIPv6(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+				{Type: v1.NodeExternalIP, Address: "2604:a880:800:10::1"},
+			},
+		},
+		{
+			name:    "ipv4 only",
+			envVar:  "ipv4",
+			droplet: newFakeDropletWithIPv6(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+			},
+		},
+		{
+			name:    "ipv6 only",
+			envVar:  "ipv6",
+			droplet: newFakeDropletWithIPv6(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeExternalIP, Address: "2604:a880:800:10::1"},
+			},
+		},
+		{
+			name:    "ipv4,ipv6 dual stack",
+			envVar:  "ipv4,ipv6",
+			droplet: newFakeDropletWithIPv6(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+				{Type: v1.NodeInternalIP, Address: "10.0.0.0"},
+				{Type: v1.NodeExternalIP, Address: "99.99.99.99"},
+				{Type: v1.NodeExternalIP, Address: "2604:a880:800:10::1"},
+			},
+		},
+		{
+			name:    "ipv6 only on IPv4-only droplet - no IPv6 addresses",
+			envVar:  "ipv6",
+			droplet: newFakeDroplet(),
+			expectedAddresses: []v1.NodeAddress{
+				{Type: v1.NodeHostName, Address: "test-droplet"},
+			},
+		},
+		{
+			name:        "invalid family value",
+			envVar:      "ipv5",
+			droplet:     newFakeDroplet(),
+			expectedErr: "invalid IP family",
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			ipFamilies = nil
+			t.Cleanup(func() { ipFamilies = nil })
+			if tc.envVar != "" {
+				t.Setenv(doIPAddrFamiliesEnv, tc.envVar)
+			} else {
+				t.Setenv(doIPAddrFamiliesEnv, "")
+			}
+			if err := setIPFamiliesFromEnv(); err != nil {
+				if tc.expectedErr == "" {
+					t.Fatalf("unexpected error from setIPFamiliesFromEnv: %v", err)
+				}
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Fatalf("got error %v, expected %s", err, tc.expectedErr)
+				}
+				return
+			}
+			if tc.expectedErr != "" {
+				t.Fatalf("expected error containing %q, got none", tc.expectedErr)
+			}
+
+			addrs, err := nodeAddresses(tc.droplet)
+			if err != nil {
+				if tc.expectedErr == "" {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Fatalf("got error %v, expected %s", err, tc.expectedErr)
+				}
+				return
+			}
+			if tc.expectedErr != "" {
+				t.Fatalf("expected error containing %q, got none", tc.expectedErr)
+			}
+			if !reflect.DeepEqual(addrs, tc.expectedAddresses) {
+				t.Errorf("addresses mismatch\ngot:  %v\nwant: %v", addrs, tc.expectedAddresses)
+			}
+		})
+	}
+}
+
 func Test_dropletIDFromProviderID(t *testing.T) {
 	testcases := []struct {
 		name       string

@@ -82,6 +82,26 @@ DigitalOcean cloud controller manager has made the cluster aware of the size of 
 a failure domain which the scheduler can use for region failovers. Note also that the correct addresses were assigned to the node. The `InternalIP` now represents
 the private IP of the droplet, and the `ExternalIP` is it's public IP.
 
+## IP Address Family Configuration
+
+By default, the CCM discovers both IPv4 and IPv6 node addresses from droplets that
+have public IPv6 networking enabled. Use the `DO_IP_ADDR_FAMILIES` environment
+variable to control which address families are included in the node status:
+
+| Value | Behavior |
+|-------|----------|
+| (unset) | Include all available addresses (IPv4 and IPv6 if present) |
+| `ipv4` | Only IPv4 addresses (private + public) |
+| `ipv6` | Only public IPv6 address |
+| `ipv4,ipv6` | Both IPv4 and IPv6 addresses (same as default) |
+
+For example, to restrict to IPv4 only:
+```yaml
+env:
+  - name: DO_IP_ADDR_FAMILIES
+    value: "ipv4"
+```
+
 ## Node clean up
 
 When deleting a node in a Kubernetes cluster, deleting droplets would leave the corresponding Kubernetes node in a `NotReady` state. It was the responsibility
