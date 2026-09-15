@@ -1,5 +1,19 @@
 ## unreleased
 
+* Update Go to 1.27 (@pyadagiri-do)
+* Updates dependencies: (@pyadagiri-do)
+  - github.com/digitalocean/godo v1.208.0
+  - github.com/prometheus/client_golang v1.24.1
+  - golang.org/x/oauth2 v0.37.0
+  - golang.org/x/sync v0.23.0
+  - k8s.io/api v0.37.0
+  - k8s.io/apimachinery v0.37.0
+  - k8s.io/client-go v0.37.0
+  - k8s.io/cloud-provider v0.37.0
+  - k8s.io/component-base v0.37.0
+  - k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
+  - sigs.k8s.io/controller-runtime v0.25.1
+
 ## v0.1.70 (beta) - September 11, 2026
 
 * Use `doks.digitalocean.com/node-network-type` to distinguish public vs private-only nodes when retrying LB sync (CON-14209) (@pyadagiri-do)
