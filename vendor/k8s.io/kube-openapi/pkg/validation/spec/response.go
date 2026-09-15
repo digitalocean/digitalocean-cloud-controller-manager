@@ -15,10 +15,12 @@
 package spec
 
 import (
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json"
 
+	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/internal"
+	jsonv2 "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json"
+	"k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/jsontext"
 )
 
 // ResponseProps properties specific to a response
@@ -49,13 +51,27 @@ type Response struct {
 
 // UnmarshalJSON hydrates this items instance with the data from JSON
 func (r *Response) UnmarshalJSON(data []byte) error {
-	return jsonv2.Unmarshal(data, r)
+	if internal.UseOptimizedJSONUnmarshaling {
+		return jsonv2.Unmarshal(data, r)
+	}
+
+	if err := json.Unmarshal(data, &r.ResponseProps); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &r.Refable); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &r.VendorExtensible); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Response) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var x struct {
 		ResponseProps
-		Extensions Extensions `json:",embed"`
+		Extensions Extensions `json:",inline"`
 	}
 
 	if err := jsonv2.UnmarshalDecode(dec, &x); err != nil {
@@ -73,14 +89,29 @@ func (r *Response) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // MarshalJSON converts this items object to JSON
 func (r Response) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(r)
+	if internal.UseOptimizedJSONMarshaling {
+		return internal.DeterministicMarshal(r)
+	}
+	b1, err := json.Marshal(r.ResponseProps)
+	if err != nil {
+		return nil, err
+	}
+	b2, err := json.Marshal(r.Refable)
+	if err != nil {
+		return nil, err
+	}
+	b3, err := json.Marshal(r.VendorExtensible)
+	if err != nil {
+		return nil, err
+	}
+	return swag.ConcatJSON(b1, b2, b3), nil
 }
 
 func (r Response) MarshalJSONTo(enc *jsontext.Encoder) error {
 	var x struct {
 		Ref           string                `json:"$ref,omitempty"`
-		Extensions    Extensions            `json:",embed"`
-		ResponseProps responsePropsOmitZero `json:",embed"`
+		Extensions    Extensions            `json:",inline"`
+		ResponseProps responsePropsOmitZero `json:",inline"`
 	}
 	x.Ref = r.Refable.Ref.String()
 	x.Extensions = internal.SanitizeExtensions(r.Extensions)

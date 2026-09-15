@@ -17,12 +17,14 @@ limitations under the License.
 package spec3
 
 import (
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/internal"
+	jsonv2 "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json"
+	"k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/jsontext"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
@@ -34,7 +36,26 @@ type Paths struct {
 
 // MarshalJSON is a custom marshal function that knows how to encode Paths as JSON
 func (p *Paths) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(p)
+	if internal.UseOptimizedJSONMarshalingV3 {
+		return internal.DeterministicMarshal(p)
+	}
+	b1, err := json.Marshal(p.VendorExtensible)
+	if err != nil {
+		return nil, err
+	}
+
+	pths := make(map[string]*Path)
+	for k, v := range p.Paths {
+		if strings.HasPrefix(k, "/") {
+			pths[k] = v
+		}
+	}
+	b2, err := json.Marshal(pths)
+	if err != nil {
+		return nil, err
+	}
+	concated := swag.ConcatJSON(b1, b2)
+	return concated, nil
 }
 
 func (p *Paths) MarshalJSONTo(enc *jsontext.Encoder) error {
@@ -54,7 +75,36 @@ func (p *Paths) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 // UnmarshalJSON hydrates this items instance with the data from JSON
 func (p *Paths) UnmarshalJSON(data []byte) error {
-	return jsonv2.Unmarshal(data, p)
+	if internal.UseOptimizedJSONUnmarshalingV3 {
+		return jsonv2.Unmarshal(data, p)
+	}
+	var res map[string]json.RawMessage
+	if err := json.Unmarshal(data, &res); err != nil {
+		return err
+	}
+	for k, v := range res {
+		if strings.HasPrefix(strings.ToLower(k), "x-") {
+			if p.Extensions == nil {
+				p.Extensions = make(map[string]interface{})
+			}
+			var d interface{}
+			if err := json.Unmarshal(v, &d); err != nil {
+				return err
+			}
+			p.Extensions[k] = d
+		}
+		if strings.HasPrefix(k, "/") {
+			if p.Paths == nil {
+				p.Paths = make(map[string]*Path)
+			}
+			var pi *Path
+			if err := json.Unmarshal(v, &pi); err != nil {
+				return err
+			}
+			p.Paths[k] = pi
+		}
+	}
+	return nil
 }
 
 func (p *Paths) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -121,13 +171,28 @@ type Path struct {
 
 // MarshalJSON is a custom marshal function that knows how to encode Path as JSON
 func (p *Path) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(p)
+	if internal.UseOptimizedJSONMarshalingV3 {
+		return internal.DeterministicMarshal(p)
+	}
+	b1, err := json.Marshal(p.Refable)
+	if err != nil {
+		return nil, err
+	}
+	b2, err := json.Marshal(p.PathProps)
+	if err != nil {
+		return nil, err
+	}
+	b3, err := json.Marshal(p.VendorExtensible)
+	if err != nil {
+		return nil, err
+	}
+	return swag.ConcatJSON(b1, b2, b3), nil
 }
 
 func (p *Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 	var x struct {
 		Ref        string          `json:"$ref,omitempty"`
-		Extensions spec.Extensions `json:",embed"`
+		Extensions spec.Extensions `json:",inline"`
 		PathProps
 	}
 	x.Ref = p.Refable.Ref.String()
@@ -137,12 +202,24 @@ func (p *Path) MarshalJSONTo(enc *jsontext.Encoder) error {
 }
 
 func (p *Path) UnmarshalJSON(data []byte) error {
-	return jsonv2.Unmarshal(data, p)
+	if internal.UseOptimizedJSONUnmarshalingV3 {
+		return jsonv2.Unmarshal(data, p)
+	}
+	if err := json.Unmarshal(data, &p.Refable); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &p.PathProps); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &p.VendorExtensible); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *Path) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var x struct {
-		Extensions spec.Extensions `json:",embed"`
+		Extensions spec.Extensions `json:",inline"`
 		PathProps
 	}
 

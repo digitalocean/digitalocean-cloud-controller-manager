@@ -16,11 +16,12 @@ package spec
 
 import (
 	"encoding/json"
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
 	"strings"
 
+	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/internal"
+	jsonv2 "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json"
+	"k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/jsontext"
 )
 
 // Extensions vendor specific extensions
@@ -169,12 +170,23 @@ type Info struct {
 
 // MarshalJSON marshal this to JSON
 func (i Info) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(i)
+	if internal.UseOptimizedJSONMarshaling {
+		return internal.DeterministicMarshal(i)
+	}
+	b1, err := json.Marshal(i.InfoProps)
+	if err != nil {
+		return nil, err
+	}
+	b2, err := json.Marshal(i.VendorExtensible)
+	if err != nil {
+		return nil, err
+	}
+	return swag.ConcatJSON(b1, b2), nil
 }
 
 func (i Info) MarshalJSONTo(enc *jsontext.Encoder) error {
 	var x struct {
-		Extensions Extensions `json:",embed"`
+		Extensions Extensions `json:",inline"`
 		InfoProps
 	}
 	x.Extensions = i.Extensions
@@ -184,12 +196,19 @@ func (i Info) MarshalJSONTo(enc *jsontext.Encoder) error {
 
 // UnmarshalJSON marshal this from JSON
 func (i *Info) UnmarshalJSON(data []byte) error {
-	return jsonv2.Unmarshal(data, i)
+	if internal.UseOptimizedJSONUnmarshaling {
+		return jsonv2.Unmarshal(data, i)
+	}
+
+	if err := json.Unmarshal(data, &i.InfoProps); err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &i.VendorExtensible)
 }
 
 func (i *Info) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var x struct {
-		Extensions Extensions `json:",embed"`
+		Extensions Extensions `json:",inline"`
 		InfoProps
 	}
 	if err := jsonv2.UnmarshalDecode(dec, &x); err != nil {

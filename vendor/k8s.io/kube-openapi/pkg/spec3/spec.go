@@ -17,10 +17,11 @@ limitations under the License.
 package spec3
 
 import (
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json"
 
 	"k8s.io/kube-openapi/pkg/internal"
+	jsonv2 "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json"
+	"k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/jsontext"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
@@ -45,11 +46,19 @@ type OpenAPI struct {
 func (o *OpenAPI) UnmarshalJSON(data []byte) error {
 	type OpenAPIWithNoFunctions OpenAPI
 	p := (*OpenAPIWithNoFunctions)(o)
-	return jsonv2.Unmarshal(data, &p)
+	if internal.UseOptimizedJSONUnmarshalingV3 {
+		return jsonv2.Unmarshal(data, &p)
+	}
+	return json.Unmarshal(data, &p)
 }
 
 func (o *OpenAPI) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(o)
+	if internal.UseOptimizedJSONMarshalingV3 {
+		return internal.DeterministicMarshal(o)
+	}
+	type OpenAPIWithNoFunctions OpenAPI
+	p := (*OpenAPIWithNoFunctions)(o)
+	return json.Marshal(&p)
 }
 
 func (o *OpenAPI) MarshalJSONTo(enc *jsontext.Encoder) error {

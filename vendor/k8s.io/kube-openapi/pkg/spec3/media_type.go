@@ -17,10 +17,12 @@ limitations under the License.
 package spec3
 
 import (
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json"
 
+	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/internal"
+	jsonv2 "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json"
+	"k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/jsontext"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
@@ -34,13 +36,24 @@ type MediaType struct {
 
 // MarshalJSON is a custom marshal function that knows how to encode MediaType as JSON
 func (m *MediaType) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(m)
+	if internal.UseOptimizedJSONMarshalingV3 {
+		return internal.DeterministicMarshal(m)
+	}
+	b1, err := json.Marshal(m.MediaTypeProps)
+	if err != nil {
+		return nil, err
+	}
+	b2, err := json.Marshal(m.VendorExtensible)
+	if err != nil {
+		return nil, err
+	}
+	return swag.ConcatJSON(b1, b2), nil
 }
 
 func (e *MediaType) MarshalJSONTo(enc *jsontext.Encoder) error {
 	var x struct {
-		MediaTypeProps mediaTypePropsOmitZero `json:",embed"`
-		Extensions     spec.Extensions        `json:",embed"`
+		MediaTypeProps mediaTypePropsOmitZero `json:",inline"`
+		Extensions     spec.Extensions        `json:",inline"`
 	}
 	x.Extensions = internal.SanitizeExtensions(e.Extensions)
 	x.MediaTypeProps = mediaTypePropsOmitZero(e.MediaTypeProps)
@@ -48,12 +61,21 @@ func (e *MediaType) MarshalJSONTo(enc *jsontext.Encoder) error {
 }
 
 func (m *MediaType) UnmarshalJSON(data []byte) error {
-	return jsonv2.Unmarshal(data, m)
+	if internal.UseOptimizedJSONUnmarshalingV3 {
+		return jsonv2.Unmarshal(data, m)
+	}
+	if err := json.Unmarshal(data, &m.MediaTypeProps); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &m.VendorExtensible); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *MediaType) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var x struct {
-		Extensions spec.Extensions `json:",embed"`
+		Extensions spec.Extensions `json:",inline"`
 		MediaTypeProps
 	}
 	if err := jsonv2.UnmarshalDecode(dec, &x); err != nil {

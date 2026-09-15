@@ -17,10 +17,12 @@ limitations under the License.
 package spec3
 
 import (
-	"encoding/json/jsontext"
-	jsonv2 "encoding/json/v2"
+	"encoding/json"
 
+	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/internal"
+	jsonv2 "k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json"
+	"k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json/jsontext"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
@@ -31,13 +33,24 @@ type Encoding struct {
 
 // MarshalJSON is a custom marshal function that knows how to encode Encoding as JSON
 func (e *Encoding) MarshalJSON() ([]byte, error) {
-	return internal.DeterministicMarshal(e)
+	if internal.UseOptimizedJSONMarshalingV3 {
+		return internal.DeterministicMarshal(e)
+	}
+	b1, err := json.Marshal(e.EncodingProps)
+	if err != nil {
+		return nil, err
+	}
+	b2, err := json.Marshal(e.VendorExtensible)
+	if err != nil {
+		return nil, err
+	}
+	return swag.ConcatJSON(b1, b2), nil
 }
 
 func (e *Encoding) MarshalJSONTo(enc *jsontext.Encoder) error {
 	var x struct {
-		EncodingProps encodingPropsOmitZero `json:",embed"`
-		Extensions    spec.Extensions       `json:",embed"`
+		EncodingProps encodingPropsOmitZero `json:",inline"`
+		Extensions    spec.Extensions       `json:",inline"`
 	}
 	x.Extensions = internal.SanitizeExtensions(e.Extensions)
 	x.EncodingProps = encodingPropsOmitZero(e.EncodingProps)
@@ -45,12 +58,21 @@ func (e *Encoding) MarshalJSONTo(enc *jsontext.Encoder) error {
 }
 
 func (e *Encoding) UnmarshalJSON(data []byte) error {
-	return jsonv2.Unmarshal(data, e)
+	if internal.UseOptimizedJSONUnmarshalingV3 {
+		return jsonv2.Unmarshal(data, e)
+	}
+	if err := json.Unmarshal(data, &e.EncodingProps); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(data, &e.VendorExtensible); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *Encoding) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var x struct {
-		Extensions spec.Extensions `json:",embed"`
+		Extensions spec.Extensions `json:",inline"`
 		EncodingProps
 	}
 	if err := jsonv2.UnmarshalDecode(dec, &x); err != nil {
