@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.71 (beta) - September 17, 2026
+
 * Update Go to 1.27 (@pyadagiri-do)
 * Updates dependencies: (@pyadagiri-do)
   - github.com/digitalocean/godo v1.208.0
