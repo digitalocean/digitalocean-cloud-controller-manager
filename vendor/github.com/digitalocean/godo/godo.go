@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	libraryVersion = "1.204.0"
+	libraryVersion = "1.208.0"
 	defaultBaseURL = "https://api.digitalocean.com/"
 	userAgent      = "godo/" + libraryVersion
 	mediaType      = "application/json"
@@ -78,7 +78,6 @@ type Client struct {
 	Kubernetes          KubernetesService
 	LoadBalancers       LoadBalancersService
 	MicroDroplets       MicroDropletsService
-	MicroDropletImages  MicroDropletImagesService
 	Monitoring          MonitoringService
 	Security            SecurityService
 	Secrets             SecretsService
@@ -102,6 +101,7 @@ type Client struct {
 	UptimeChecks        UptimeChecksService
 	VectorDBs           VectorDBsService
 	VPCs                VPCsService
+	Routes              RoutesService
 	PartnerAttachment   PartnerAttachmentService
 	GradientAI          GradientAIService
 	DedicatedInference  DedicatedInferenceService
@@ -322,7 +322,6 @@ func NewClient(httpClient *http.Client) *Client {
 	c.Kubernetes = &KubernetesServiceOp{client: c}
 	c.LoadBalancers = &LoadBalancersServiceOp{client: c}
 	c.MicroDroplets = &MicroDropletsServiceOp{client: c}
-	c.MicroDropletImages = &MicroDropletImagesServiceOp{client: c}
 	c.Monitoring = &MonitoringServiceOp{client: c}
 	c.Security = &SecurityServiceOp{client: c}
 	c.Secrets = &SecretsServiceOp{client: c}
@@ -348,6 +347,7 @@ func NewClient(httpClient *http.Client) *Client {
 	c.UptimeChecks = &UptimeChecksServiceOp{client: c}
 	c.VectorDBs = &VectorDBsServiceOp{client: c}
 	c.VPCs = &VPCsServiceOp{client: c}
+	c.Routes = &RoutesServiceOp{client: c}
 	c.PartnerAttachment = &PartnerAttachmentServiceOp{client: c}
 	c.GradientAI = &GradientAIServiceOp{client: c}
 	c.DedicatedInference = &DedicatedInferenceServiceOp{client: c}
