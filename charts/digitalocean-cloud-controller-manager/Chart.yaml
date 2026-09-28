@@ -1,0 +1,22 @@
+---
+apiVersion: v2
+name: digitalocean-cloud-controller-manager
+description: digitalocean-cloud-controller-manager is the Kubernetes cloud controller manager implementation for DigitalOcean. Read more about cloud controller managers [here](https://kubernetes.io/docs/tasks/administer-cluster/running-cloud-controller/). Running `digitalocean-cloud-controller-manager` allows you to leverage many of the cloud provider features offered by DigitalOcean on your Kubernetes clusters.
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+# Versions are expected to follow Semantic Versioning (https://semver.org/)
+version: 0.1.42
+
+# Used as the default manager tag value when no tag property is provided in the values.yaml
+appVersion: 0.1.42
+
+home: https://github.com/digitalocean/digitalocean-cloud-controller-manager
+
+sources:
+  - https://github.com/digitalocean/digitalocean-cloud-controller-manager
+
+maintainers:
+  - name: DigitalOcean
+    url: https://github.com/digitalocean
