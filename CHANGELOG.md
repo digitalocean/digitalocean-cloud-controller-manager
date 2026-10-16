@@ -1,5 +1,7 @@
 ## unreleased
 
+* Gate LB target admission on NodeReady (and, where present, the DOKS critical-components readiness taint) for first admission while preserving the upstream stable node set for already-admitted nodes (@skumarc-do)
+
 ## v0.1.71 (beta) - September 17, 2026
 
 * Update Go to 1.27 (@pyadagiri-do)

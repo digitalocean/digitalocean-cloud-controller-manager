@@ -240,19 +240,22 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		return nil, err
 	}
 
-	var lbRequest *godo.LoadBalancerRequest
-	lbRequest, err = l.buildLoadBalancerRequest(ctx, service, nodes)
+	lb, lbErr := l.retrieveAndAnnotateLoadBalancer(ctx, service)
+	if lbErr != nil && !errors.Is(lbErr, errLBNotFound) {
+		return nil, lbErr
+	}
+	admittedIDs := admittedDropletIDSet(lb)
+
+	lbRequest, pendingNotReady, err := l.buildLoadBalancerRequest(ctx, service, nodes, admittedIDs)
 	if err != nil {
-		// %w keeps ErrNoEligibleBackends inspectable with errors.Is.
+		// %w keeps ErrNoEligibleBackends (errors.Is) and *api.RetryError (errors.As) inspectable.
 		return nil, fmt.Errorf("failed to build load-balancer request: %w", err)
 	}
 
-	var lb *godo.LoadBalancer
-	lb, err = l.retrieveAndAnnotateLoadBalancer(ctx, service)
-	switch err {
+	switch lbErr {
 	case nil:
 		// LB existing
-		lb, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+		lb, pendingNotReady, err = l.updateLoadBalancer(ctx, lb, service, nodes)
 		if err != nil {
 			return nil, err
 		}
@@ -271,10 +274,6 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 
 		updateServiceAnnotation(service, annDOLoadBalancerID, lb.ID)
 		updateServiceAnnotation(service, annDOType, lb.Type)
-
-	default:
-		// unrecoverable LB retrieval error
-		return nil, err
 	}
 
 	if lb.Status == lbStatusNew {
@@ -285,6 +284,11 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 		return nil, fmt.Errorf("load-balancer has unexpected status %q", lb.Status)
 	}
 
+	// Backends were written with the currently admissible nodes, retry so nodes
+	// held back for IP init (pending) or readiness (pendingNotReady: NodeReady
+	// and critical components) are admitted once eligible, since upstream does
+	// not re-sync on those transitions.
+	pending = append(pending, pendingNotReady...)
 	if err := l.retryIfNodesPendingInit(service, pending); err != nil {
 		return nil, err
 	}
@@ -369,40 +373,42 @@ func (l *loadBalancers) recordUpdatedLetsEncryptCert(ctx context.Context, servic
 	return nil
 }
 
-func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, error) {
+func (l *loadBalancers) updateLoadBalancer(ctx context.Context, lb *godo.LoadBalancer, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancer, []*v1.Node, error) {
+	admittedIDs := admittedDropletIDSet(lb)
+
 	// call buildLoadBalancerRequest for its error checking; we have to call it
 	// again just before actually updating the loadbalancer in case
 	// checkAndUpdateLBAndServiceCerts modifies the service
-	_, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	_, _, err := l.buildLoadBalancerRequest(ctx, service, nodes, admittedIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build load-balancer request: %w", err)
+		return nil, nil, fmt.Errorf("failed to build load-balancer request: %w", err)
 	}
 
 	lbCertID := getCertificateIDFromLB(lb)
 	serviceCertID, err := findCertificateID(ctx, service, l.resources.gclient)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	err = l.recordUpdatedLetsEncryptCert(ctx, service, lbCertID, serviceCertID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	lbRequest, err := l.buildLoadBalancerRequest(ctx, service, nodes)
+	lbRequest, pendingNotReady, err := l.buildLoadBalancerRequest(ctx, service, nodes, admittedIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build load-balancer request (post-certificate update): %w", err)
+		return nil, nil, fmt.Errorf("failed to build load-balancer request (post-certificate update): %w", err)
 	}
 
 	lbID := lb.ID
 	lb, _, err = l.resources.gclient.LoadBalancers.Update(ctx, lb.ID, lbRequest)
 	if err != nil {
 		logLBInfo("UPDATE", lbRequest, 2)
-		return nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
+		return nil, nil, fmt.Errorf("failed to update load-balancer with ID %s: %s", lbID, err)
 	}
 	logLBInfo("UPDATE", lbRequest, 2)
 
-	return lb, nil
+	return lb, pendingNotReady, nil
 }
 
 // UpdateLoadBalancer updates the load balancer for service to balance across
@@ -434,11 +440,12 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	_, err = l.updateLoadBalancer(ctx, lb, service, nodes)
+	_, pendingNotReady, err := l.updateLoadBalancer(ctx, lb, service, nodes)
 	if err != nil {
 		return err
 	}
 
+	pending = append(pending, pendingNotReady...)
 	return l.retryIfNodesPendingInit(service, pending)
 }
 
@@ -692,6 +699,62 @@ func nodeIntendsPublicNetwork(node *v1.Node) bool {
 	return !strings.EqualFold(node.Labels[nodeNetworkTypeLabel], nodeNetworkTypePrivate)
 }
 
+// isNodeReady reports whether the node currently has a NodeReady condition with Status=True.
+func isNodeReady(node *v1.Node) bool {
+	for _, c := range node.Status.Conditions {
+		if c.Type == v1.NodeReady {
+			return c.Status == v1.ConditionTrue
+		}
+	}
+	return false
+}
+
+// doksCriticalComponentsReadyTaintKey is set by the DOKS node-readiness
+// controller while a node's critical components are still coming up and removed
+// once it can back workloads. It never appears on clusters without node
+// readiness enforcement, where the check below is a no-op.
+const doksCriticalComponentsReadyTaintKey = "readiness.k8s.io/DOKSCriticalComponentsReady"
+
+// hasPendingCriticalComponentsTaint reports whether the node still carries the
+// DOKS critical-components readiness taint. It gates first admission only,
+// already-admitted nodes are kept regardless.
+func hasPendingCriticalComponentsTaint(node *v1.Node) bool {
+	for _, t := range node.Spec.Taints {
+		if t.Key == doksCriticalComponentsReadyTaintKey {
+			return true
+		}
+	}
+	return false
+}
+
+// admittedDropletIDSet returns a lookup set of the LB's current backend
+// droplet IDs, or nil when lb is nil or has no admitted droplets.
+func admittedDropletIDSet(lb *godo.LoadBalancer) map[int]bool {
+	if lb == nil || len(lb.DropletIDs) == 0 {
+		return nil
+	}
+	set := make(map[int]bool, len(lb.DropletIDs))
+	for _, id := range lb.DropletIDs {
+		set[id] = true
+	}
+	return set
+}
+
+func filterByReadiness(nodes []*v1.Node, admittedIDs map[int]bool) (admit, pending []*v1.Node) {
+	for _, node := range nodes {
+		if id, err := dropletIDFromProviderID(node.Spec.ProviderID); err == nil && admittedIDs[id] {
+			admit = append(admit, node)
+			continue
+		}
+		if isNodeReady(node) && !hasPendingCriticalComponentsTaint(node) {
+			admit = append(admit, node)
+			continue
+		}
+		pending = append(pending, node)
+	}
+	return admit, pending
+}
+
 // pendingInitNodes splits nodes with no usable public address by declared
 // network intent: those still expected to gain one (retry) and private-only
 // nodes that never will (no retry). Both groups are already excluded from the
@@ -758,7 +821,7 @@ func (l *loadBalancers) retryIfNodesPendingInit(service *v1.Service, pending []*
 		return nil
 	}
 	msg := fmt.Sprintf(
-		"service %s/%s: updated backends with currently lb-ready nodes; retrying for %d still initializing: %s",
+		"service %s/%s: updated backends with the currently admissible node set; retrying for %d node(s) still pending (initializing, not yet NodeReady, or critical components not yet ready): %s",
 		service.Namespace, service.Name, len(pending), formatNodeNames(pending, 5),
 	)
 	klog.Info(msg)
@@ -1063,14 +1126,14 @@ func (l *loadBalancers) emitServiceEvent(service *v1.Service, eventType, reason,
 
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
 // requests for service across nodes.
-func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node) (*godo.LoadBalancerRequest, error) {
+func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node, admittedIDs map[int]bool) (*godo.LoadBalancerRequest, []*v1.Node, error) {
 	lbNetwork, err := getNetwork(service)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	lbType, err := getType(service, l.defaultLBType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	isInternalLB := lbNetwork == godo.LoadBalancerNetworkTypeInternal
 
@@ -1080,7 +1143,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		lbType == godo.LoadBalancerTypeRegionalNetwork && lbNetwork == godo.LoadBalancerNetworkTypeExternal {
 		err := fmt.Errorf("%w: %s", ErrNoEligibleBackends, errNoEligibleBackendsMsg)
 		l.emitServiceEvent(service, v1.EventTypeWarning, "LoadBalancerConfigError", err.Error())
-		return nil, err
+		return nil, nil, err
 	}
 
 	if nodeState.filteredCount > 0 {
@@ -1099,17 +1162,39 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 		}
 	}
 
-	req, err := buildLoadBalancerRequestWithNodeState(ctx, service, l.resources.gclient, l.defaultLBType, nodeState)
+	// Already-admitted droplets stay in the target set regardless of transient
+	// NodeReady flips; new nodes must be Ready and have their critical components
+	// serving to be first admitted. Nodes that are not yet serving are held back
+	// and converged via api.RetryError below.
+	admit, pendingNotReady := filterByReadiness(nodeState.lbReadyNodes, admittedIDs)
+	if len(pendingNotReady) > 0 {
+		klog.V(2).Infof("Service %s/%s: holding back %d node(s) pending NodeReady=True and critical components ready on first admission: %s",
+			service.Namespace, service.Name, len(pendingNotReady), formatNodeNames(pendingNotReady, 5))
+	}
+
+	if len(admit) == 0 && len(pendingNotReady) > 0 {
+		msg := fmt.Sprintf(
+			"service %s/%s: %d lb-ready-by-IP node(s) are not yet serving (NodeReady=True and critical components ready) and none is already admitted, retrying instead of writing an empty backend set: %s",
+			service.Namespace, service.Name, len(pendingNotReady), formatNodeNames(pendingNotReady, 5),
+		)
+		klog.Info(msg)
+		return nil, nil, api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
+	}
+
+	// Derive the request (including NetworkStack) from the admitted nodes only, so
+	// a held-back node cannot shape config it will not back.
+	admitState := filterAndClassifyNodes(admit, lbType, lbNetwork)
+	req, err := buildLoadBalancerRequestWithNodeState(ctx, service, l.resources.gclient, l.defaultLBType, admitState)
 	if err != nil {
 		if errors.Is(err, ErrNetworkStackConfig) {
 			l.emitServiceEvent(service, v1.EventTypeWarning, "LoadBalancerConfigError", err.Error())
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	dropletIDs, err := l.nodesToDropletIDs(ctx, nodeState.lbReadyNodes)
+	dropletIDs, err := l.nodesToDropletIDs(ctx, admit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req.DropletIDs = dropletIDs
 
@@ -1121,7 +1206,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 
 	req.Region = l.region
 	req.VPCUUID = l.resources.clusterVPCID
-	return req, nil
+	return req, pendingNotReady, nil
 }
 
 // buildHealthChecks returns a godo.HealthCheck for service.
