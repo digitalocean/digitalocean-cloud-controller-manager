@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/digitalocean/godo v1.208.0
+	github.com/digitalocean/godo v1.227.0
 	github.com/go-logr/logr v1.4.4
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
