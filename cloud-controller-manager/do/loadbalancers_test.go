@@ -5987,6 +5987,7 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 	tests := []struct {
 		name           string
 		nodes          []*v1.Node
+		lbDropletIDs   []int
 		wantRetry      bool
 		wantRetryAfter time.Duration
 		wantUpdate     bool
@@ -6028,7 +6029,7 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 				withNodeNetworkType(newNodeWithIPs("node-new", "10.0.0.3", "", false), nodeNetworkTypePublic),
 			},
 			wantRetry:      true,
-			wantRetryAfter: nodesNotYetLBReadyRetryAfter,
+			wantRetryAfter: nodesNotYetReadyRetryAfter,
 			wantUpdate:     true,
 			wantDropletIDs: []int{100},
 		},
@@ -6067,6 +6068,26 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 			wantUpdate:     true,
 			wantDropletIDs: []int{100},
 		},
+		{
+			name: "keeps already-admitted node that becomes NotReady",
+			nodes: []*v1.Node{
+				withNodeNetworkType(withProviderID(newNodeWithIPs("node-ready-a", "10.0.0.1", "", false), 100), nodeNetworkTypePublic),
+			},
+			lbDropletIDs:   []int{100},
+			wantRetry:      false,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100},
+		},
+		{
+			name: "keeps already-admitted node that gets critical-components taint",
+			nodes: []*v1.Node{
+				withNodeNetworkType(withCriticalComponentsPendingTaint(withProviderID(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), 100)), nodeNetworkTypePublic),
+			},
+			lbDropletIDs:   []int{100},
+			wantRetry:      false,
+			wantUpdate:     true,
+			wantDropletIDs: []int{100},
+		},
 	}
 
 	for _, test := range tests {
@@ -6081,7 +6102,9 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 			}
 			fakeLB := &fakeLBService{
 				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-					return activeRegionalNetworkLB(), newFakeOKResponse(), nil
+					lb := activeRegionalNetworkLB()
+					lb.DropletIDs = test.lbDropletIDs
+					return lb, newFakeOKResponse(), nil
 				},
 				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
@@ -6150,7 +6173,9 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 			}
 			fakeLB := &fakeLBService{
 				getFn: func(context.Context, string) (*godo.LoadBalancer, *godo.Response, error) {
-					return activeRegionalNetworkLB(), newFakeOKResponse(), nil
+					lb := activeRegionalNetworkLB()
+					lb.DropletIDs = test.lbDropletIDs
+					return lb, newFakeOKResponse(), nil
 				},
 				listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
 					return nil, newFakeNotOKResponse(), errors.New("list should not have been invoked")
@@ -6206,6 +6231,88 @@ func TestEnsureUpdateLoadBalancer_PendingInitNodes(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestEnsureLoadBalancer_CreateWithMixedReadiness(t *testing.T) {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "develop",
+			Namespace: "default",
+			UID:       "foobar123",
+			Annotations: map[string]string{
+				annDOProtocol: "http",
+				annDOType:     godo.LoadBalancerTypeRegionalNetwork,
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{Name: "test", Protocol: "TCP", Port: int32(80), NodePort: int32(30000)},
+			},
+		},
+	}
+
+	droplets := []godo.Droplet{
+		{ID: 100, Name: "node-ready-a"},
+		{ID: 102, Name: "node-new"},
+	}
+
+	nodes := []*v1.Node{
+		withNodeNetworkType(newNodeWithIPs("node-ready-a", "10.0.0.1", "", true), nodeNetworkTypePublic),
+		withNodeNetworkType(newNodeWithIPs("node-new", "10.0.0.3", "", false), nodeNetworkTypePublic),
+	}
+
+	var gotCreateReq *godo.LoadBalancerRequest
+	createCalls := 0
+
+	fakeDroplet := &fakeDropletService{
+		listFunc: func(context.Context, *godo.ListOptions) ([]godo.Droplet, *godo.Response, error) {
+			return droplets, newFakeOKResponse(), nil
+		},
+	}
+	fakeLB := &fakeLBService{
+		listFn: func(context.Context, *godo.ListOptions) ([]godo.LoadBalancer, *godo.Response, error) {
+			return []godo.LoadBalancer{}, newFakeOKResponse(), nil
+		},
+		createFn: func(ctx context.Context, lbr *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			createCalls++
+			gotCreateReq = lbr
+			lb := createLB()
+			lb.Type = godo.LoadBalancerTypeRegionalNetwork
+			lb.DropletIDs = append([]int(nil), lbr.DropletIDs...)
+			return lb, newFakeOKResponse(), nil
+		},
+		updateFn: func(context.Context, string, *godo.LoadBalancerRequest) (*godo.LoadBalancer, *godo.Response, error) {
+			return nil, newFakeNotOKResponse(), errors.New("update should not have been invoked")
+		},
+	}
+	certStore := make(map[string]*godo.Certificate)
+	fakeCert := newKVCertService(certStore, true)
+	fakeResources := newResources("", "", publicAccessFirewall{}, newFakeClient(fakeDroplet, fakeLB, &fakeCert))
+	fakeResources.kclient = fake.NewSimpleClientset()
+	if _, err := fakeResources.kclient.CoreV1().Services(svc.Namespace).Create(context.Background(), svc, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("failed to add service: %s", err)
+	}
+
+	lb := &loadBalancers{
+		resources:         fakeResources,
+		region:            "nyc1",
+		lbActiveTimeout:   2,
+		lbActiveCheckTick: 1,
+		defaultLBType:     godo.LoadBalancerTypeRegionalNetwork,
+	}
+
+	_, err := lb.EnsureLoadBalancer(context.TODO(), "test", svc, nodes)
+
+	var retryErr *api.RetryError
+	if !errors.As(err, &retryErr) {
+		t.Fatalf("expected RetryError, got %v", err)
+	}
+	if createCalls != 1 {
+		t.Fatalf("create called %d times, want 1", createCalls)
+	}
+	if !reflect.DeepEqual(gotCreateReq.DropletIDs, []int{100}) {
+		t.Errorf("DropletIDs: got %v, want [100]", gotCreateReq.DropletIDs)
 	}
 }
 
@@ -8127,8 +8234,8 @@ func TestBuildLoadBalancerRequest_EventEmission(t *testing.T) {
 				t.Errorf("RetryError: got %v (err=%v), want expectedRetry=%v", gotRetry, err, test.expectedRetry)
 			}
 			if test.expectedRetry {
-				if retryErr.RetryAfter() != nodesNotYetLBReadyRetryAfter {
-					t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), nodesNotYetLBReadyRetryAfter)
+				if retryErr.RetryAfter() != nodesNotYetReadyRetryAfter {
+					t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), nodesNotYetReadyRetryAfter)
 				}
 				if errors.Is(err, ErrNoEligibleBackends) {
 					t.Errorf("initializing nodes should not surface ErrNoEligibleBackends, got: %v", err)
@@ -8785,8 +8892,8 @@ func Test_buildLoadBalancerRequest_readyFilter(t *testing.T) {
 				t.Fatalf("retry = %v (err=%v), want %v", gotRetry, err, tt.expectRetry)
 			}
 			if tt.expectRetry {
-				if retryErr.RetryAfter() != nodesNotYetLBReadyRetryAfter {
-					t.Errorf("RetryAfter = %v, want %v", retryErr.RetryAfter(), nodesNotYetLBReadyRetryAfter)
+				if retryErr.RetryAfter() != nodesNotYetReadyRetryAfter {
+					t.Errorf("RetryAfter = %v, want %v", retryErr.RetryAfter(), nodesNotYetReadyRetryAfter)
 				}
 				return
 			}

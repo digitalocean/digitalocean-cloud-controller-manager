@@ -84,6 +84,11 @@ var (
 	// Retries continue until the address appears
 	nodesNotYetLBReadyRetryAfter = 5 * time.Second
 
+	// nodesNotYetReadyRetryAfter is the retry delay for nodes held back on first
+	// admission pending NodeReady and the DOKS critical-components taint. This can
+	// last minutes, so we back off further than address init to limit LB churn.
+	nodesNotYetReadyRetryAfter = 15 * time.Second
+
 	// Sticky sessions types.
 	stickySessionsTypeNone    = "none"
 	stickySessionsTypeCookies = "cookies"
@@ -288,8 +293,7 @@ func (l *loadBalancers) EnsureLoadBalancer(ctx context.Context, clusterName stri
 	// held back for IP init (pending) or readiness (pendingNotReady: NodeReady
 	// and critical components) are admitted once eligible, since upstream does
 	// not re-sync on those transitions.
-	pending = append(pending, pendingNotReady...)
-	if err := l.retryIfNodesPendingInit(service, pending); err != nil {
+	if err := l.retryIfNodesPendingInit(service, pending, pendingNotReady); err != nil {
 		return nil, err
 	}
 
@@ -445,8 +449,7 @@ func (l *loadBalancers) UpdateLoadBalancer(ctx context.Context, clusterName stri
 		return err
 	}
 
-	pending = append(pending, pendingNotReady...)
-	return l.retryIfNodesPendingInit(service, pending)
+	return l.retryIfNodesPendingInit(service, pending, pendingNotReady)
 }
 
 // EnsureLoadBalancerDeleted deletes the specified loadbalancer if it exists.
@@ -815,17 +818,24 @@ func (l *loadBalancers) prepareNodesForLBSync(service *v1.Service, nodes []*v1.N
 
 // retryIfNodesPendingInit asks upstream to sync again after backends were
 // updated with a partial node set. This retry is the only convergence path:
-// address population does not re-trigger the service controller.
-func (l *loadBalancers) retryIfNodesPendingInit(service *v1.Service, pending []*v1.Node) error {
+// neither ExternalIP population nor NodeReady/critical-components transitions
+// re-trigger the service controller. Readiness-pending nodes use the longer
+// interval since they can stay pending for minutes.
+func (l *loadBalancers) retryIfNodesPendingInit(service *v1.Service, pendingInit, pendingNotReady []*v1.Node) error {
+	pending := append(append([]*v1.Node(nil), pendingInit...), pendingNotReady...)
 	if len(pending) == 0 {
 		return nil
+	}
+	retryAfter := nodesNotYetLBReadyRetryAfter
+	if len(pendingNotReady) > 0 {
+		retryAfter = nodesNotYetReadyRetryAfter
 	}
 	msg := fmt.Sprintf(
 		"service %s/%s: updated backends with the currently admissible node set; retrying for %d node(s) still pending (initializing, not yet NodeReady, or critical components not yet ready): %s",
 		service.Namespace, service.Name, len(pending), formatNodeNames(pending, 5),
 	)
 	klog.Info(msg)
-	return api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
+	return api.NewRetryError(msg, retryAfter)
 }
 
 // classifyNode determines node's IP stack classification.
@@ -1125,7 +1135,8 @@ func (l *loadBalancers) emitServiceEvent(service *v1.Service, eventType, reason,
 }
 
 // buildLoadBalancerRequest returns a *godo.LoadBalancerRequest to balance
-// requests for service across nodes.
+// requests for service across nodes, plus the nodes held back from first
+// admission (pendingNotReady) so the caller can retry for them.
 func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v1.Service, nodes []*v1.Node, admittedIDs map[int]bool) (*godo.LoadBalancerRequest, []*v1.Node, error) {
 	lbNetwork, err := getNetwork(service)
 	if err != nil {
@@ -1178,7 +1189,7 @@ func (l *loadBalancers) buildLoadBalancerRequest(ctx context.Context, service *v
 			service.Namespace, service.Name, len(pendingNotReady), formatNodeNames(pendingNotReady, 5),
 		)
 		klog.Info(msg)
-		return nil, nil, api.NewRetryError(msg, nodesNotYetLBReadyRetryAfter)
+		return nil, nil, api.NewRetryError(msg, nodesNotYetReadyRetryAfter)
 	}
 
 	// Derive the request (including NetworkStack) from the admitted nodes only, so

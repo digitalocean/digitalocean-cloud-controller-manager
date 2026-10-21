@@ -262,7 +262,7 @@ Specifies what network addressing will be supported by the load balancer. Option
 **Node Requirements**
 
 The cloud controller manager filters nodes before adding them to load balancers:
-- New nodes must be `Ready` before they are added; nodes already attached stay attached if they briefly become `NotReady`
+- New nodes must be `Ready` before they are added. On DOKS clusters that enforce node readiness, a new node must also have cleared the critical-components readiness taint (`readiness.k8s.io/DOKSCriticalComponentsReady`) so its networking components are serving, where that taint is absent (other clusters, or readiness not enforced), only `Ready` is required and nothing is held back on its account. Nodes already attached stay attached if they briefly become `NotReady` or are re-tainted.
 - For EXTERNAL load balancers: nodes must have external IP addresses
 - For INTERNAL load balancers: nodes only need to be Ready (private nodes are allowed)
 - Nodes with only IPv6 addresses (no IPv4) are currently not supported and will be filtered out
