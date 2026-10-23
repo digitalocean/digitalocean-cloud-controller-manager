@@ -6308,6 +6308,9 @@ func TestEnsureLoadBalancer_CreateWithMixedReadiness(t *testing.T) {
 	if !errors.As(err, &retryErr) {
 		t.Fatalf("expected RetryError, got %v", err)
 	}
+	if retryErr.RetryAfter() != nodesNotYetReadyRetryAfter {
+		t.Errorf("RetryAfter: got %v, want %v", retryErr.RetryAfter(), nodesNotYetReadyRetryAfter)
+	}
 	if createCalls != 1 {
 		t.Fatalf("create called %d times, want 1", createCalls)
 	}
