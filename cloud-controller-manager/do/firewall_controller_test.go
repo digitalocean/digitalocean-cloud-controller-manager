@@ -749,6 +749,100 @@ func TestFirewallController_createReconciledFirewallRequest(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "skip REGIONAL_NETWORK LB service when firewall-managed annotation is false",
+			firewallRequest: &godo.FirewallRequest{
+				Name:          testWorkerFWName,
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "managementDisabledLB",
+						UID:  "uid-lb-1",
+						Annotations: map[string]string{
+							annDOType:                   godo.LoadBalancerTypeRegionalNetwork,
+							annDOLoadBalancerID:         "lb-uid-1",
+							annotationDOFirewallManaged: "false",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type:                  v1.ServiceTypeLoadBalancer,
+						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+						HealthCheckNodePort:   15000,
+						Ports: []v1.ServicePort{
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "use loadBalancerSourceRanges as inbound rule sources for REGIONAL_NETWORK LB",
+			firewallRequest: &godo.FirewallRequest{
+				Name: testWorkerFWName,
+				InboundRules: []godo.InboundRule{
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(15000),
+						Sources: &godo.Sources{
+							LoadBalancerUIDs: []string{"lb-uid-2"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(443),
+						Sources: &godo.Sources{
+							Addresses: []string{"1.2.3.0/24", "5.6.7.8/32"},
+						},
+					},
+					{
+						Protocol:  "tcp",
+						PortRange: strconv.Itoa(80),
+						Sources: &godo.Sources{
+							Addresses: []string{"1.2.3.0/24", "5.6.7.8/32"},
+						},
+					},
+				},
+				OutboundRules: testOutboundRules,
+				Tags:          testWorkerFWTags,
+			},
+			serviceList: []*v1.Service{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "lbWithSourceRanges",
+						UID:  "uid-lb-2",
+						Annotations: map[string]string{
+							annDOType:           godo.LoadBalancerTypeRegionalNetwork,
+							annDOLoadBalancerID: "lb-uid-2",
+						},
+					},
+					Spec: v1.ServiceSpec{
+						Type:                  v1.ServiceTypeLoadBalancer,
+						ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyLocal,
+						HealthCheckNodePort:   15000,
+						LoadBalancerSourceRanges: []string{
+							"1.2.3.0/24",
+							"5.6.7.8/32",
+						},
+						Ports: []v1.ServicePort{
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     80,
+							},
+							{
+								Protocol: v1.ProtocolTCP,
+								Port:     443,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testcases {
