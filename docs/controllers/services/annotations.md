@@ -257,12 +257,12 @@ Specifying a subnet UUID is in private preview. Contact DigitalOcean support to 
 Specifies what network addressing will be supported by the load balancer. Options are "IPV4" and "DUALSTACK". "DUALSTACK" is the option to support both IPv4 and IPv6 networking on the load balancer. 
 
 - If load balancer type is "REGIONAL" (connection-terminating), it will default to "DUALSTACK" regardless of node network stack configuration.
-- If load balancer type is "REGIONAL_NETWORK" (pass-through), it will default to "DUALSTACK" when all cluster nodes support dual-stack networking (have both IPv4 and IPv6 external addresses), otherwise it will default to "IPV4".
+- If load balancer type is "REGIONAL_NETWORK" (pass-through), it will default to "DUALSTACK" when all nodes attached to the load balancer support dual-stack networking (have both IPv4 and IPv6 external addresses), otherwise it will default to "IPV4".
 
 **Node Requirements**
 
 The cloud controller manager filters nodes before adding them to load balancers:
-- Only nodes with `Ready` status are included in load balancers
+- New nodes must be `Ready` before they are added. On DOKS clusters that enforce node readiness, a new node must also have cleared the critical-components readiness taint (`readiness.k8s.io/DOKSCriticalComponentsReady`) so its networking components are serving, where that taint is absent (other clusters, or readiness not enforced), only `Ready` is required and nothing is held back on its account. Nodes already attached stay attached if they briefly become `NotReady` or are re-tainted.
 - For EXTERNAL load balancers: nodes must have external IP addresses
 - For INTERNAL load balancers: nodes only need to be Ready (private nodes are allowed)
 - Nodes with only IPv6 addresses (no IPv4) are currently not supported and will be filtered out
