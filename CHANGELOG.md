@@ -1,5 +1,7 @@
 ## unreleased
 
+## v0.1.73 (beta) - November 12, 2026
+
 * Update Go to 1.27.4
 * Updates dependencies:
   - k8s.io/api v0.37.2
