@@ -321,6 +321,14 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 				)
 			}
 		} else if svc.Spec.Type == v1.ServiceTypeLoadBalancer {
+			managed, err := isManaged(svc)
+			if err != nil {
+				klog.Warningf("managing service %s/%s for which no correct management flag setting could be detected: %s", svc.Namespace, svc.Name, err)
+				managed = true
+			}
+			if !managed {
+				continue
+			}
 			lbType, err := getType(svc, fm.defaultLBType)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get load balancer type for service %s/%s: %v", svc.Namespace, svc.Name, err)
@@ -350,6 +358,12 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 
 				loadBalancerPorts[pp] = struct{}{}
 				// Add the services (port, protocol)
+				var svcPortSources *godo.Sources
+				if len(svc.Spec.LoadBalancerSourceRanges) > 0 {
+					svcPortSources = &godo.Sources{
+						Addresses: svc.Spec.LoadBalancerSourceRanges,
+					}
+				}
 				var protocol string
 				for _, servicePort := range svc.Spec.Ports {
 					switch servicePort.Protocol {
@@ -361,7 +375,7 @@ func (fm *firewallManager) createReconciledFirewallRequest(serviceList []*v1.Ser
 						klog.Warningf("unsupported service protocol %v, skipping service port %v", servicePort.Protocol, servicePort.Name)
 						continue
 					}
-					loadBalancerPorts[portProtocol{protocol: protocol, port: int(servicePort.Port)}] = struct{}{}
+					loadBalancerPorts[portProtocol{protocol: protocol, port: int(servicePort.Port), sources: svcPortSources}] = struct{}{}
 				}
 			}
 		}
