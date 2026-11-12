@@ -1,5 +1,13 @@
 ## unreleased
 
+* Update Go to 1.27.4
+* Updates dependencies:
+  - k8s.io/api v0.37.2
+  - k8s.io/apimachinery v0.37.2
+  - k8s.io/client-go v0.37.2
+  - k8s.io/cloud-provider v0.37.2
+  - k8s.io/component-base v0.37.2
+
 ## v0.1.72 (beta) - October 23, 2026
 
 * Gate LB target admission on NodeReady (and, where present, the DOKS critical-components readiness taint) for first admission while preserving the upstream stable node set for already-admitted nodes (@skumarc-do)
