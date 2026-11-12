@@ -20,10 +20,10 @@ const (
 	simulationRunsBasePath               = "/v2/gen-ai/simulation_runs"
 	simulationRunByIDPath                = simulationRunsBasePath + "/%s"
 	simulationRunCancelPath              = simulationRunByIDPath + "/cancel"
-	simulationRunJourneysPath            = simulationRunByIDPath + "/journeys"
-	simulationJourneyByIDPath            = simulationRunJourneysPath + "/%s"
-	simulationJourneyTrajectoryPath      = simulationJourneyByIDPath + "/trajectory"
-	simulationJourneyTrajectoryURLPath   = simulationJourneyByIDPath + "/trajectory_url"
+	simulationRunEpisodesPath            = simulationRunByIDPath + "/episodes"
+	simulationEpisodeByIDPath            = simulationRunEpisodesPath + "/%s"
+	simulationEpisodeTrajectoryPath      = simulationEpisodeByIDPath + "/trajectory"
+	simulationEpisodeTrajectoryURLPath   = simulationEpisodeByIDPath + "/trajectory_url"
 )
 
 // GenAISortDirection is the sort direction used by GenAI list endpoints.
@@ -122,36 +122,36 @@ const (
 	SimulationRunSortFieldUpdatedAt   SimulationRunSortField = "SIMULATION_RUN_SORT_FIELD_UPDATED_AT"
 )
 
-// SimulationJourneyStatus is the lifecycle status of a simulation journey.
-type SimulationJourneyStatus string
+// SimulationEpisodeStatus is the lifecycle status of a simulation episode.
+type SimulationEpisodeStatus string
 
 const (
-	SimulationJourneyStatusUnspecified SimulationJourneyStatus = "SIMULATION_JOURNEY_STATUS_UNSPECIFIED"
-	SimulationJourneyStatusRunning     SimulationJourneyStatus = "SIMULATION_JOURNEY_STATUS_RUNNING"
-	SimulationJourneyStatusFinished    SimulationJourneyStatus = "SIMULATION_JOURNEY_STATUS_FINISHED"
-	SimulationJourneyStatusFailed      SimulationJourneyStatus = "SIMULATION_JOURNEY_STATUS_FAILED"
-	SimulationJourneyStatusPreparing   SimulationJourneyStatus = "SIMULATION_JOURNEY_STATUS_PREPARING"
+	SimulationEpisodeStatusUnspecified SimulationEpisodeStatus = "SIMULATION_EPISODE_STATUS_UNSPECIFIED"
+	SimulationEpisodeStatusRunning     SimulationEpisodeStatus = "SIMULATION_EPISODE_STATUS_RUNNING"
+	SimulationEpisodeStatusFinished    SimulationEpisodeStatus = "SIMULATION_EPISODE_STATUS_FINISHED"
+	SimulationEpisodeStatusFailed      SimulationEpisodeStatus = "SIMULATION_EPISODE_STATUS_FAILED"
+	SimulationEpisodeStatusPreparing   SimulationEpisodeStatus = "SIMULATION_EPISODE_STATUS_PREPARING"
 )
 
-// SimulationJourneyVerdict is the judge verdict for a journey.
-type SimulationJourneyVerdict string
+// SimulationEpisodeVerdict is the judge verdict for an episode.
+type SimulationEpisodeVerdict string
 
 const (
-	SimulationJourneyVerdictUnspecified  SimulationJourneyVerdict = "SIMULATION_JOURNEY_VERDICT_UNSPECIFIED"
-	SimulationJourneyVerdictSuccess      SimulationJourneyVerdict = "SIMULATION_JOURNEY_VERDICT_SUCCESS"
-	SimulationJourneyVerdictFailure      SimulationJourneyVerdict = "SIMULATION_JOURNEY_VERDICT_FAILURE"
-	SimulationJourneyVerdictInconclusive SimulationJourneyVerdict = "SIMULATION_JOURNEY_VERDICT_INCONCLUSIVE"
+	SimulationEpisodeVerdictUnspecified  SimulationEpisodeVerdict = "SIMULATION_EPISODE_VERDICT_UNSPECIFIED"
+	SimulationEpisodeVerdictSuccess      SimulationEpisodeVerdict = "SIMULATION_EPISODE_VERDICT_SUCCESS"
+	SimulationEpisodeVerdictFailure      SimulationEpisodeVerdict = "SIMULATION_EPISODE_VERDICT_FAILURE"
+	SimulationEpisodeVerdictInconclusive SimulationEpisodeVerdict = "SIMULATION_EPISODE_VERDICT_INCONCLUSIVE"
 )
 
-// SimulationJourneySortField is a sortable field for ListSimulationJourneys.
-type SimulationJourneySortField string
+// SimulationEpisodeSortField is a sortable field for ListSimulationEpisodes.
+type SimulationEpisodeSortField string
 
 const (
-	SimulationJourneySortFieldUnspecified SimulationJourneySortField = "SIMULATION_JOURNEY_SORT_FIELD_UNSPECIFIED"
-	SimulationJourneySortFieldScenario    SimulationJourneySortField = "SIMULATION_JOURNEY_SORT_FIELD_SCENARIO"
-	SimulationJourneySortFieldCreatedAt   SimulationJourneySortField = "SIMULATION_JOURNEY_SORT_FIELD_CREATED_AT"
-	SimulationJourneySortFieldStatus      SimulationJourneySortField = "SIMULATION_JOURNEY_SORT_FIELD_STATUS"
-	SimulationJourneySortFieldVerdict     SimulationJourneySortField = "SIMULATION_JOURNEY_SORT_FIELD_VERDICT"
+	SimulationEpisodeSortFieldUnspecified SimulationEpisodeSortField = "SIMULATION_EPISODE_SORT_FIELD_UNSPECIFIED"
+	SimulationEpisodeSortFieldScenario    SimulationEpisodeSortField = "SIMULATION_EPISODE_SORT_FIELD_SCENARIO"
+	SimulationEpisodeSortFieldCreatedAt   SimulationEpisodeSortField = "SIMULATION_EPISODE_SORT_FIELD_CREATED_AT"
+	SimulationEpisodeSortFieldStatus      SimulationEpisodeSortField = "SIMULATION_EPISODE_SORT_FIELD_STATUS"
+	SimulationEpisodeSortFieldVerdict     SimulationEpisodeSortField = "SIMULATION_EPISODE_SORT_FIELD_VERDICT"
 )
 
 // SimulationTrajectoryStatus is the lifecycle status of a trajectory JSON object.
@@ -224,7 +224,7 @@ type SimulationEvaluationConfig struct {
 	StarMetric  *StarMetric `json:"star_metric,omitempty"`
 }
 
-// SimulationTokenUsage is per-actor token accounting for a run or journey.
+// SimulationTokenUsage is per-actor token accounting for a run or episode.
 type SimulationTokenUsage struct {
 	SimulatorTokens      string `json:"simulator_tokens,omitempty"`
 	JudgeTokens          string `json:"judge_tokens,omitempty"`
@@ -233,8 +233,8 @@ type SimulationTokenUsage struct {
 	TotalTokens          string `json:"total_tokens,omitempty"`
 }
 
-// SimulationJourneyCounts is a breakdown of journey outcomes by verdict.
-type SimulationJourneyCounts struct {
+// SimulationEpisodeCounts is a breakdown of episode outcomes by verdict.
+type SimulationEpisodeCounts struct {
 	SuccessCount      uint32 `json:"success_count,omitempty"`
 	FailureCount      uint32 `json:"failure_count,omitempty"`
 	InconclusiveCount uint32 `json:"inconclusive_count,omitempty"`
@@ -242,17 +242,17 @@ type SimulationJourneyCounts struct {
 
 // SimulationRunResultSummary is the aggregated final result of a simulation run.
 type SimulationRunResultSummary struct {
-	VerdictCounts    *SimulationJourneyCounts `json:"verdict_counts,omitempty"`
+	VerdictCounts    *SimulationEpisodeCounts `json:"verdict_counts,omitempty"`
 	TokenUsage       *SimulationTokenUsage    `json:"token_usage,omitempty"`
 	TotalDurationSec string                   `json:"total_duration_sec,omitempty"`
 }
 
-// SimulationScenarioResult is a per-scenario rollup of journey outcomes within a run.
+// SimulationScenarioResult is a per-scenario rollup of episode outcomes within a run.
 type SimulationScenarioResult struct {
 	ScenarioUUID     string                   `json:"scenario_uuid,omitempty"`
-	TotalJourneys    uint32                   `json:"total_journeys,omitempty"`
-	JourneysFinished uint32                   `json:"journeys_finished,omitempty"`
-	VerdictCounts    *SimulationJourneyCounts `json:"verdict_counts,omitempty"`
+	TotalEpisodes    uint32                   `json:"total_episodes,omitempty"`
+	EpisodesFinished uint32                   `json:"episodes_finished,omitempty"`
+	VerdictCounts    *SimulationEpisodeCounts `json:"verdict_counts,omitempty"`
 }
 
 // SimulationRun is one execution of a scenario set against a candidate agent.
@@ -266,8 +266,8 @@ type SimulationRun struct {
 	JudgeModelUUID         string                      `json:"judge_model_uuid,omitempty"`
 	UserSimulatorConfig    map[string]interface{}      `json:"user_simulator_config,omitempty"`
 	ScenarioCount          uint32                      `json:"scenario_count,omitempty"`
-	TotalJourneys          uint32                      `json:"total_journeys,omitempty"`
-	JourneysFinished       uint32                      `json:"journeys_finished,omitempty"`
+	TotalEpisodes          uint32                      `json:"total_episodes,omitempty"`
+	EpisodesFinished       uint32                      `json:"episodes_finished,omitempty"`
 	ResultSummary          *SimulationRunResultSummary `json:"result_summary,omitempty"`
 	WorkflowUUID           string                      `json:"workflow_uuid,omitempty"`
 	ExplorationBudget      uint32                      `json:"exploration_budget,omitempty"`
@@ -283,15 +283,15 @@ type SimulationRun struct {
 	EvaluationRunUUID      string                      `json:"evaluation_run_uuid,omitempty"`
 }
 
-// SimulationJourney is one independent execution within a simulation run.
-type SimulationJourney struct {
-	JourneyUUID            string                   `json:"journey_uuid,omitempty"`
+// SimulationEpisode is one independent execution within a simulation run.
+type SimulationEpisode struct {
+	EpisodeUUID            string                   `json:"episode_uuid,omitempty"`
 	RunUUID                string                   `json:"run_uuid,omitempty"`
 	ScenarioUUID           string                   `json:"scenario_uuid,omitempty"`
-	JourneyIndex           uint32                   `json:"journey_index,omitempty"`
+	EpisodeIndex           uint32                   `json:"episode_index,omitempty"`
 	SessionID              string                   `json:"session_id,omitempty"`
-	Status                 SimulationJourneyStatus  `json:"status,omitempty"`
-	Verdict                SimulationJourneyVerdict `json:"verdict,omitempty"`
+	Status                 SimulationEpisodeStatus  `json:"status,omitempty"`
+	Verdict                SimulationEpisodeVerdict `json:"verdict,omitempty"`
 	TrajectoryBucketName   string                   `json:"trajectory_bucket_name,omitempty"`
 	TrajectoryBucketRegion string                   `json:"trajectory_bucket_region,omitempty"`
 	TrajectorySpacesKey    string                   `json:"trajectory_spaces_key,omitempty"`
@@ -339,7 +339,7 @@ type SimulationTrajectoryJudgeCriterion struct {
 
 // SimulationTrajectoryJudgeResult is judge output embedded in a trajectory.
 type SimulationTrajectoryJudgeResult struct {
-	Verdict          SimulationJourneyVerdict              `json:"verdict,omitempty"`
+	Verdict          SimulationEpisodeVerdict              `json:"verdict,omitempty"`
 	Reasoning        string                                `json:"reasoning,omitempty"`
 	CriteriaPassFail []*SimulationTrajectoryJudgeCriterion `json:"criteria_pass_fail,omitempty"`
 }
@@ -368,15 +368,15 @@ type EvaluationMetricResult struct {
 	StringValue      string                       `json:"string_value,omitempty"`
 }
 
-// SimulationTrajectory is the canonical trajectory JSON for one journey.
+// SimulationTrajectory is the canonical trajectory JSON for one episode.
 type SimulationTrajectory struct {
 	AgentID           string                           `json:"agent_id,omitempty"`
 	CompletedAt       string                           `json:"completed_at,omitempty"`
 	DurationSec       string                           `json:"duration_sec,omitempty"`
 	EvaluationMetrics []*EvaluationMetricResult        `json:"evaluation_metrics,omitempty"`
 	FailureReason     string                           `json:"failure_reason,omitempty"`
-	JourneyIndex      uint32                           `json:"journey_index,omitempty"`
-	JourneyUUID       string                           `json:"journey_uuid,omitempty"`
+	EpisodeIndex      uint32                           `json:"episode_index,omitempty"`
+	EpisodeUUID       string                           `json:"episode_uuid,omitempty"`
 	Judge             *SimulationTrajectoryJudgeResult `json:"judge,omitempty"`
 	MaxTurns          uint32                           `json:"max_turns,omitempty"`
 	Messages          []*SimulationTrajectoryMessage   `json:"messages,omitempty"`
@@ -387,7 +387,7 @@ type SimulationTrajectory struct {
 	Status            SimulationTrajectoryStatus       `json:"status,omitempty"`
 	TokenUsage        *SimulationTokenUsage            `json:"token_usage,omitempty"`
 	TurnCount         uint32                           `json:"turn_count,omitempty"`
-	Verdict           SimulationJourneyVerdict         `json:"verdict,omitempty"`
+	Verdict           SimulationEpisodeVerdict         `json:"verdict,omitempty"`
 }
 
 // CreateScenarioSetUploadPresignedURLsRequest requests presigned upload URLs for scenario set files.
@@ -485,13 +485,13 @@ type SimulationRunListOptions struct {
 	ListOptions
 }
 
-// SimulationJourneyListOptions specifies optional parameters for listing simulation journeys.
-type SimulationJourneyListOptions struct {
+// SimulationEpisodeListOptions specifies optional parameters for listing simulation episodes.
+type SimulationEpisodeListOptions struct {
 	ScenarioUUID  string                     `url:"scenario_uuid,omitempty"`
-	Statuses      []SimulationJourneyStatus  `url:"statuses,omitempty"`
-	Verdicts      []SimulationJourneyVerdict `url:"verdicts,omitempty"`
+	Statuses      []SimulationEpisodeStatus  `url:"statuses,omitempty"`
+	Verdicts      []SimulationEpisodeVerdict `url:"verdicts,omitempty"`
 	Search        string                     `url:"search,omitempty"`
-	SortBy        SimulationJourneySortField `url:"sort_by,omitempty"`
+	SortBy        SimulationEpisodeSortField `url:"sort_by,omitempty"`
 	SortDirection GenAISortDirection         `url:"sort_direction,omitempty"`
 	ListOptions
 }
@@ -558,19 +558,19 @@ type SimulationRunDeleteResponse struct {
 	RunUUID string `json:"run_uuid,omitempty"`
 }
 
-// SimulationJourneyListResponse is returned by ListSimulationJourneys.
-type SimulationJourneyListResponse struct {
-	Journeys                []*SimulationJourney         `json:"journeys,omitempty"`
+// SimulationEpisodeListResponse is returned by ListSimulationEpisodes.
+type SimulationEpisodeListResponse struct {
+	Episodes                []*SimulationEpisode         `json:"episodes,omitempty"`
 	Links                   *Links                       `json:"links,omitempty"`
 	Meta                    *Meta                        `json:"meta,omitempty"`
-	AvailableStatuses       []SimulationJourneyStatus    `json:"available_statuses,omitempty"`
-	AvailableVerdicts       []SimulationJourneyVerdict   `json:"available_verdicts,omitempty"`
-	AvailableSortBy         []SimulationJourneySortField `json:"available_sort_by,omitempty"`
+	AvailableStatuses       []SimulationEpisodeStatus    `json:"available_statuses,omitempty"`
+	AvailableVerdicts       []SimulationEpisodeVerdict   `json:"available_verdicts,omitempty"`
+	AvailableSortBy         []SimulationEpisodeSortField `json:"available_sort_by,omitempty"`
 	AvailableSortDirections []GenAISortDirection         `json:"available_sort_directions,omitempty"`
 }
 
-// SimulationJourneyTrajectoryURLResponse is returned by GetSimulationJourneyTrajectoryURL.
-type SimulationJourneyTrajectoryURLResponse struct {
+// SimulationEpisodeTrajectoryURLResponse is returned by GetSimulationEpisodeTrajectoryURL.
+type SimulationEpisodeTrajectoryURLResponse struct {
 	DownloadURL string     `json:"download_url,omitempty"`
 	ExpiresAt   *Timestamp `json:"expires_at,omitempty"`
 }
@@ -583,8 +583,8 @@ type simulationRunRoot struct {
 	SimulationRun *SimulationRun `json:"simulation_run"`
 }
 
-type simulationJourneyRoot struct {
-	Journey *SimulationJourney `json:"journey"`
+type simulationEpisodeRoot struct {
+	Episode *SimulationEpisode `json:"episode"`
 }
 
 type simulationTrajectoryRoot struct {
@@ -593,7 +593,7 @@ type simulationTrajectoryRoot struct {
 
 // CreateScenarioSetUploadPresignedURLs creates presigned URLs for uploading
 // scenario set files.
-func (s *GradientAIServiceOp) CreateScenarioSetUploadPresignedURLs(ctx context.Context, createRequest *CreateScenarioSetUploadPresignedURLsRequest) (*CreateScenarioSetUploadPresignedURLsResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) CreateScenarioSetUploadPresignedURLs(ctx context.Context, createRequest *CreateScenarioSetUploadPresignedURLsRequest) (*CreateScenarioSetUploadPresignedURLsResponse, *Response, error) {
 	if createRequest == nil {
 		return nil, nil, fmt.Errorf("create request is required")
 	}
@@ -621,7 +621,7 @@ func (s *GradientAIServiceOp) CreateScenarioSetUploadPresignedURLs(ctx context.C
 
 // CreateScenarioSet creates a scenario set from inline scenarios or an uploaded
 // file. Exactly one of the two sources must be provided.
-func (s *GradientAIServiceOp) CreateScenarioSet(ctx context.Context, createRequest *CreateScenarioSetRequest) (*ScenarioSet, *Response, error) {
+func (s *AgentPlatformServiceOp) CreateScenarioSet(ctx context.Context, createRequest *CreateScenarioSetRequest) (*ScenarioSet, *Response, error) {
 	if createRequest == nil {
 		return nil, nil, fmt.Errorf("create request is required")
 	}
@@ -648,7 +648,7 @@ func (s *GradientAIServiceOp) CreateScenarioSet(ctx context.Context, createReque
 }
 
 // GenerateScenarioSet dispatches goal-driven scenario generation.
-func (s *GradientAIServiceOp) GenerateScenarioSet(ctx context.Context, generateRequest *GenerateScenarioSetRequest) (*ScenarioSet, *Response, error) {
+func (s *AgentPlatformServiceOp) GenerateScenarioSet(ctx context.Context, generateRequest *GenerateScenarioSetRequest) (*ScenarioSet, *Response, error) {
 	if generateRequest == nil {
 		return nil, nil, fmt.Errorf("generate request is required")
 	}
@@ -673,7 +673,7 @@ func (s *GradientAIServiceOp) GenerateScenarioSet(ctx context.Context, generateR
 }
 
 // ListScenarioSets lists scenario sets for the team.
-func (s *GradientAIServiceOp) ListScenarioSets(ctx context.Context, opt *ScenarioSetListOptions) (*ScenarioSetListResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) ListScenarioSets(ctx context.Context, opt *ScenarioSetListOptions) (*ScenarioSetListResponse, *Response, error) {
 	path, err := addOptions(scenarioSetsBasePath, opt)
 	if err != nil {
 		return nil, nil, err
@@ -699,7 +699,7 @@ func (s *GradientAIServiceOp) ListScenarioSets(ctx context.Context, opt *Scenari
 }
 
 // GetScenarioSet retrieves a scenario set by UUID.
-func (s *GradientAIServiceOp) GetScenarioSet(ctx context.Context, scenarioSetUUID string) (*ScenarioSet, *Response, error) {
+func (s *AgentPlatformServiceOp) GetScenarioSet(ctx context.Context, scenarioSetUUID string) (*ScenarioSet, *Response, error) {
 	if scenarioSetUUID == "" {
 		return nil, nil, fmt.Errorf("scenario set uuid is required")
 	}
@@ -719,7 +719,7 @@ func (s *GradientAIServiceOp) GetScenarioSet(ctx context.Context, scenarioSetUUI
 }
 
 // ListScenarios lists scenarios within a scenario set.
-func (s *GradientAIServiceOp) ListScenarios(ctx context.Context, scenarioSetUUID string, opt *ScenarioListOptions) (*ScenarioListResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) ListScenarios(ctx context.Context, scenarioSetUUID string, opt *ScenarioListOptions) (*ScenarioListResponse, *Response, error) {
 	if scenarioSetUUID == "" {
 		return nil, nil, fmt.Errorf("scenario set uuid is required")
 	}
@@ -750,7 +750,7 @@ func (s *GradientAIServiceOp) ListScenarios(ctx context.Context, scenarioSetUUID
 
 // GetScenarioSetDownloadURL returns a presigned download URL for a scenario set's
 // canonical JSONL file.
-func (s *GradientAIServiceOp) GetScenarioSetDownloadURL(ctx context.Context, scenarioSetUUID string) (*ScenarioSetDownloadURLResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) GetScenarioSetDownloadURL(ctx context.Context, scenarioSetUUID string) (*ScenarioSetDownloadURLResponse, *Response, error) {
 	if scenarioSetUUID == "" {
 		return nil, nil, fmt.Errorf("scenario set uuid is required")
 	}
@@ -770,7 +770,7 @@ func (s *GradientAIServiceOp) GetScenarioSetDownloadURL(ctx context.Context, sce
 }
 
 // UpdateScenarioSet updates a scenario set name and/or replaces its scenarios.
-func (s *GradientAIServiceOp) UpdateScenarioSet(ctx context.Context, scenarioSetUUID string, updateRequest *UpdateScenarioSetRequest) (*ScenarioSet, *Response, error) {
+func (s *AgentPlatformServiceOp) UpdateScenarioSet(ctx context.Context, scenarioSetUUID string, updateRequest *UpdateScenarioSetRequest) (*ScenarioSet, *Response, error) {
 	if scenarioSetUUID == "" {
 		return nil, nil, fmt.Errorf("scenario set uuid is required")
 	}
@@ -796,7 +796,7 @@ func (s *GradientAIServiceOp) UpdateScenarioSet(ctx context.Context, scenarioSet
 }
 
 // DeleteScenarioSet deletes a scenario set by UUID.
-func (s *GradientAIServiceOp) DeleteScenarioSet(ctx context.Context, scenarioSetUUID string) (*ScenarioSetDeleteResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) DeleteScenarioSet(ctx context.Context, scenarioSetUUID string) (*ScenarioSetDeleteResponse, *Response, error) {
 	if scenarioSetUUID == "" {
 		return nil, nil, fmt.Errorf("scenario set uuid is required")
 	}
@@ -816,7 +816,7 @@ func (s *GradientAIServiceOp) DeleteScenarioSet(ctx context.Context, scenarioSet
 }
 
 // ListScenarioLibrary lists platform-curated scenario library entries.
-func (s *GradientAIServiceOp) ListScenarioLibrary(ctx context.Context, opt *ScenarioLibraryListOptions) (*ScenarioLibraryListResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) ListScenarioLibrary(ctx context.Context, opt *ScenarioLibraryListOptions) (*ScenarioLibraryListResponse, *Response, error) {
 	path, err := addOptions(scenarioLibraryBasePath, opt)
 	if err != nil {
 		return nil, nil, err
@@ -842,7 +842,7 @@ func (s *GradientAIServiceOp) ListScenarioLibrary(ctx context.Context, opt *Scen
 }
 
 // ListScenarioLibraryScenarios lists scenarios within a scenario library entry.
-func (s *GradientAIServiceOp) ListScenarioLibraryScenarios(ctx context.Context, libraryScenarioUUID string, opt *ScenarioListOptions) (*ScenarioListResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) ListScenarioLibraryScenarios(ctx context.Context, libraryScenarioUUID string, opt *ScenarioListOptions) (*ScenarioListResponse, *Response, error) {
 	if libraryScenarioUUID == "" {
 		return nil, nil, fmt.Errorf("library scenario uuid is required")
 	}
@@ -873,7 +873,7 @@ func (s *GradientAIServiceOp) ListScenarioLibraryScenarios(ctx context.Context, 
 
 // CreateScenarioSetFromLibrary materializes a library entry into a team-owned
 // scenario set.
-func (s *GradientAIServiceOp) CreateScenarioSetFromLibrary(ctx context.Context, libraryScenarioUUID string, createRequest *CreateScenarioSetFromLibraryRequest) (*ScenarioSet, *Response, error) {
+func (s *AgentPlatformServiceOp) CreateScenarioSetFromLibrary(ctx context.Context, libraryScenarioUUID string, createRequest *CreateScenarioSetFromLibraryRequest) (*ScenarioSet, *Response, error) {
 	if libraryScenarioUUID == "" {
 		return nil, nil, fmt.Errorf("library scenario uuid is required")
 	}
@@ -899,7 +899,7 @@ func (s *GradientAIServiceOp) CreateScenarioSetFromLibrary(ctx context.Context, 
 }
 
 // CreateSimulationRun creates a simulation run.
-func (s *GradientAIServiceOp) CreateSimulationRun(ctx context.Context, createRequest *CreateSimulationRunRequest) (*SimulationRun, *Response, error) {
+func (s *AgentPlatformServiceOp) CreateSimulationRun(ctx context.Context, createRequest *CreateSimulationRunRequest) (*SimulationRun, *Response, error) {
 	if createRequest == nil {
 		return nil, nil, fmt.Errorf("create request is required")
 	}
@@ -924,7 +924,7 @@ func (s *GradientAIServiceOp) CreateSimulationRun(ctx context.Context, createReq
 }
 
 // ListSimulationRuns lists simulation runs for the team.
-func (s *GradientAIServiceOp) ListSimulationRuns(ctx context.Context, opt *SimulationRunListOptions) (*SimulationRunListResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) ListSimulationRuns(ctx context.Context, opt *SimulationRunListOptions) (*SimulationRunListResponse, *Response, error) {
 	path, err := addOptions(simulationRunsBasePath, opt)
 	if err != nil {
 		return nil, nil, err
@@ -951,7 +951,7 @@ func (s *GradientAIServiceOp) ListSimulationRuns(ctx context.Context, opt *Simul
 
 // GetSimulationRun retrieves a simulation run by UUID, including per-scenario
 // result rollups when available.
-func (s *GradientAIServiceOp) GetSimulationRun(ctx context.Context, runUUID string) (*SimulationRunGetResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) GetSimulationRun(ctx context.Context, runUUID string) (*SimulationRunGetResponse, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
@@ -971,7 +971,7 @@ func (s *GradientAIServiceOp) GetSimulationRun(ctx context.Context, runUUID stri
 }
 
 // UpdateSimulationRun updates mutable fields on a simulation run.
-func (s *GradientAIServiceOp) UpdateSimulationRun(ctx context.Context, runUUID string, updateRequest *UpdateSimulationRunRequest) (*SimulationRun, *Response, error) {
+func (s *AgentPlatformServiceOp) UpdateSimulationRun(ctx context.Context, runUUID string, updateRequest *UpdateSimulationRunRequest) (*SimulationRun, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
@@ -997,7 +997,7 @@ func (s *GradientAIServiceOp) UpdateSimulationRun(ctx context.Context, runUUID s
 }
 
 // CancelSimulationRun cancels an in-progress simulation run.
-func (s *GradientAIServiceOp) CancelSimulationRun(ctx context.Context, runUUID string) (*SimulationRun, *Response, error) {
+func (s *AgentPlatformServiceOp) CancelSimulationRun(ctx context.Context, runUUID string) (*SimulationRun, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
@@ -1017,7 +1017,7 @@ func (s *GradientAIServiceOp) CancelSimulationRun(ctx context.Context, runUUID s
 }
 
 // DeleteSimulationRun deletes a simulation run by UUID.
-func (s *GradientAIServiceOp) DeleteSimulationRun(ctx context.Context, runUUID string) (*SimulationRunDeleteResponse, *Response, error) {
+func (s *AgentPlatformServiceOp) DeleteSimulationRun(ctx context.Context, runUUID string) (*SimulationRunDeleteResponse, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
@@ -1036,12 +1036,12 @@ func (s *GradientAIServiceOp) DeleteSimulationRun(ctx context.Context, runUUID s
 	return root, resp, nil
 }
 
-// ListSimulationJourneys lists journeys for a simulation run.
-func (s *GradientAIServiceOp) ListSimulationJourneys(ctx context.Context, runUUID string, opt *SimulationJourneyListOptions) (*SimulationJourneyListResponse, *Response, error) {
+// ListSimulationEpisodes lists episodes for a simulation run.
+func (s *AgentPlatformServiceOp) ListSimulationEpisodes(ctx context.Context, runUUID string, opt *SimulationEpisodeListOptions) (*SimulationEpisodeListResponse, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
-	path := fmt.Sprintf(simulationRunJourneysPath, runUUID)
+	path := fmt.Sprintf(simulationRunEpisodesPath, runUUID)
 	path, err := addOptions(path, opt)
 	if err != nil {
 		return nil, nil, err
@@ -1052,7 +1052,7 @@ func (s *GradientAIServiceOp) ListSimulationJourneys(ctx context.Context, runUUI
 		return nil, nil, err
 	}
 
-	root := new(SimulationJourneyListResponse)
+	root := new(SimulationEpisodeListResponse)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
@@ -1066,46 +1066,46 @@ func (s *GradientAIServiceOp) ListSimulationJourneys(ctx context.Context, runUUI
 	return root, resp, nil
 }
 
-// GetSimulationJourney retrieves a single journey within a simulation run.
-func (s *GradientAIServiceOp) GetSimulationJourney(ctx context.Context, runUUID, journeyUUID string) (*SimulationJourney, *Response, error) {
+// GetSimulationEpisode retrieves a single episode within a simulation run.
+func (s *AgentPlatformServiceOp) GetSimulationEpisode(ctx context.Context, runUUID, episodeUUID string) (*SimulationEpisode, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
-	if journeyUUID == "" {
-		return nil, nil, fmt.Errorf("journey uuid is required")
+	if episodeUUID == "" {
+		return nil, nil, fmt.Errorf("episode uuid is required")
 	}
-	path := fmt.Sprintf(simulationJourneyByIDPath, runUUID, journeyUUID)
+	path := fmt.Sprintf(simulationEpisodeByIDPath, runUUID, episodeUUID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	root := new(simulationJourneyRoot)
+	root := new(simulationEpisodeRoot)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
 	}
-	return root.Journey, resp, nil
+	return root.Episode, resp, nil
 }
 
-// GetSimulationJourneyTrajectoryURL returns a presigned download URL for a
-// journey's trajectory JSON.
-func (s *GradientAIServiceOp) GetSimulationJourneyTrajectoryURL(ctx context.Context, runUUID, journeyUUID string) (*SimulationJourneyTrajectoryURLResponse, *Response, error) {
+// GetSimulationEpisodeTrajectoryURL returns a presigned download URL for an
+// episode's trajectory JSON.
+func (s *AgentPlatformServiceOp) GetSimulationEpisodeTrajectoryURL(ctx context.Context, runUUID, episodeUUID string) (*SimulationEpisodeTrajectoryURLResponse, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
-	if journeyUUID == "" {
-		return nil, nil, fmt.Errorf("journey uuid is required")
+	if episodeUUID == "" {
+		return nil, nil, fmt.Errorf("episode uuid is required")
 	}
-	path := fmt.Sprintf(simulationJourneyTrajectoryURLPath, runUUID, journeyUUID)
+	path := fmt.Sprintf(simulationEpisodeTrajectoryURLPath, runUUID, episodeUUID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	root := new(SimulationJourneyTrajectoryURLResponse)
+	root := new(SimulationEpisodeTrajectoryURLResponse)
 	resp, err := s.client.Do(ctx, req, root)
 	if err != nil {
 		return nil, resp, err
@@ -1113,16 +1113,16 @@ func (s *GradientAIServiceOp) GetSimulationJourneyTrajectoryURL(ctx context.Cont
 	return root, resp, nil
 }
 
-// GetSimulationJourneyTrajectory retrieves the parsed trajectory JSON for a
-// journey.
-func (s *GradientAIServiceOp) GetSimulationJourneyTrajectory(ctx context.Context, runUUID, journeyUUID string) (*SimulationTrajectory, *Response, error) {
+// GetSimulationEpisodeTrajectory retrieves the parsed trajectory JSON for an
+// episode.
+func (s *AgentPlatformServiceOp) GetSimulationEpisodeTrajectory(ctx context.Context, runUUID, episodeUUID string) (*SimulationTrajectory, *Response, error) {
 	if runUUID == "" {
 		return nil, nil, fmt.Errorf("run uuid is required")
 	}
-	if journeyUUID == "" {
-		return nil, nil, fmt.Errorf("journey uuid is required")
+	if episodeUUID == "" {
+		return nil, nil, fmt.Errorf("episode uuid is required")
 	}
-	path := fmt.Sprintf(simulationJourneyTrajectoryPath, runUUID, journeyUUID)
+	path := fmt.Sprintf(simulationEpisodeTrajectoryPath, runUUID, episodeUUID)
 
 	req, err := s.client.NewRequest(ctx, http.MethodGet, path, nil)
 	if err != nil {
